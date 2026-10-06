@@ -22,6 +22,11 @@
 //! standalone message (its cap pointers keep their inbound cap-table indices)
 //! and translate the inbound cap table into `caps[]`, retaining every import
 //! so the host owns one wire reference per IMPORT entry until it releases it.
+//! The remote controls that content, and Cap'n Proto pointers may alias: a
+//! small frame can point at one blob thousands of times, and a clone pays for
+//! every alias. So the copy is bounded by the message the content came from
+//! (a tree without aliasing never clones larger than its message); a payload
+//! that would grow past it is refused with `error.PayloadCopyExceedsFrame`.
 
 const std = @import("std");
 const capnp = @import("capnpc-zig");
@@ -201,6 +206,13 @@ pub const Inbound = struct {
 
 /// Copy an inbound payload out as a standalone message plus `caps[]`.
 ///
+/// The copy is bounded by `content`'s own message (the frame it arrived in):
+/// its segments may hold no more bytes than that message's segments, and the
+/// clone's working memory stays under `cloneMemoryLimit` of it. A payload
+/// whose pointers alias (legal on the wire, and charged by the Peer's
+/// traversal limit only as reads) would exceed that; it is refused with
+/// `error.PayloadCopyExceedsFrame` before the copy is materialized.
+///
 /// On success every `.imported` entry of `inbound` is marked retained, so the
 /// Peer's post-dispatch release pass leaves those wire references to the
 /// host. Retention is the last step and cannot fail, so on error the host
@@ -215,10 +227,16 @@ pub fn copyInbound(
     content: message.AnyPointerReader,
     inbound: *const cap_table.InboundCapTable,
 ) !Inbound {
-    var mb = message.MessageBuilder.init(allocator);
+    const source_bytes = messageBytes(content.message);
+    var capped: CappedAllocator = .{ .parent = allocator, .limit = cloneMemoryLimit(source_bytes) };
+    var mb = message.MessageBuilder.init(capped.allocator());
     defer mb.deinit();
-    const root = try mb.initRootAnyPointer();
-    try message.cloneAnyPointer(content, root);
+    const root = mb.initRootAnyPointer() catch |err| return capped.explain(err);
+    message.cloneAnyPointer(content, root) catch |err| return capped.explain(err);
+    if (builderBytes(&mb) > source_bytes) return error.PayloadCopyExceedsFrame;
+    // The clone is bounded now, and so is its serialization (segment table
+    // plus the same bytes). Every allocation still goes to `allocator`.
+    capped.limit = std.math.maxInt(usize);
     const bytes = try mb.toBytes();
     errdefer allocator.free(bytes);
 
@@ -245,3 +263,90 @@ pub fn copyInbound(
     }
     return .{ .msg = bytes, .caps = caps };
 }
+
+/// Bytes in `msg`'s segments (the segment table is not counted).
+fn messageBytes(msg: *const message.Message) usize {
+    var n: usize = 0;
+    for (msg.segments) |segment| n +|= segment.len;
+    return n;
+}
+
+/// Bytes in `mb`'s segments (what `toBytes` writes after the segment table).
+fn builderBytes(mb: *const message.MessageBuilder) usize {
+    var n: usize = 0;
+    for (mb.segments.items) |segment| n +|= segment.items.len;
+    return n;
+}
+
+/// Working memory a clone of a message of `source_bytes` may use. A clone
+/// without aliasing needs at most `source_bytes`; a builder segment grows by
+/// 1.5x and copies when it cannot grow in place, so it can briefly hold about
+/// 2.5x what it needs, after a 1 KiB first segment. 4x plus 4 KiB covers that
+/// for every non-aliased tree, and stops an aliased one early.
+pub fn cloneMemoryLimit(source_bytes: usize) usize {
+    return (source_bytes *| 4) +| 4096;
+}
+
+/// Forwards to `parent`, but refuses any allocation that would take the
+/// bytes live through it past `limit`, and remembers that it did.
+const CappedAllocator = struct {
+    parent: std.mem.Allocator,
+    limit: usize,
+    live: usize = 0,
+    refused: bool = false,
+
+    fn allocator(self: *CappedAllocator) std.mem.Allocator {
+        return .{ .ptr = self, .vtable = &.{
+            .alloc = allocFn,
+            .resize = resizeFn,
+            .remap = remapFn,
+            .free = freeFn,
+        } };
+    }
+
+    /// The error a failed clone step reports: an allocation this allocator
+    /// refused means the payload is too large for its frame, not that the
+    /// process is out of memory.
+    fn explain(self: *const CappedAllocator, err: anyerror) anyerror {
+        if (err == error.OutOfMemory and self.refused) return error.PayloadCopyExceedsFrame;
+        return err;
+    }
+
+    /// May an allocation grow from `old_len` to `new_len` bytes?
+    fn admit(self: *CappedAllocator, old_len: usize, new_len: usize) bool {
+        if (new_len <= old_len) return true;
+        if (new_len - old_len <= self.limit -| self.live) return true;
+        self.refused = true;
+        return false;
+    }
+
+    fn allocFn(ctx: *anyopaque, len: usize, alignment: std.mem.Alignment, ret_addr: usize) ?[*]u8 {
+        const self: *CappedAllocator = @ptrCast(@alignCast(ctx));
+        if (!self.admit(0, len)) return null;
+        const p = self.parent.rawAlloc(len, alignment, ret_addr) orelse return null;
+        self.live += len;
+        return p;
+    }
+
+    fn resizeFn(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, new_len: usize, ret_addr: usize) bool {
+        const self: *CappedAllocator = @ptrCast(@alignCast(ctx));
+        if (!self.admit(memory.len, new_len)) return false;
+        if (!self.parent.rawResize(memory, alignment, new_len, ret_addr)) return false;
+        self.live = self.live - memory.len + new_len;
+        return true;
+    }
+
+    fn remapFn(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, new_len: usize, ret_addr: usize) ?[*]u8 {
+        const self: *CappedAllocator = @ptrCast(@alignCast(ctx));
+        if (!self.admit(memory.len, new_len)) return null;
+        const p = self.parent.rawRemap(memory, alignment, new_len, ret_addr) orelse return null;
+        self.live = self.live - memory.len + new_len;
+        return p;
+    }
+
+    fn freeFn(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, ret_addr: usize) void {
+        const self: *CappedAllocator = @ptrCast(@alignCast(ctx));
+        self.parent.rawFree(memory, alignment, ret_addr);
+        self.live -|= memory.len;
+    }
+};

@@ -31,8 +31,8 @@ uint32_t capnp_core_abi_version(void);
 /* Feature bits. None are defined yet; always 0. */
 uint64_t capnp_core_features(void);
 
-/* "core <version> / capnp-zig <pinned version>". Static, NUL-terminated,
- * never freed. */
+/* "core <version> / capnp-zig <pinned version> / <pinned package hash>".
+ * Static, NUL-terminated, never freed. */
 const char *capnp_core_version(void);
 
 /* ---- Panic hook -------------------------------------------------------- */

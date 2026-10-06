@@ -19,8 +19,9 @@
 //!   sendBootstrap :2027, sendCallWithOptions :2908 (+ CallOptions
 //!   .retained :195), setQuestionDeinitCtx :2878, finishRetainedQuestion :2607,
 //!   releaseImport :3825, addExportWithDeinit :1926, setBootstrap :2015,
-//!   sendReturnResults :3587, sendReturnExceptionTyped :3612, deinit :1542;
-//!   field `caps` (the cap table) is read for handle validation.
+//!   sendReturnResults :3587, sendReturnExceptionTyped :3612,
+//!   getLastRemoteAbortReason :1584, deinit :1542; field `caps` (the cap
+//!   table) is read for handle validation.
 
 const std = @import("std");
 const capnp = @import("capnpc-zig");
@@ -40,6 +41,11 @@ pub const Effect = effects.Effect;
 pub const ReturnKind = effects.ReturnKind;
 
 pub const Options = struct {
+    /// The host's monotonic clock now (`DispatchTime` uptime ns), the same
+    /// clock later `tick`s pass. Required: deadlines of questions sent before
+    /// the first tick count from it, so a made-up 0 would let the first real
+    /// tick expire them at once.
+    now_ns: i64,
     limits: rpc.peer.PeerLimits = .{},
     timeouts: ?rpc.peer.PeerTimeouts = null,
     /// Framer buffer cap (bytes of one in-progress inbound frame).
@@ -48,18 +54,29 @@ pub const Options = struct {
     observer: bool = false,
 };
 
+/// Diagnostic counters. They saturate: a long-lived connection must never
+/// reach an overflow trap through bookkeeping.
 pub const Stats = struct {
     /// Questions that ended through their `on_return` callback.
-    terminal_via_on_return: u32 = 0,
+    terminal_via_on_return: u64 = 0,
     /// Questions that ended ONLY through `deinit_ctx` (claims.json #5:
     /// synthetic-Return OOM, swept third-party awaits).
-    terminal_via_deinit_ctx: u32 = 0,
-    exports_dropped: u32 = 0,
-    events_dropped: u32 = 0,
+    terminal_via_deinit_ctx: u64 = 0,
+    /// Questions `transportClosed` ended itself because the Peer left them
+    /// open (capnp-zig v0.20.0 skips every question when its cancel list
+    /// cannot be allocated; handoff H8).
+    terminal_via_close_sweep: u64 = 0,
+    exports_dropped: u64 = 0,
+    events_dropped: u64 = 0,
 };
 
 /// Reason text of the fallback RETURN when copying results ran out of memory.
 pub const oom_results_reason = "capnp-swift core: out of memory copying results";
+/// Reason text of the RETURN when the results would copy larger than the
+/// frame they arrived in (aliased pointers; `cap_remap.copyInbound`).
+pub const oversized_results_reason = "capnp-swift core: results payload copies larger than its frame";
+/// Reason text of the RETURN when the results could not be copied otherwise.
+pub const bad_results_reason = "capnp-swift core: results payload could not be copied";
 
 pub const Conn = struct {
     allocator: std.mem.Allocator,
@@ -78,6 +95,8 @@ pub const Conn = struct {
     close_node: ?*effects.Node = null,
     /// The question context whose `sendCall` is on the stack (see `call`).
     sending_qctx: ?*QuestionCtx = null,
+    /// Adopted questions whose terminal has not fired yet (intrusive list).
+    live_questions: ?*QuestionCtx = null,
 
     close_requested: bool = false,
     transport_closed: bool = false,
@@ -90,7 +109,16 @@ pub const Conn = struct {
     discarding: bool = false,
     /// A protocol error closed this connection; further input is refused.
     failed: bool = false,
+    /// The remote closed this connection with an Abort; further input is
+    /// refused. Not a protocol failure: the shim sends no Abort back.
+    remote_aborted: bool = false,
+    /// What `capnp_conn_take_error` reports (M1). `error.RemoteAbort` after
+    /// a remote Abort, with the remote's reason in `remote_abort_reason`.
     last_error: ?anyerror = null,
+    /// Owned copy of the remote Abort's reason (null if none arrived, or if
+    /// copying it ran out of memory). Also the reason of every RETURN that
+    /// ends a question because of that Abort. Freed after the effect queue.
+    remote_abort_reason: ?[]const u8 = null,
     stats: Stats = .{},
 
     pub fn init(allocator: std.mem.Allocator, opts: Options) !*Conn {
@@ -106,6 +134,7 @@ pub const Conn = struct {
             .framer = Framer.initWithOptions(allocator, .{ .max_buffered_bytes = opts.max_frame_bytes }),
             .pending_answers = std.AutoHashMap(u32, void).init(allocator),
             .close_node = close_node,
+            .now_ns = opts.now_ns,
         };
         // Swift actors hop threads; the host serializes calls per connection.
         self.peer.disableThreadAffinity();
@@ -138,6 +167,8 @@ pub const Conn = struct {
         }
         if (self.close_node) |n| n.destroy(a);
         self.queue.deinit(a);
+        // After the queue: RETURN effects may borrow it.
+        if (self.remote_abort_reason) |r| a.free(r);
         self.pending_answers.deinit();
         self.framer.deinit();
         a.destroy(self);
@@ -152,18 +183,25 @@ pub const Conn = struct {
     /// fails: an Abort OUT_FRAME is queued (the Peer's own, or ours when the
     /// Peer sent none), then CLOSE_REQUESTED, and `error.Protocol` is
     /// returned (`last_error` holds the cause).
+    ///
+    /// A remote Abort is an orderly close, not a protocol failure: no Abort
+    /// goes back, CLOSE_REQUESTED is queued, `error.Closed` is returned, and
+    /// `last_error` is `error.RemoteAbort` with the remote's reason in
+    /// `remote_abort_reason`. Questions still open then end with that reason
+    /// once the host reports the transport closed.
     pub fn pushBytes(self: *Conn, bytes: []const u8) !void {
-        if (self.failed or self.transport_closed) return error.Closed;
+        if (self.isClosed()) return error.Closed;
         self.framer.push(bytes) catch |err| return self.failFraming(err);
         while (true) {
             const frame = (self.framer.popFrame() catch |err| return self.failFraming(err)) orelse break;
             defer self.allocator.free(frame);
             const mark = self.queue.tail;
             self.peer.handleFrame(frame) catch |err| {
+                if (err == error.RemoteAbort) return self.closeByRemoteAbort();
                 if (!self.abortQueuedSince(mark)) self.sendAbort(err);
                 return self.failProtocol(err);
             };
-            if (self.failed or self.transport_closed) break;
+            if (self.isClosed()) break;
         }
     }
 
@@ -175,12 +213,18 @@ pub const Conn = struct {
     }
 
     /// The host's transport is gone. Every open question ends with one
-    /// RETURN{DISCONNECTED} (possibly later than this call, claims.json #5).
+    /// RETURN{DISCONNECTED}, queued before this returns.
     pub fn transportClosed(self: *Conn) void {
         if (self.transport_closed) return;
         self.transport_closed = true;
         self.local_disconnect = true;
         self.peer.notifyTransportClosed();
+        // The Peer may leave questions open: under OOM capnp-zig v0.20.0
+        // cancels none of them (its id list is allocated, `catch break`;
+        // handoff H8), and claims.json #5 lets terminals come later. End
+        // every one still open here. If the Peer calls back for one later,
+        // that callback only frees its context.
+        self.sweepOpenQuestions();
     }
 
     pub fn nextEffect(self: *Conn) error{Busy}!?*const Effect {
@@ -248,16 +292,18 @@ pub const Conn = struct {
 
     /// Finish a retained question (the host dropped its last handle on it).
     pub fn finish(self: *Conn, qid: u32, release_result_caps: bool) !void {
-        if (self.transport_closed) return;
+        // Once closed nothing more may be sent; the Peer frees its retained
+        // records at deinit.
+        if (self.isClosed()) return;
         try self.peer.finishRetainedQuestion(qid, release_result_caps);
     }
 
     /// Release `count` wire references the host holds on `import_id`.
     pub fn release(self: *Conn, import_id: u32, count: u32) !void {
         if (count == 0) return;
-        // After the transport is gone nothing can be sent; the Peer frees its
-        // import table at deinit.
-        if (self.transport_closed) return;
+        // Once closed nothing more may be sent; the Peer frees its import
+        // table at deinit.
+        if (self.isClosed()) return;
         if (cap_remap.importRefCount(&self.peer.caps, import_id) < count) return error.BadId;
         try self.peer.releaseImport(import_id, count);
     }
@@ -308,8 +354,70 @@ pub const Conn = struct {
     // Internals
     // ------------------------------------------------------------------
 
+    fn isClosed(self: *const Conn) bool {
+        return self.failed or self.remote_aborted or self.transport_closed;
+    }
+
     fn checkOpen(self: *Conn) !void {
-        if (self.failed or self.transport_closed) return error.Closed;
+        if (self.isClosed()) return error.Closed;
+    }
+
+    /// The remote sent Abort (the Peer kept its reason and returned
+    /// `error.RemoteAbort`). Close without answering it.
+    fn closeByRemoteAbort(self: *Conn) error{Closed} {
+        self.last_error = error.RemoteAbort;
+        self.remote_aborted = true;
+        if (self.remote_abort_reason == null) {
+            if (self.peer.getLastRemoteAbortReason()) |reason| {
+                // Best effort: without memory the RETURNs keep the generic reason.
+                self.remote_abort_reason = self.allocator.dupe(u8, reason) catch null;
+            }
+        }
+        self.framer.reset();
+        self.requestClose();
+        return error.Closed;
+    }
+
+    /// Reason of a RETURN{DISCONNECTED}: the remote's Abort reason when the
+    /// remote closed the connection, else the Peer's generic one.
+    fn disconnectReason(self: *const Conn) []const u8 {
+        return self.remote_abort_reason orelse rpc.peer.disconnected_reason;
+    }
+
+    /// End every question still in `live_questions` with RETURN{DISCONNECTED},
+    /// from the node each reserved at send time (no allocation).
+    fn sweepOpenQuestions(self: *Conn) void {
+        while (self.live_questions) |qc| {
+            self.unlinkQuestion(qc);
+            qc.swept = true;
+            self.stats.terminal_via_close_sweep +|= 1;
+            const node = qc.node;
+            node.freePayload(self.allocator);
+            node.effect = .{ .@"return" = .{
+                .qid = qc.qid,
+                .kind = .disconnected,
+                .exception_type = @backingInt(protocol.ExceptionType.disconnected),
+                .reason = self.disconnectReason(),
+            } };
+            self.pushNode(node);
+        }
+    }
+
+    fn linkQuestion(self: *Conn, qc: *QuestionCtx) void {
+        qc.prev = null;
+        qc.next = self.live_questions;
+        if (self.live_questions) |head| head.prev = qc;
+        self.live_questions = qc;
+        qc.linked = true;
+    }
+
+    fn unlinkQuestion(self: *Conn, qc: *QuestionCtx) void {
+        if (!qc.linked) return;
+        if (qc.prev) |p| p.next = qc.next else self.live_questions = qc.next;
+        if (qc.next) |n| n.prev = qc.prev;
+        qc.prev = null;
+        qc.next = null;
+        qc.linked = false;
     }
 
     fn pushNode(self: *Conn, node: *effects.Node) void {
@@ -391,6 +499,7 @@ pub const Conn = struct {
         // Each question ends through on_return OR deinit_ctx, never both
         // (claims.json #5). Also turns off restore_on_return_error.
         self.peer.setQuestionDeinitCtx(qid, onQuestionDeinit);
+        self.linkQuestion(qc);
         return qid;
     }
 
@@ -399,6 +508,7 @@ pub const Conn = struct {
             qc.done = true;
             return;
         }
+        self.unlinkQuestion(qc);
         self.allocator.destroy(qc);
     }
 
@@ -429,9 +539,13 @@ pub const Conn = struct {
             },
             .exception => {
                 const ex_type: u16 = if (ret.exception) |e| e.type_value else @backingInt(protocol.ExceptionType.failed);
-                const reason = try self.allocator.dupe(u8, if (ret.exception) |e| e.reason else "");
-                node.owned_reason = reason;
                 const local = self.local_disconnect and ex_type == @backingInt(protocol.ExceptionType.disconnected);
+                // A local disconnect after a remote Abort carries the Abort's reason.
+                const text = if (local and self.remote_abort_reason != null)
+                    self.disconnectReason()
+                else if (ret.exception) |e| e.reason else "";
+                const reason = try self.allocator.dupe(u8, text);
+                node.owned_reason = reason;
                 node.effect = .{ .@"return" = .{
                     .qid = qid,
                     .kind = if (local) .disconnected else .exception,
@@ -458,6 +572,14 @@ const QuestionCtx = struct {
     node: *effects.Node,
     /// Set when the question ended while its send was still on the stack.
     done: bool = false,
+    /// Set when `sweepOpenQuestions` already queued this question's RETURN
+    /// (its `node` belongs to the queue now). The Peer still holds the ctx;
+    /// its later on_return / deinit_ctx only frees it.
+    swept: bool = false,
+    /// `Conn.live_questions` links: adopted, terminal not fired yet.
+    linked: bool = false,
+    prev: ?*QuestionCtx = null,
+    next: ?*QuestionCtx = null,
     /// `call` inputs, borrowed for the duration of `sendCall` only.
     msg: []const u8 = &.{},
     caps: []const Cap = &.{},
@@ -555,14 +677,20 @@ fn onQuestionReturn(
 ) anyerror!void {
     const qc = castPtr(QuestionCtx, ctx);
     const self = qc.conn;
+    if (qc.swept) {
+        // The close sweep already reported this question. Imports are not
+        // retained, so the Peer releases them after this callback.
+        self.allocator.destroy(qc);
+        return;
+    }
     const node = qc.node;
     self.releaseQuestionCtx(qc);
-    self.stats.terminal_via_on_return += 1;
+    self.stats.terminal_via_on_return +|= 1;
     if (self.discarding) {
         node.destroy(self.allocator);
         return;
     }
-    self.fillReturn(node, ret, caps) catch {
+    self.fillReturn(node, ret, caps) catch |err| {
         // Never lose the terminal: report it without the payload. Imports were
         // not retained, so the Peer releases them after this callback.
         node.freePayload(self.allocator);
@@ -570,7 +698,11 @@ fn onQuestionReturn(
             .qid = ret.answer_id,
             .kind = .exception,
             .exception_type = @backingInt(protocol.ExceptionType.failed),
-            .reason = oom_results_reason,
+            .reason = switch (err) {
+                error.OutOfMemory => oom_results_reason,
+                error.PayloadCopyExceedsFrame => oversized_results_reason,
+                else => bad_results_reason,
+            },
         } };
     };
     self.pushNode(node);
@@ -579,10 +711,14 @@ fn onQuestionReturn(
 fn onQuestionDeinit(allocator: std.mem.Allocator, ctx: *anyopaque) void {
     const qc = castPtr(QuestionCtx, ctx);
     const self = qc.conn;
+    if (qc.swept) {
+        allocator.destroy(qc);
+        return;
+    }
     const node = qc.node;
     const qid = qc.qid;
     self.releaseQuestionCtx(qc);
-    self.stats.terminal_via_deinit_ctx += 1;
+    self.stats.terminal_via_deinit_ctx +|= 1;
     if (self.discarding) {
         node.destroy(allocator);
         return;
@@ -592,7 +728,7 @@ fn onQuestionDeinit(allocator: std.mem.Allocator, ctx: *anyopaque) void {
         .qid = qid,
         .kind = .disconnected,
         .exception_type = @backingInt(protocol.ExceptionType.disconnected),
-        .reason = rpc.peer.disconnected_reason,
+        .reason = self.disconnectReason(),
     } };
     self.pushNode(node);
 }
@@ -612,6 +748,8 @@ fn onExportCall(
     errdefer node.destroy(self.allocator);
     try self.pending_answers.ensureUnusedCapacity(1);
     // Retains the param imports as its last step; nothing below may fail.
+    // An error here (e.g. error.PayloadCopyExceedsFrame for aliased params)
+    // makes the Peer answer the call with an exception named after it.
     const in = try cap_remap.copyInbound(self.allocator, call_msg.params.content, caps);
     node.owned_bytes = in.msg;
     node.owned_caps = in.caps;
@@ -641,7 +779,7 @@ fn onExportDeinit(allocator: std.mem.Allocator, ctx: *anyopaque) void {
         return;
     }
     node.effect = .{ .export_dropped = .{ .export_id = export_id, .host_tag = host_tag } };
-    self.stats.exports_dropped += 1;
+    self.stats.exports_dropped +|= 1;
     self.pushNode(node);
 }
 

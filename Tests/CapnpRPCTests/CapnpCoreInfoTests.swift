@@ -9,9 +9,13 @@ struct CapnpCoreInfoTests {
         #expect(CapnpCoreInfo.abiVersion == CapnpCoreInfo.headerABIVersion)
     }
 
-    @Test("the version string names the core and the capnp-zig pin")
+    @Test("the version string names the core and the exact capnp-zig pin")
     func versionString() {
-        #expect(CapnpCoreInfo.version == "core 0.0.1 / capnp-zig 0.20.0")
+        // core/build.zig.zon: bump this together with the pin.
+        #expect(
+            CapnpCoreInfo.version
+                == "core 0.0.1 / capnp-zig 0.20.0 / capnpc_zig-0.20.0-nUduFXM1RwDO9CsVGFgZowhDNaDZ5V5-10qgILp63pqV"
+        )
         #expect(CapnpCoreInfo.features == 0)
     }
 }

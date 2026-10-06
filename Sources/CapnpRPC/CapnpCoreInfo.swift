@@ -13,7 +13,7 @@ public enum CapnpCoreInfo {
         UInt32(CAPNP_CORE_ABI_VERSION)
     }
 
-    /// `"core <version> / capnp-zig <pinned version>"`.
+    /// `"core <version> / capnp-zig <pinned version> / <pinned package hash>"`.
     public static var version: String {
         String(cString: capnp_core_version())
     }

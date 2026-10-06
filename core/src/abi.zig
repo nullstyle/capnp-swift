@@ -22,10 +22,13 @@ pub const abi_version: u32 = 1;
 /// Feature bits reported by `capnp_core_features()`. None are defined in M0.
 pub const features: u64 = 0;
 
-/// "core <core version> / capnp-zig <pinned version>". Both halves come from
-/// `core/build.zig.zon` at build time, so bumping the pin updates the string.
+/// "core <core version> / capnp-zig <pinned version> / <pinned hash>" (plan
+/// §4, §10: each release reports the exact capnp-zig package it pins). All
+/// three parts come from `core/build.zig.zon` at build time, so bumping the
+/// pin updates the string.
 pub const version_string: [:0]const u8 = "core " ++ build_info.core_version ++
-    " / capnp-zig " ++ build_info.capnp_zig_version;
+    " / capnp-zig " ++ build_info.capnp_zig_version ++
+    " / " ++ build_info.capnp_zig_hash;
 
 /// Host panic hook: `void (*)(const char *msg, size_t len)`. `msg` is not
 /// NUL-terminated and is valid only during the call. The hook must not call
@@ -112,6 +115,10 @@ pub export fn capnp_core_debug_selftest(failure: ?*?[*:0]const u8) callconv(.c) 
 //     `zig build test`); this file stays a thin C-type adapter;
 //   - conn.zig takes an allocator; exports pass `std.heap.c_allocator`
 //     (apple_root.zig's `allocator`), tests pass `std.testing.allocator`;
+//   - `capnp_conn_new` takes `int64_t now_uptime_ns` (the tick clock, now)
+//     and passes it as `Conn.Options.now_ns`;
+//   - `capnp_conn_take_error` reports `Conn.last_error`, and for
+//     `error.RemoteAbort` the remote's reason (`Conn.remote_abort_reason`);
 //   - keep the ordinals effects.zig already uses: CapKind none/import/
 //     export/promised = 0..3; ReturnKind results/exception/canceled/
 //     disconnected = 0..3; effect Kind out_frame/close_requested/return/
@@ -146,7 +153,13 @@ test "abi version, features and version string" {
     try testing.expectEqual(@as(u32, 1), capnp_core_abi_version());
     try testing.expectEqual(@as(u64, 0), capnp_core_features());
     const v = std.mem.span(capnp_core_version());
-    try testing.expectEqualStrings("core 0.0.1 / capnp-zig 0.20.0", v);
+    // The exact pin (core/build.zig.zon). Bumping the pin updates this line,
+    // CapnpCoreInfoTests.swift and the zon together.
+    try testing.expectEqualStrings(
+        "core 0.0.1 / capnp-zig 0.20.0 / capnpc_zig-0.20.0-nUduFXM1RwDO9CsVGFgZowhDNaDZ5V5-10qgILp63pqV",
+        v,
+    );
+    try testing.expect(std.mem.endsWith(u8, v, " / " ++ build_info.capnp_zig_hash));
     // The pinned version is derived from the zon hash; it must look like one.
     try testing.expect(std.mem.startsWith(u8, build_info.capnp_zig_hash, "capnpc_zig-" ++ build_info.capnp_zig_version ++ "-"));
 }

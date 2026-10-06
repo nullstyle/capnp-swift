@@ -16,6 +16,7 @@ const cap_table = capnp.rpc.caps.table;
 const descriptors = capnp.rpc.caps.descriptors;
 
 const Conn = conn_mod.Conn;
+const Stats = conn_mod.Stats;
 const Cap = effects.Cap;
 const testing = std.testing;
 
@@ -200,9 +201,9 @@ fn rootCap(a: std.mem.Allocator, bytes: []const u8, caps: []const Cap) !Cap {
 
 test "caps_roundtrip: imports and exports both ways, then releases drop exports" {
     const alloc = testing.allocator;
-    const a = try Conn.init(alloc, .{});
+    const a = try Conn.init(alloc, .{ .now_ns = 0 });
     defer a.deinit();
-    const b = try Conn.init(alloc, .{});
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
     defer b.deinit();
     var ra = Rec.init(alloc);
     defer ra.deinit();
@@ -474,7 +475,7 @@ test "cap_remap: bad host caps are rejected before anything is sent" {
 
 test "busy: a second nextEffect before commit is error.Busy" {
     const alloc = testing.allocator;
-    const a = try Conn.init(alloc, .{});
+    const a = try Conn.init(alloc, .{ .now_ns = 0 });
     defer a.deinit();
     _ = try a.bootstrap();
     _ = try a.bootstrap();
@@ -510,9 +511,9 @@ fn connectPair(a: *Conn, ra: *Rec, b: *Conn, rb: *Rec) !Cap {
 
 test "disconnect: transportClosed ends every open question with exactly one RETURN{DISCONNECTED}" {
     const alloc = testing.allocator;
-    const a = try Conn.init(alloc, .{});
+    const a = try Conn.init(alloc, .{ .now_ns = 0 });
     defer a.deinit();
-    const b = try Conn.init(alloc, .{});
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
     defer b.deinit();
     var ra = Rec.init(alloc);
     defer ra.deinit();
@@ -555,9 +556,9 @@ test "disconnect: a question that ends only through deinit_ctx still yields one 
     const fa = failing.allocator();
     const alloc = testing.allocator;
 
-    const a = try Conn.init(fa, .{});
+    const a = try Conn.init(fa, .{ .now_ns = 0 });
     defer a.deinit();
-    const b = try Conn.init(alloc, .{});
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
     defer b.deinit();
     var ra = Rec.init(alloc);
     defer ra.deinit();
@@ -594,9 +595,9 @@ test "disconnect: a question that ends only through deinit_ctx still yields one 
 
 test "errors: stale handles fail cleanly; a failed return can be replaced by an exception" {
     const alloc = testing.allocator;
-    const a = try Conn.init(alloc, .{});
+    const a = try Conn.init(alloc, .{ .now_ns = 0 });
     defer a.deinit();
-    const b = try Conn.init(alloc, .{});
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
     defer b.deinit();
     var ra = Rec.init(alloc);
     defer ra.deinit();
@@ -642,9 +643,9 @@ test "errors: stale handles fail cleanly; a failed return can be replaced by an 
 test "tick: a call deadline ends the question once; the late Return is absorbed" {
     const alloc = testing.allocator;
     const ms = std.time.ns_per_ms;
-    const a = try Conn.init(alloc, .{ .timeouts = .{ .default_call_timeout_ms = 100 } });
+    const a = try Conn.init(alloc, .{ .now_ns = 0, .timeouts = .{ .default_call_timeout_ms = 100 } });
     defer a.deinit();
-    const b = try Conn.init(alloc, .{});
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
     defer b.deinit();
     var ra = Rec.init(alloc);
     defer ra.deinit();
@@ -694,7 +695,7 @@ fn expectAbortThenClose(rec: *Rec) !void {
 
 test "malformed frame: bad pointer content -> the Peer's Abort OUT_FRAME, then CLOSE_REQUESTED" {
     const alloc = testing.allocator;
-    const a = try Conn.init(alloc, .{ .observer = true });
+    const a = try Conn.init(alloc, .{ .now_ns = 0, .observer = true });
     defer a.deinit();
     var ra = Rec.init(alloc);
     defer ra.deinit();
@@ -728,7 +729,7 @@ test "malformed frame: bad pointer content -> the Peer's Abort OUT_FRAME, then C
 
 test "malformed frame: bad segment table -> the shim's Abort OUT_FRAME, then CLOSE_REQUESTED" {
     const alloc = testing.allocator;
-    const a = try Conn.init(alloc, .{});
+    const a = try Conn.init(alloc, .{ .now_ns = 0 });
     defer a.deinit();
     var ra = Rec.init(alloc);
     defer ra.deinit();
@@ -741,4 +742,588 @@ test "malformed frame: bad segment table -> the shim's Abort OUT_FRAME, then CLO
     try testing.expectEqual(@as(?anyerror, error.InvalidFrame), a.last_error);
     try drainAll(a, &ra);
     try expectAbortThenClose(&ra);
+}
+
+// ---------------------------------------------------------------------------
+// Inbound copies are bounded by their frame (review finding: aliasing)
+// ---------------------------------------------------------------------------
+
+/// Tracks the bytes live through it and their peak.
+const PeakAllocator = struct {
+    parent: std.mem.Allocator,
+    live: usize = 0,
+    peak: usize = 0,
+
+    fn allocator(self: *PeakAllocator) std.mem.Allocator {
+        return .{ .ptr = self, .vtable = &.{ .alloc = allocFn, .resize = resizeFn, .remap = remapFn, .free = freeFn } };
+    }
+
+    fn grew(self: *PeakAllocator, old_len: usize, new_len: usize) void {
+        self.live = self.live - old_len + new_len;
+        self.peak = @max(self.peak, self.live);
+    }
+
+    fn allocFn(ctx: *anyopaque, len: usize, alignment: std.mem.Alignment, ret_addr: usize) ?[*]u8 {
+        const self: *PeakAllocator = @ptrCast(@alignCast(ctx));
+        const p = self.parent.rawAlloc(len, alignment, ret_addr) orelse return null;
+        self.grew(0, len);
+        return p;
+    }
+
+    fn resizeFn(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, new_len: usize, ret_addr: usize) bool {
+        const self: *PeakAllocator = @ptrCast(@alignCast(ctx));
+        if (!self.parent.rawResize(memory, alignment, new_len, ret_addr)) return false;
+        self.grew(memory.len, new_len);
+        return true;
+    }
+
+    fn remapFn(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, new_len: usize, ret_addr: usize) ?[*]u8 {
+        const self: *PeakAllocator = @ptrCast(@alignCast(ctx));
+        const p = self.parent.rawRemap(memory, alignment, new_len, ret_addr) orelse return null;
+        self.grew(memory.len, new_len);
+        return p;
+    }
+
+    fn freeFn(ctx: *anyopaque, memory: []u8, alignment: std.mem.Alignment, ret_addr: usize) void {
+        const self: *PeakAllocator = @ptrCast(@alignCast(ctx));
+        self.parent.rawFree(memory, alignment, ret_addr);
+        self.live -= memory.len;
+    }
+};
+
+/// Fill `content` with struct { ptr0: List(Data) } whose first elements are
+/// distinct blobs of `blob_sizes` bytes, followed by `aliases` elements that
+/// all point at the LAST blob. Aliasing is legal on the wire; a clone pays
+/// for every alias.
+fn fillAliasedDataList(alloc: std.mem.Allocator, content: message.AnyPointerBuilder, blob_sizes: []const usize, aliases: u32) !void {
+    const n: u32 = @intCast(blob_sizes.len);
+    const root = try content.initStruct(0, 1);
+    const pl = try (try root.getAnyPointer(0)).initPointerList(n + aliases);
+    for (blob_sizes, 0..) |size, i| {
+        const blob = try alloc.alloc(u8, size);
+        defer alloc.free(blob);
+        @memset(blob, @intCast(0xA0 + i));
+        try pl.setData(@intCast(i), blob);
+    }
+    const seg = pl.builder.segments.items[pl.segment_id].items;
+    const last = pl.elements_offset + (n - 1) * 8;
+    var i: u32 = n;
+    while (i < n + aliases) : (i += 1) aliasNearPointer(seg, last, pl.elements_offset + @as(usize, i) * 8);
+}
+
+/// Make the near pointer at byte `dst_pos` point where the one at `src_pos`
+/// points (same segment, same kind and size).
+fn aliasNearPointer(seg: []u8, src_pos: usize, dst_pos: usize) void {
+    const w = std.mem.readInt(u64, seg[src_pos..][0..8], .little);
+    const off: i64 = @as(i32, @bitCast(@as(u32, @truncate(w)))) >> 2;
+    const target: i64 = @as(i64, @intCast(src_pos / 8)) + 1 + off;
+    const new_off: i32 = @intCast(target - (@as(i64, @intCast(dst_pos / 8)) + 1));
+    const lo: u32 = (@as(u32, @bitCast(new_off)) << 2) | @as(u32, @truncate(w & 3));
+    std.mem.writeInt(u64, seg[dst_pos..][0..8], (w & 0xFFFF_FFFF_0000_0000) | lo, .little);
+}
+
+/// A Call frame on `target_export` whose params are `fillAliasedDataList`.
+fn aliasedCallFrame(alloc: std.mem.Allocator, qid: u32, target_export: u32, blob_sizes: []const usize, aliases: u32) ![]const u8 {
+    var mb = protocol.MessageBuilder.init(alloc);
+    defer mb.deinit();
+    var call = try mb.beginCall(qid, iface, 0);
+    try call.setTargetImportedCap(target_export);
+    var payload = try call.payloadTyped();
+    try fillAliasedDataList(alloc, try payload.initContent(), blob_sizes, aliases);
+    return mb.finish();
+}
+
+/// What a Conn queued in answer to one pushed Call frame.
+const CallOutcome = struct {
+    inbound_call_msg_len: ?usize = null,
+    /// Reason of a Return(exception) OUT_FRAME, copied (max 64 bytes).
+    exception_reason: [64]u8 = undefined,
+    exception_len: ?usize = null,
+
+    fn reason(self: *const CallOutcome) ?[]const u8 {
+        return if (self.exception_len) |n| self.exception_reason[0..n] else null;
+    }
+};
+
+fn pushCallFrame(c: *Conn, frame: []const u8) !CallOutcome {
+    var out: CallOutcome = .{};
+    try c.pushBytes(frame);
+    while (try c.nextEffect()) |eff| {
+        defer c.commitEffect();
+        switch (eff.*) {
+            .inbound_call => |call| out.inbound_call_msg_len = call.msg.len,
+            .out_frame => |bytes| {
+                var d = try protocol.DecodedMessage.init(testing.allocator, bytes);
+                defer d.deinit();
+                if (d.tag != .@"return") continue;
+                const ret = try d.asReturn();
+                const ex = ret.exception orelse continue;
+                const n = @min(ex.reason.len, out.exception_reason.len);
+                @memcpy(out.exception_reason[0..n], ex.reason[0..n]);
+                out.exception_len = n;
+            },
+            else => {},
+        }
+    }
+    return out;
+}
+
+test "inbound copy: heavily aliased Call params are refused before the copy is materialized" {
+    var peak: PeakAllocator = .{ .parent = testing.allocator };
+    const b = try Conn.init(peak.allocator(), .{ .now_ns = 0 });
+    defer b.deinit();
+    const boot = try b.setBootstrap(7);
+
+    // 1000 pointers to one 8 KiB blob: a ~16 KiB frame whose clone would be
+    // ~8 MiB (the review's ADV1 used 8000 x 8 KiB: 72 KB -> 65.6 MB).
+    const frame = try aliasedCallFrame(testing.allocator, 100, boot, &.{8192}, 999);
+    defer testing.allocator.free(frame);
+    const before = peak.live;
+    peak.peak = peak.live;
+    const out = try pushCallFrame(b, frame);
+    const used = peak.peak - before;
+
+    // Refused with an exception, and the host never sees the call.
+    try testing.expect(out.inbound_call_msg_len == null);
+    try testing.expectEqualStrings("PayloadCopyExceedsFrame", out.reason() orelse return error.TestNoException);
+    // The memory spent on this frame stays within a small multiple of it
+    // (the framer, the decoded frame, the capped clone, the reply), far
+    // below the ~8 MiB an unbounded clone allocates.
+    if (used > 8 * frame.len) {
+        std.debug.print("peak {d} bytes for a {d}-byte frame\n", .{ used, frame.len });
+        return error.TestCloneNotBounded;
+    }
+}
+
+test "inbound copy: mildly aliased params are refused; plain params copy at most their frame" {
+    const b = try Conn.init(testing.allocator, .{ .now_ns = 0 });
+    defer b.deinit();
+    const boot = try b.setBootstrap(7);
+
+    // Control: two distinct blobs. The copy arrives and is no larger than
+    // the frame (a clone without aliasing never is).
+    const plain = try aliasedCallFrame(testing.allocator, 100, boot, &.{ 16384, 2048 }, 0);
+    defer testing.allocator.free(plain);
+    const ok = try pushCallFrame(b, plain);
+    const copied = ok.inbound_call_msg_len orelse return error.TestPlainCallRefused;
+    try testing.expect(copied <= plain.len);
+    try testing.expect(ok.reason() == null);
+
+    // One alias of the 2 KiB blob: the clone is ~1.1x the frame. That is
+    // under the clone's memory cap (`cloneMemoryLimit`), so only the exact
+    // size check can refuse it.
+    const mild = try aliasedCallFrame(testing.allocator, 101, boot, &.{ 16384, 2048 }, 1);
+    defer testing.allocator.free(mild);
+    try testing.expect(cap_remap.cloneMemoryLimit(mild.len) > 3 * mild.len);
+    const refused = try pushCallFrame(b, mild);
+    try testing.expect(refused.inbound_call_msg_len == null);
+    try testing.expectEqualStrings("PayloadCopyExceedsFrame", refused.reason() orelse return error.TestNoException);
+}
+
+test "inbound copy: aliased Return results end the question once, with an exception" {
+    const alloc = testing.allocator;
+    const a = try Conn.init(alloc, .{ .now_ns = 0 });
+    defer a.deinit();
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
+    defer b.deinit();
+    var ra = Rec.init(alloc);
+    defer ra.deinit();
+    var rb = Rec.init(alloc);
+    defer rb.deinit();
+
+    const ib = try connectPair(a, &ra, b, &rb);
+    const p = try msgU64(alloc, 1);
+    defer alloc.free(p);
+    const q = try a.call(ib, iface, 0, p, &.{}, 0);
+    try pump(a, &ra, b, &rb);
+    const answer = rb.lastCall().answer_id;
+
+    // The remote answers with results that alias one blob 1000 times.
+    const frame = blk: {
+        var mb = protocol.MessageBuilder.init(alloc);
+        defer mb.deinit();
+        var ret = try mb.beginReturn(answer, .results);
+        var payload = try ret.payloadTyped();
+        try fillAliasedDataList(alloc, try payload.initContent(), &.{8192}, 999);
+        break :blk try mb.finish();
+    };
+    defer alloc.free(frame);
+    try a.pushBytes(frame);
+    try drainAll(a, &ra);
+
+    try testing.expectEqual(@as(usize, 1), ra.countReturns(q));
+    const r = ra.returnFor(q).?;
+    try testing.expectEqual(effects.ReturnKind.exception, r.kind);
+    try testing.expectEqualStrings(conn_mod.oversized_results_reason, r.reason);
+    try testing.expectEqual(@as(usize, 0), r.msg.len);
+    try a.finish(q, false);
+}
+
+// ---------------------------------------------------------------------------
+// Remote Abort (review finding: an orderly close is not a protocol failure)
+// ---------------------------------------------------------------------------
+
+test "remote abort: no Abort back, CLOSE_REQUESTED, error.Closed; open questions end with its reason" {
+    const alloc = testing.allocator;
+    const a = try Conn.init(alloc, .{ .now_ns = 0 });
+    defer a.deinit();
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
+    defer b.deinit();
+    var ra = Rec.init(alloc);
+    defer ra.deinit();
+    var rb = Rec.init(alloc);
+    defer rb.deinit();
+
+    const ib = try connectPair(a, &ra, b, &rb);
+    const p = try msgU64(alloc, 1);
+    defer alloc.free(p);
+    const q = try a.call(ib, iface, 0, p, &.{}, 0);
+    try pump(a, &ra, b, &rb); // B holds the call
+
+    const frame = blk: {
+        var mb = protocol.MessageBuilder.init(alloc);
+        defer mb.deinit();
+        try mb.buildAbort("server shutting down");
+        break :blk try mb.finish();
+    };
+    defer alloc.free(frame);
+    testing.log_level = .err;
+    try testing.expectError(error.Closed, a.pushBytes(frame));
+    try testing.expectEqual(@as(?anyerror, error.RemoteAbort), a.last_error);
+    try testing.expectEqualStrings("server shutting down", a.remote_abort_reason orelse return error.TestNoReason);
+
+    // Nothing goes back (no echoed Abort), and the host is asked to close.
+    const frames_before = ra.frames.items.len;
+    try drainAll(a, &ra);
+    try testing.expectEqual(frames_before, ra.frames.items.len);
+    try testing.expectEqual(@as(usize, 1), ra.close_requested);
+    try testing.expectEqual(@as(usize, 0), ra.countReturns(q));
+    // Closed: no new work, no more input.
+    try testing.expectError(error.Closed, a.call(ib, iface, 0, p, &.{}, 0));
+    try testing.expectError(error.Closed, a.pushBytes(frame));
+
+    // The host closes the transport: the open question ends once, with the
+    // remote's reason.
+    a.transportClosed();
+    try drainAll(a, &ra);
+    try testing.expectEqual(@as(usize, 1), ra.countReturns(q));
+    const r = ra.returnFor(q).?;
+    try testing.expectEqual(effects.ReturnKind.disconnected, r.kind);
+    try testing.expectEqualStrings("server shutting down", r.reason);
+    try testing.expectEqual(frames_before, ra.frames.items.len);
+    try testing.expectEqual(@as(usize, 1), ra.close_requested);
+}
+
+// ---------------------------------------------------------------------------
+// Clock (review finding: questions sent before the first tick)
+// ---------------------------------------------------------------------------
+
+test "clock: a bootstrap sent before the first tick is timed from creation, not from 0" {
+    const alloc = testing.allocator;
+    const ms = std.time.ns_per_ms;
+    // A host's monotonic uptime is large (here: one hour).
+    const uptime: i64 = 3600 * std.time.ns_per_s;
+    const a = try Conn.init(alloc, .{ .now_ns = uptime, .timeouts = .{ .default_call_timeout_ms = 5_000 } });
+    defer a.deinit();
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
+    defer b.deinit();
+    var ra = Rec.init(alloc);
+    defer ra.deinit();
+    var rb = Rec.init(alloc);
+    defer rb.deinit();
+    _ = try b.setBootstrap(100);
+
+    // Plan §5: the client bootstraps at once after connect; the first tick
+    // comes 10 ms later.
+    const q0 = try a.bootstrap();
+    try testing.expectEqual(@as(usize, 0), a.tick(uptime + 10 * ms));
+    try pump(a, &ra, b, &rb);
+    try testing.expectEqual(effects.ReturnKind.results, (ra.returnFor(q0) orelse return error.TestNoReturn).kind);
+    // The deadline still works, counted from creation.
+    const ib = blk: {
+        var m = try message.Message.init(alloc, ra.returnFor(q0).?.msg, .{});
+        defer m.deinit();
+        break :blk ra.returnFor(q0).?.caps[(try (try m.getRootAnyPointer()).getCapability()).id];
+    };
+    const p = try msgU64(alloc, 1);
+    defer alloc.free(p);
+    const q1 = try a.call(ib, iface, 0, p, &.{}, 0);
+    try pump(a, &ra, b, &rb);
+    try testing.expectEqual(@as(usize, 1), a.tick(uptime + 6_000 * ms));
+    try drainAll(a, &ra);
+    try testing.expectEqual(effects.ReturnKind.exception, (ra.returnFor(q1) orelse return error.TestNoReturn).kind);
+}
+
+// ---------------------------------------------------------------------------
+// Stats (review finding: u32 counters trapped on overflow)
+// ---------------------------------------------------------------------------
+
+test "stats: every counter saturates instead of trapping on a long-lived connection" {
+    const alloc = testing.allocator;
+    const max = std.math.maxInt(u64);
+    const p = try msgU64(alloc, 1);
+    defer alloc.free(p);
+
+    // on_return, exports_dropped and deinit_ctx-only terminals.
+    {
+        var failing = std.testing.FailingAllocator.init(alloc, .{});
+        const a = try Conn.init(failing.allocator(), .{ .now_ns = 0 });
+        defer a.deinit();
+        const b = try Conn.init(alloc, .{ .now_ns = 0 });
+        defer b.deinit();
+        var ra = Rec.init(alloc);
+        defer ra.deinit();
+        var rb = Rec.init(alloc);
+        defer rb.deinit();
+        a.stats = .{ .terminal_via_on_return = max, .terminal_via_deinit_ctx = max, .exports_dropped = max };
+
+        const ib = try connectPair(a, &ra, b, &rb); // a: on_return
+        const ea = try a.exportCap(200);
+        const pc = try msgCap(alloc, 1, 0);
+        defer alloc.free(pc);
+        const q1 = try a.call(ib, iface, 0, pc, &.{.{ .kind = .@"export", .id = ea }}, 0);
+        try pump(a, &ra, b, &rb);
+        const ia = try rootCap(alloc, rb.lastCall().msg, rb.lastCall().caps);
+        try b.release(ia.id, 1); // a: exports_dropped
+        try pump(a, &ra, b, &rb);
+        try testing.expectEqual(@as(usize, 1), ra.dropped.items.len);
+
+        // As in the deinit_ctx-only disconnect test: allow the cancel list,
+        // fail every synthetic Return.
+        failing.fail_index = failing.alloc_index + 1;
+        failing.resize_fail_index = failing.resize_index;
+        a.transportClosed(); // a: deinit_ctx
+        failing.fail_index = std.math.maxInt(usize);
+        failing.resize_fail_index = std.math.maxInt(usize);
+        try drainAll(a, &ra);
+        try testing.expectEqual(@as(usize, 1), ra.countReturns(q1));
+        try testing.expectEqual(Stats{
+            .terminal_via_on_return = max,
+            .terminal_via_deinit_ctx = max,
+            .exports_dropped = max,
+        }, a.stats);
+    }
+
+    // The close sweep (no memory at all at transportClosed).
+    {
+        var failing = std.testing.FailingAllocator.init(alloc, .{});
+        const a = try Conn.init(failing.allocator(), .{ .now_ns = 0 });
+        defer a.deinit();
+        const b = try Conn.init(alloc, .{ .now_ns = 0 });
+        defer b.deinit();
+        var ra = Rec.init(alloc);
+        defer ra.deinit();
+        var rb = Rec.init(alloc);
+        defer rb.deinit();
+        const ib = try connectPair(a, &ra, b, &rb);
+        const q1 = try a.call(ib, iface, 0, p, &.{}, 0);
+        try pump(a, &ra, b, &rb);
+        a.stats.terminal_via_close_sweep = max;
+        failing.fail_index = failing.alloc_index;
+        a.transportClosed();
+        failing.fail_index = std.math.maxInt(usize);
+        try drainAll(a, &ra);
+        try testing.expectEqual(@as(usize, 1), ra.countReturns(q1));
+        try testing.expectEqual(max, a.stats.terminal_via_close_sweep);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// transportClosed under OOM (review finding: questions left open until free)
+// ---------------------------------------------------------------------------
+
+test "disconnect: with no memory at all, transportClosed still ends every open question before free" {
+    var failing = std.testing.FailingAllocator.init(testing.allocator, .{});
+    const alloc = testing.allocator;
+    const a = try Conn.init(failing.allocator(), .{ .now_ns = 0 });
+    defer a.deinit();
+    const b = try Conn.init(alloc, .{ .now_ns = 0 });
+    defer b.deinit();
+    var ra = Rec.init(alloc);
+    defer ra.deinit();
+    var rb = Rec.init(alloc);
+    defer rb.deinit();
+
+    const ib = try connectPair(a, &ra, b, &rb);
+    const p = try msgU64(alloc, 1);
+    defer alloc.free(p);
+    const q1 = try a.call(ib, iface, 0, p, &.{}, 0);
+    const q2 = try a.call(ib, iface, 1, p, &.{}, 0);
+    try pump(a, &ra, b, &rb);
+    try testing.expectEqual(@as(usize, 2), rb.calls.items.len);
+
+    // capnp-zig v0.20.0 cancels nothing when its cancel list cannot be
+    // allocated (peer_lifecycle.zig:691 `catch break`; handoff H8).
+    failing.fail_index = failing.alloc_index;
+    a.transportClosed();
+    failing.fail_index = std.math.maxInt(usize);
+    // The test is only meaningful if the Peer really left both open.
+    try testing.expectEqual(@as(u64, 2), a.stats.terminal_via_close_sweep);
+
+    try drainAll(a, &ra);
+    for ([_]u32{ q1, q2 }) |qid| {
+        try testing.expectEqual(@as(usize, 1), ra.countReturns(qid));
+        const r = ra.returnFor(qid).?;
+        try testing.expectEqual(effects.ReturnKind.disconnected, r.kind);
+        try testing.expectEqual(@as(u16, 2), r.exception_type);
+    }
+    // Nothing later adds a second terminal: not a tick, not the Peer's own
+    // callbacks at free (they only free the swept contexts; the testing
+    // allocator checks that nothing leaks or is freed twice).
+    _ = a.tick(1);
+    try drainAll(a, &ra);
+    try testing.expectEqual(@as(usize, 1), ra.countReturns(q1));
+    try testing.expectEqual(@as(usize, 1), ra.countReturns(q2));
+}
+
+test "disconnect: the Peer's late callback for a swept question only frees it (on_return or deinit_ctx)" {
+    const alloc = testing.allocator;
+    // false: memory is back at free, so Peer.deinit cancels the swept
+    // question again with a synthetic Return (on_return). true: memory still
+    // fails at free, so Peer.deinit can only call its deinit_ctx.
+    for ([_]bool{ false, true }) |oom_at_free| {
+        var failing = std.testing.FailingAllocator.init(alloc, .{});
+        const a = try Conn.init(failing.allocator(), .{ .now_ns = 0 });
+        var a_alive = true;
+        defer if (a_alive) a.deinit();
+        const b = try Conn.init(alloc, .{ .now_ns = 0 });
+        defer b.deinit();
+        var ra = Rec.init(alloc);
+        defer ra.deinit();
+        var rb = Rec.init(alloc);
+        defer rb.deinit();
+
+        const ib = try connectPair(a, &ra, b, &rb);
+        const p = try msgU64(alloc, 1);
+        defer alloc.free(p);
+        const q1 = try a.call(ib, iface, 0, p, &.{}, 0);
+        try pump(a, &ra, b, &rb);
+
+        failing.fail_index = failing.alloc_index;
+        a.transportClosed();
+        try testing.expectEqual(@as(u64, 1), a.stats.terminal_via_close_sweep);
+        if (!oom_at_free) failing.fail_index = std.math.maxInt(usize);
+        try drainAll(a, &ra); // the swept RETURN's node is freed by its commit
+        try testing.expectEqual(@as(usize, 1), ra.countReturns(q1));
+
+        // The Peer still holds q1's context and calls back for it here. A
+        // second terminal would reuse the committed node: the testing
+        // allocator reports that double free (and a leak if it is skipped).
+        a_alive = false;
+        a.deinit();
+        failing.fail_index = std.math.maxInt(usize);
+        try testing.expectEqual(@as(usize, 1), ra.countReturns(q1));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Allocation-failure sweep (from the M0 review's ADV4; it found the
+// transportClosed-under-OOM gap at one fail index)
+// ---------------------------------------------------------------------------
+
+/// Like `pump`, but a failed `pushBytes` (allocation failure on the far
+/// side) does not stop the scenario: it goes on to the teardown checks.
+fn pumpLenient(a: *Conn, ra: *Rec, b: *Conn, rb: *Rec) !void {
+    var rounds: usize = 0;
+    while (rounds < 10_000) : (rounds += 1) {
+        const pa = try drainLenient(a, ra, b);
+        const pb = try drainLenient(b, rb, a);
+        if (!pa and !pb) return;
+    }
+    return error.PumpRunaway;
+}
+
+fn drainLenient(src: *Conn, rec: *Rec, dst: *Conn) !bool {
+    const eff = (try src.nextEffect()) orelse return false;
+    defer src.commitEffect();
+    switch (eff.*) {
+        .out_frame => |bytes| dst.pushBytes(bytes) catch {},
+        else => try rec.record(eff),
+    }
+    return true;
+}
+
+/// Caps both ways, a cap passed back, results carrying a new export, a
+/// release, then B's transport closes with B's question to A still open, and
+/// A is freed with an effect in flight. Every allocation of both conns goes
+/// through `fa`; the host side (`Rec`) uses the testing allocator.
+fn capsBothWaysTeardown(fa: std.mem.Allocator) !void {
+    const ta = testing.allocator;
+    const a = try Conn.init(fa, .{ .now_ns = 0 });
+    defer a.deinit();
+    const b = try Conn.init(fa, .{ .now_ns = 0 });
+    defer b.deinit();
+    var ra = Rec.init(ta);
+    defer ra.deinit();
+    var rb = Rec.init(ta);
+    defer rb.deinit();
+
+    _ = try b.setBootstrap(100);
+    const q0 = try a.bootstrap();
+    try pumpLenient(a, &ra, b, &rb);
+    const r0 = ra.returnFor(q0) orelse return error.ScenarioNoBootstrap;
+    if (r0.kind != .results) return error.ScenarioNoBootstrap;
+    const ib = blk: {
+        var m = try message.Message.init(ta, r0.msg, .{});
+        defer m.deinit();
+        const idx = (try (try m.getRootAnyPointer()).getCapability()).id;
+        if (idx >= r0.caps.len) return error.ScenarioNoBootstrap;
+        break :blk r0.caps[idx];
+    };
+
+    const ea = try a.exportCap(200);
+    const p1 = try msgCap(ta, 11, 0);
+    defer ta.free(p1);
+    _ = try a.call(ib, iface, 0, p1, &.{.{ .kind = .@"export", .id = ea }}, 0);
+    try pumpLenient(a, &ra, b, &rb);
+    if (rb.calls.items.len < 1) return error.ScenarioNoCall;
+    const c1 = rb.calls.items[0];
+    const ia = try rootCap(ta, c1.msg, c1.caps);
+
+    const p2 = try msgCap(ta, 22, 0);
+    defer ta.free(p2);
+    const q2 = try b.call(ia, iface, 1, p2, &.{ia}, 0);
+    try pumpLenient(a, &ra, b, &rb);
+    if (ra.calls.items.len < 1) return error.ScenarioNoCall;
+
+    const eb2 = try b.exportCap(300);
+    const r1 = try msgCap(ta, 33, 0);
+    defer ta.free(r1);
+    try b.returnResults(c1.answer_id, r1, &.{.{ .kind = .@"export", .id = eb2 }});
+    try pumpLenient(a, &ra, b, &rb);
+
+    // q2 (B -> A) stays unanswered; one more A -> B question opens.
+    const p3 = try msgCap(ta, 44, 0);
+    defer ta.free(p3);
+    _ = try a.call(ib, iface, 2, p3, &.{.{ .kind = .none }}, 0);
+    try pumpLenient(a, &ra, b, &rb);
+    try b.release(ia.id, 1);
+    try pumpLenient(a, &ra, b, &rb);
+
+    b.transportClosed();
+    try drainAll(b, &rb);
+    // The invariant under test: one RETURN per question, whatever failed.
+    if (rb.countReturns(q2) != 1) return error.QuestionNotEndedOnce;
+
+    // Free A with an effect in flight and more queued.
+    _ = try a.bootstrap();
+    _ = try a.nextEffect();
+}
+
+test "oom sweep: every allocation failure in a caps-both-ways session fails cleanly, and open questions still end once" {
+    try capsBothWaysTeardown(testing.allocator); // passes with no failures
+    var i: usize = 0;
+    while (true) : (i += 1) {
+        if (i > 20_000) return error.TestSweepRunaway;
+        var fa = std.testing.FailingAllocator.init(testing.allocator, .{ .fail_index = i });
+        capsBothWaysTeardown(fa.allocator()) catch |err| {
+            if (err == error.QuestionNotEndedOnce) {
+                std.debug.print("fail index {d}: B's open question did not end exactly once\n", .{i});
+                return err;
+            }
+            continue; // failed cleanly (the testing allocator checks leaks)
+        };
+        if (!fa.has_induced_failure) break; // every allocation point covered
+    }
+    try testing.expect(i > 100);
 }

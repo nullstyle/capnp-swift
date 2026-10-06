@@ -150,7 +150,7 @@ capnp-swift's symbol gate fails on `___ulock_*` and `_pthread_create` (App Store
 +pub const supported: bool = @import("../fd_passing.zig").supported;
 ```
 
-One source of truth makes the two comptime asserts true by construction. Also update the prose that says "Linux and Darwin": `fd_passing.zig:8` and `:14`, `fd_closer.zig:4` and `:145`, `fd_budget.zig:66`, `docs/api_contracts.md:88`, `docs/stability.md:305-306`. `fd_passing.zig:3` says the file depends only on `builtin`; that changes too.
+One source of truth makes the two comptime asserts true by construction. Also update the prose that says "Linux and Darwin": `fd_passing.zig:8` and `:14`, `fd_closer.zig:4` and `:145`, `fd_budget.zig:66`, `docs/api_contracts.md:88`, `docs/stability.md:305-306`. `fd_passing.zig:4` says the file depends only on `builtin`; that changes too.
 
 **`.macos` or "not the iOS family"?** `== .macos` also turns fd passing off for Mac Catalyst and DriverKit, which compile today. The other choice, `isDarwin()` minus `.ios, .tvos, .watchos, .visionos`, keeps them on. capnp-swift's plan picks `.macos`: enable fd passing only where a lane tests it. Mac Catalyst is a non-goal for capnp-swift v1.
 
@@ -267,6 +267,8 @@ for (apple_points) |point| {
 ```
 
 New file `tests/apple/apple_check_root.zig`:
+
+Its comment cites H2 by its capnp-zig path. That file is capnp-swift `docs/handoffs/handoff-zig-fork-ios-nullfile.md` under the same name; copy it to capnp-zig `docs/upstream/` before or with this change.
 
 ```zig
 //! Root for `zig build check-ios`: compiles `capnpc-zig-core` into a static

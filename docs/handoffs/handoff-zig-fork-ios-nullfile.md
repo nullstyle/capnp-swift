@@ -1,6 +1,6 @@
 # HANDOFF — zig fork change branch: `Io.Threaded` does not compile for iOS
 
-- **To:** the nullstyle Zig fork (via capnp-zig `docs/upstream/handoff-zig-fork-ios-nullfile.md`; the owner copies this file there)
+- **To:** the nullstyle Zig fork (plan §3 row H2). Same file name in both repos: the owner copies this file from capnp-swift `docs/handoffs/` to capnp-zig `docs/upstream/handoff-zig-fork-ios-nullfile.md`, next to the other Zig-fork handoffs.
 - **From:** capnp-swift
 - **Date:** 2026-10-06
 - **Status:** DRAFT (the owner sends it)

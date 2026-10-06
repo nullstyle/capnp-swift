@@ -1,6 +1,7 @@
 .{
     .name = .capnp_swift_core,
-    // Reported by capnp_core_version() as "core <version> / capnp-zig <pin>".
+    // Reported by capnp_core_version() as
+    // "core <version> / capnp-zig <pin version> / <pin hash>".
     .version = "0.0.1",
     .fingerprint = 0x18c63ec05a84c2a2,
     .minimum_zig_version = "0.17.0",
@@ -8,8 +9,9 @@
         // Pinned to an immutable capnp-zig TAG by hash (plan D1 = A). The
         // sans-IO Peer surface the shim uses is Experimental upstream, so the
         // pin is exact: bump url + hash together, re-run every core gate, and
-        // update the "capnp-zig <version>" capnp_core_version() reports (it is
-        // derived from this hash at build time).
+        // update the expected capnp_core_version() string in src/abi.zig and
+        // Tests/CapnpRPCTests/CapnpCoreInfoTests.swift (the string reports this
+        // hash and the version derived from it at build time).
         .capnpc_zig = .{
             .url = "https://github.com/nullstyle/capnp-zig/archive/refs/tags/v0.20.0.tar.gz",
             .hash = "capnpc_zig-0.20.0-nUduFXM1RwDO9CsVGFgZowhDNaDZ5V5-10qgILp63pqV",

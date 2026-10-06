@@ -50,9 +50,10 @@ const Seen = struct {
 };
 
 pub fn run(allocator: std.mem.Allocator) !void {
-    const a = try Conn.init(allocator, .{});
+    // Nothing here ticks or sets a deadline, so any fixed clock will do.
+    const a = try Conn.init(allocator, .{ .now_ns = 0 });
     defer a.deinit();
-    const b = try Conn.init(allocator, .{});
+    const b = try Conn.init(allocator, .{ .now_ns = 0 });
     defer b.deinit();
     var sa: Seen = .{};
     var sb: Seen = .{};
