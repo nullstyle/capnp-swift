@@ -1,0 +1,7 @@
+[tools]
+# Same pins as capnp-zig (its mise.toml is the source). Bump together.
+zig = "0.17.0"
+wasmtime = "48.0.1"
+
+[env]
+ZIG_GLOBAL_CACHE_DIR = "{{config_root}}/.zig-global-cache"

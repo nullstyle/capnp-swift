@@ -1,0 +1,9 @@
+.build/
+.swiftpm/
+zig-out/
+.zig-cache/
+.zig-global-cache/
+*.xcframework/
+*.dSYM/
+DerivedData/
+.DS_Store

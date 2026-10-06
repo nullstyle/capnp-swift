@@ -1,0 +1,9 @@
+# capnp-swift
+
+Cap'n Proto RPC for Swift apps on Apple platforms.
+
+- The RPC core is [capnp-zig](https://github.com/nullstyle/capnp-zig), built as a static XCFramework.
+- Networking is Apple's Network.framework (TCP, TLS, Unix sockets; QUIC on macOS/iOS 26).
+- Status: pre-alpha. Milestone M0 (packaging + seam spikes) is in progress. See `docs/plan-2026-10-06.md`.
+
+Platforms: macOS 15+, iOS 18+ (QUIC needs 26+).
