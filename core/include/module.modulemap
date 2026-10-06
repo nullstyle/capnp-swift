@@ -1,0 +1,4 @@
+module CapnpCore {
+    header "capnp_core.h"
+    export *
+}

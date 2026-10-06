@@ -1,0 +1,78 @@
+# Undefined symbols the Zig core (CapnpCore.xcframework) may import from
+# libSystem. scripts/check-symbols.sh requires this list to be EXACT: every
+# symbol any slice imports is listed here, and every entry is imported by at
+# least one slice. One symbol per line, Mach-O spelling (leading underscore).
+#
+# Adding an entry is a review decision: say in the commit which core code
+# needs it. Never add ___ulock_*, ___getdirentries64, _posix_spawn* or
+# _pthread_create here; the script fails on them regardless. The KNOWN SPI
+# section at the bottom is the only exception, and `--strict` ignores it.
+#
+# Origins were traced from relocations in the arm64 slice (capnp-zig v0.20.0,
+# M0 core = abi.zig + selftest.zig -> conn.zig -> rpc.peer.Peer), and checked
+# by rebuilding the slices with fd passing compiled out (a scratch copy of
+# capnp-zig with the three `supported` gates set to Linux only, which is what
+# handoff H1's `-Dfd-passing=false` does): that build imports exactly the 13
+# "needed by the connection core" symbols below and nothing else.
+
+# ---- Needed by the connection core (conn.zig + the capnp-zig Peer) --------
+# C allocator (apple_root.zig `allocator`, std.heap.c_allocator).
+_free
+_malloc
+_malloc_size
+_posix_memalign
+_realloc
+# Memory intrinsics LLVM emits as calls (libSystem's, never Zig's).
+_bzero
+___bzero
+_memcpy
+_memmove
+_memset
+# Stack protector (ReleaseSafe slices).
+___stack_chk_fail
+___stack_chk_guard
+# 128-bit division: Peer.chargeValidationBudget (i128 token-bucket refill).
+# libSystem's libcompiler_rt provides it; we never bundle compiler-rt.
+___udivti3
+# Peer thread-affinity checks (state.zig; conn.zig turns them off at runtime,
+# the code is still compiled in).
+_pthread_threadid_np
+
+# ---- Pulled only by capnp-zig's fd closer (remove when H1 lands) ----------
+# capnp-zig compiles fd passing in on every Darwin target at v0.20.0
+# (`isDarwin()` gates in fd_passing.zig:15, fd_closer.zig:146,
+# fd_budget.zig:68; no root option turns it off). Peer.deinit ->
+# PeerFds.deinit and PeerFds.importReleased reach fd_closer.handOffCounted /
+# trim / reserve and fd_budget.limit. The core never receives fds (Swift owns
+# every socket), so none of this runs, but it is linked. Handoff H1
+# (`-Dfd-passing=false`) removes every symbol in this group and the KNOWN SPI
+# section below.
+___error
+__tlv_bootstrap
+_close$NOCANCEL
+_getrlimit
+_mmap
+_munmap
+_pthread_attr_destroy
+_pthread_attr_init
+_pthread_attr_setguardsize
+_pthread_attr_setstacksize
+_pthread_detach
+_shutdown
+
+# BEGIN KNOWN SPI (tracked: plan §11 risk, owner decision needed before 0.1)
+# Denied symbols the M0 core still imports. They cannot be removed inside
+# capnp-swift at v0.20.0: every one is reached only through capnp-zig's fd
+# closer (Peer.deinit -> PeerFds(Peer).deinit -> fd_closer.handOffCounted /
+# trim), which is compiled in on Darwin with no root override.
+#   ___ulock_wait2  std.Thread spawn entryFn + Io.Threaded futexWaitInner
+#   ___ulock_wake   std.Thread spawn entryFn + Io.Threaded futexWake
+#   _pthread_create fd_closer.handOffCounted (spawns the closer threads)
+# Retire: land handoff H1 (capnp-zig `-Dfd-passing=false`), pass the option
+# from core/build.zig, delete this section, and make release lanes run
+# `scripts/check-symbols.sh --strict`. Until then the owner decides whether
+# 0.1 may ship with them (App Store review risk, plan §11).
+___ulock_wait2
+___ulock_wake
+_pthread_create
+# END KNOWN SPI
