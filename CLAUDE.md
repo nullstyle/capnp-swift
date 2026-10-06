@@ -23,6 +23,14 @@ The plan, milestones and owner decisions: `docs/plan-2026-10-06.md`. Read it fir
 - Xcode 27 / Swift 6.4 from `xcrun`.
 - capnp-zig is a hash-pinned dependency in `core/build.zig.zon`. Never edit files under the Zig package cache.
 
+## Gates
+
+- `cd core && mise exec -- zig build test --summary all` (C ABI + connection core tests).
+- `cd core && mise exec -- zig build xcframework`, then `swift build`, `swift build -c release`, `swift test`.
+- `scripts/check-symbols.sh` (the 0.1 release gate is `--strict`), `scripts/check-dsym.sh [debug|release]`.
+- `scripts/ablate.py <file> <old> <new>` breaks one line, runs the core tests, restores the file, and exits 0 only if the tests failed.
+- Never run `zig fetch <url>` against `.zig-global-cache` (Zig 0.17.0 defect, `docs/handoffs/handoff-zig-fork-fetch-cache-strip.md`); `zig build` fetches by itself.
+
 ## Rules
 
 - Tasks are tracked in this repo (`docs/plan-*.md`, `CHANGELOG.md`, `docs/handoffs/`). Never use GitHub Issues.
