@@ -1,3 +1,8 @@
+#if !os(macOS)
+// mvp-e2e starts the Zig peer binary: a macOS-only build tool.
+import Foundation
+@main struct MVPE2ENoop { static func main() { fatalError("mvp-e2e is macOS-only") } }
+#else
 // mvp-e2e: the M1 "MVP slice" e2e client (plan §8, M1 f). `just mvp-e2e`
 // runs it. It starts the capnp-zig TCP peer (interop/zig-peer), connects over
 // TCP, and prints TAP for the four M1 checks:
@@ -155,3 +160,5 @@ struct MVPE2E {
         exit(tap.failures == 0 ? 0 : 1)
     }
 }
+
+#endif

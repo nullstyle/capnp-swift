@@ -15,6 +15,10 @@
 // own -I<package>/include. --check regenerates into a temp dir and diffs
 // the committed output instead of writing (exit 1 on any difference).
 
+#if os(macOS)
+// The driver is a macOS build tool: WasmKit does not build for iOS, so the
+// whole executable compiles to a no-op there (SwiftPM builds every target
+// for every platform when build-for-testing sweeps the package).
 import Foundation
 import WasmKit
 import WasmKitWASI
@@ -247,3 +251,7 @@ private func fail(_ message: String) -> Never {
     FileHandle.standardError.write(Data("capnpc-driver: \(message)\n".utf8))
     exit(2)
 }
+#else
+import Foundation
+@main struct CapnpDriverNoop { static func main() { fatalError("capnpc-driver is macOS-only") } }
+#endif

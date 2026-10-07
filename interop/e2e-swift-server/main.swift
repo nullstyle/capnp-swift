@@ -41,11 +41,6 @@ guard schemas.contains(schema) else {
     FileHandle.standardError.write(Data("e2e-swift-server: unknown schema \(schema)\n".utf8))
     exit(2)
 }
-if host.hasPrefix("unix:") {
-    FileHandle.standardError.write(Data("e2e-swift-server: unix sockets come with M5\n".utf8))
-    exit(2)
-}
-
 let bootstrap: @Sendable () -> any ExportHandler
 switch schema {
 case "game_world": bootstrap = { GameWorld.Export(GameWorldService()) }
@@ -57,10 +52,17 @@ default: fatalError("unreachable")
 }
 
 do {
-    let listener = try RPCListener(port: port, bootstrap: bootstrap)
-    let bound = try await listener.start()
+    let listener: RPCListener
+    var servingOn = "port \(port)"
+    if let unixPath = host.hasPrefix("unix:") ? String(host.dropFirst("unix:".count)) : nil {
+        listener = try RPCListener(unixPath: unixPath, bootstrap: bootstrap)
+        servingOn = "unix:\(unixPath)"
+    } else {
+        listener = try RPCListener(port: port, bootstrap: bootstrap)
+    }
+    _ = try await listener.start()
     FileHandle.standardError.write(Data("READY\n".utf8))
-    FileHandle.standardError.write(Data("e2e-swift-server: \(schema) on port \(bound)\n".utf8))
+    FileHandle.standardError.write(Data("e2e-swift-server: \(schema) on \(servingOn)\n".utf8))
     // Serve until killed.
     while true {
         try await Task.sleep(for: .seconds(3600))

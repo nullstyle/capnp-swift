@@ -7,15 +7,18 @@
 // xcframework`. Build that first; SwiftPM only links it.
 //
 // Packaging rules (plan §10): the XCFramework is static and ships no dynamic
-// product; never bundle compiler-rt; never strip its DWARF. `platforms` lists
-// only what ships: the XCFramework has a macOS slice only until M5 adds the
-// iOS slices (they need capnp-zig handoff H1); then add `.iOS(.v18)` (D2).
+// product; never bundle compiler-rt; never strip its DWARF. `platforms`
+// lists what ships: macOS 15 and (M5) iOS 18.
 import PackageDescription
 
 let package = Package(
     name: "capnp-swift",
     platforms: [
         .macOS(.v15),
+        // M5 (plan §8): the XCFramework ships ios-arm64 and
+        // ios-arm64_x86_64-simulator slices (capnp-zig v0.21.0, handoff H1,
+        // -Dfd-passing=false). iOS needs 18 for Synchronization.Mutex.
+        .iOS(.v18),
     ],
     products: [
         // Pure-Swift message reader/builder (no Zig). M1 ships the subset the

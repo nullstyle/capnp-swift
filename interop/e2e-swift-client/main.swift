@@ -44,8 +44,13 @@ while let arg = args.first {
 }
 
 do {
-    let connection = try await RPCConnection.connect(
-        transport: TCPTransport(host: host, port: port, connectTimeout: .seconds(10)))
+    let transport: any Transport
+    if let unixPath = host.hasPrefix("unix:") ? String(host.dropFirst("unix:".count)) : nil {
+        transport = UnixTransport(path: unixPath, connectTimeout: .seconds(10))
+    } else {
+        transport = TCPTransport(host: host, port: port, connectTimeout: .seconds(10))
+    }
+    let connection = try await RPCConnection.connect(transport: transport)
 
     switch schema {
     case "game_world": try await gameWorld(connection)
