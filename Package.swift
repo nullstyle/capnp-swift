@@ -28,6 +28,12 @@ let package = Package(
         // M1 interop: the Swift side of `just mvp-e2e` (prints TAP).
         .executable(name: "mvp-e2e", targets: ["mvp-e2e"]),
     ],
+    dependencies: [
+        // Only the codegen driver links WasmKit (D6 option A: capnp.wasm
+        // under WasmKit, no Wasmtime, no Python). The shipped libraries do
+        // not depend on it.
+        .package(url: "https://github.com/swiftwasm/WasmKit", from: "0.4.1"),
+    ],
     targets: [
         // Local path for development. Releases switch to
         // .binaryTarget(url:checksum:) (plan §10 release ceremony, M7).
@@ -95,6 +101,28 @@ let package = Package(
             name: "CapnpTestSchemas",
             dependencies: ["Capnp", "CapnpRPC"],
             path: "generated/conformance"
+        ),
+        // The D6 option-A pipeline runner: capnp.wasm under WasmKit plus the
+        // native capnpc-swift plugin (tools/capnpc-driver).
+        .executableTarget(
+            name: "capnpc-driver",
+            dependencies: [
+                .product(name: "WasmKit", package: "WasmKit"),
+                .product(name: "WasmKitWASI", package: "WasmKit"),
+                .product(name: "WASI", package: "WasmKit"),
+            ],
+            path: "tools/capnpc-driver"
+        ),
+        // The command plugin: `swift package --allow-writing-to-package-directory
+        // capnp-generate` (plus --check in CI; generated code is committed).
+        .plugin(
+            name: "CapnpGenerate",
+            capability: .command(
+                intent: .custom(verb: "capnp-generate", description: "Generate Swift bindings from .capnp schemas"),
+                permissions: [.writeToPackageDirectory(reason: "Writes the generated Swift sources")]
+            ),
+            dependencies: ["capnpc-driver"],
+            path: "Plugins/CapnpGenerate"
         ),
         // Crash-symbolication probe for scripts/check-dsym.sh: traps inside a
         // known Zig frame. Not a product; never shipped.

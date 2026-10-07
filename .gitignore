@@ -9,3 +9,4 @@ DerivedData/
 .DS_Store
 # Zig 0.17 unpacks dependencies next to build.zig (core/zig-pkg/).
 zig-pkg/
+dist/

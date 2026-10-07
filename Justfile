@@ -57,3 +57,31 @@ gates: core-test xcframework
     just tsan
     just asan
     just fuzz-abi 60
+
+# ---- M3 codegen (D6 option A) -------------------------------------------
+
+# The pipeline runner: capnp.wasm under WasmKit + the native plugin.
+driver-build:
+    swift build --product capnpc-driver
+
+# Regenerate this repo's committed bindings through the command plugin.
+generate: driver-build
+    swift package --allow-writing-to-package-directory capnp-generate --output-dir interop/mvp-swift-gen interop/schemas/mvp.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --output-dir generated/conformance --include Tests/capnp_testdata Tests/capnp_testdata/test.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --output-dir interop/importtest/lib-gen --include tools/capnpc-swift interop/importtest/lib.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --output-dir interop/importtest/app-gen --include tools/capnpc-swift interop/importtest/app.capnp
+
+# CI: the committed code must match the schemas (diff only, exit 1 on drift).
+# --check writes nothing, but the plugin's declared permission still needs
+# the allow flag.
+generate-check: driver-build
+    swift package --allow-writing-to-package-directory capnp-generate --check --output-dir interop/mvp-swift-gen interop/schemas/mvp.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --check --output-dir generated/conformance --include Tests/capnp_testdata Tests/capnp_testdata/test.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --check --output-dir interop/importtest/lib-gen --include tools/capnpc-swift interop/importtest/lib.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --check --output-dir interop/importtest/app-gen --include tools/capnpc-swift interop/importtest/app.capnp
+
+# Assemble dist/capnpc-swift.artifactbundle (D6 option A): the universal
+# driver (WasmKit inside), the universal native plugin, capnp.wasm and the
+# bundled schema include tree.
+artifactbundle:
+    scripts/make-artifactbundle.sh
