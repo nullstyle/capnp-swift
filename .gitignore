@@ -10,3 +10,6 @@ DerivedData/
 # Zig 0.17 unpacks dependencies next to build.zig (core/zig-pkg/).
 zig-pkg/
 dist/
+# The pinned-tag export the M4 gate builds Zig/C++ peers from (regenerate:
+# git -C ../capnp-zig archive v0.21.0 | tar -x -C third_party/capnp-zig).
+third_party/capnp-zig/
