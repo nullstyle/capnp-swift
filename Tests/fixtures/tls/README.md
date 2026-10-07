@@ -7,7 +7,13 @@ Swift<->Swift TLS lane. Never use in production. Regenerate with:
   openssl pkcs12 -export -out test-identity.p12 -inkey key.pem -in cert.pem \
     -passout pass:capnp-swift-test
   openssl x509 -in cert.pem -outform der -out test-cert.der
+  # PKCS#1 (SecKeyCreateWithData rejects openssl 3's default PKCS#8):
+  openssl rsa -in key.pem -outform der -traditional -out test-key.der
 
 test-identity.p12 (password: capnp-swift-test) is imported at test time
 through SecPKCS12Import (TLSIdentity); test-cert.der is the client-side
-pin (TLSTrust.testOnlyTrustThisCertificate).
+pin (TLSTrust.testOnlyTrustThisCertificate). test-key.der (PKCS#1) plus
+test-cert.der build the keychain-free identity the QUIC tests use
+(TLSIdentity(certificateDER:keyDER:)): a SecPKCS12Import identity used by
+the modern QUIC TLS stack stalls on a keychain-authorization prompt,
+which never resolves under a headless test runner.

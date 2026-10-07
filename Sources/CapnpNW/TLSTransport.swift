@@ -55,6 +55,34 @@ public struct TLSIdentity: @unchecked Sendable {
     public init(identity: SecIdentity) {
         self.identity = identity
     }
+
+    /// Build an identity straight from DER bytes: a transient `SecKey`
+    /// (PKCS#1) plus its certificate, joined by `SecIdentityCreate`.
+    ///
+    /// The QUIC transport needs this path: a `SecPKCS12Import` identity
+    /// used through the modern `QUIC.TLS.localIdentity` stalls on a
+    /// keychain-authorization prompt for the key material — never
+    /// resolved under a headless test runner (the handshake hangs, every
+    /// channel event stops, and both sides idle-timeout). A transient key
+    /// has no ACL and cannot prompt.
+    public init(certificateDER: Data, keyDER: Data) throws {
+        guard let certificate = SecCertificateCreateWithData(nil, certificateDER as CFData) else {
+            throw TLSError.identityImportFailed(errSecUnknownFormat)
+        }
+        var error: Unmanaged<CFError>?
+        guard let key = SecKeyCreateWithData(
+            keyDER as CFData,
+            [kSecAttrKeyType as String: kSecAttrKeyTypeRSA,
+             kSecAttrKeyClass as String: kSecAttrKeyClassPrivate] as CFDictionary,
+            &error
+        ) else {
+            throw error!.takeRetainedValue()
+        }
+        guard let identity = SecIdentityCreate(nil, certificate, key) else {
+            throw TLSError.noIdentityInP12
+        }
+        self.identity = identity
+    }
 }
 
 /// The client's trust policy for a TLS connection.

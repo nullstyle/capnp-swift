@@ -5,7 +5,9 @@
 // core via `capnp_core_quic_alpn()`), the client's first bidirectional
 // stream (stream 0) carries every RPC frame as one u32 little-endian
 // length prefix plus its standalone segment-table bytes — the connection
-// runs with `Options.framing = .u32LE`. A second stream is reset by the
+// MUST be created with `Options.framing = .u32LE` on both ends (the
+// default `.segmentTable` never parses the peer's frames). A second
+// stream is reset by the
 // PEER with application error 0x434e5002 (`protocol_error`, capnp-zig
 // `peer_streams.refusal_code`) and the connection stays up; close code 0
 // means normal.
@@ -23,6 +25,12 @@ import CapnpRPC
 import Dispatch
 import Foundation
 import Network
+
+/// Stage tracing for the QUIC transports: set CAPNP_QUIC_TRACE=1.
+private let quicTrace = ProcessInfo.processInfo.environment["CAPNP_QUIC_TRACE"] == "1"
+private func qtrace(_ message: @autoclosure () -> String) {
+    if quicTrace { NSLog("[quic] %@", message()) }
+}
 
 /// The application-close codes the QUIC transport uses (capnp-zig
 /// `ApplicationCloseCode`): 0 is a normal close, the 0x434e50xx range the
@@ -97,10 +105,6 @@ public final class QUICTransport: Transport, @unchecked Sendable {
                 self.cancelTimeout()
                 guard !self.ready, !self.closed else { return }
                 self.ready = true
-                if let opening {
-                    self.opening = nil
-                    opening.resume()
-                }
             case .failed(let error):
                 self.cancelTimeout()
                 self.fail(TCPTransport.ConnectError.failed("\(error)"))
@@ -111,7 +115,9 @@ public final class QUICTransport: Transport, @unchecked Sendable {
                 break
             }
         }
-        _ = connection.start()
+        // All channel setup funnels through the transport's queue, keeping
+        // start(), the state callbacks, and streamReady() ordered.
+        queue.async { _ = connection.start() }
         Task { [weak self] in
             guard let self else { return }
             do {
@@ -174,6 +180,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     }
 
     public func send(_ bytes: [UInt8], completion: @escaping @Sendable () -> Void) {
+        qtrace("client send(\(bytes.count)) ready=\(ready) stream=\(stream != nil) paused=\(paused)")
         guard ready, !closed, let stream else {
             completion()
             return
@@ -186,6 +193,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
             guard let self else { return completion() }
             do {
                 try await stream.send(Data(bytes))
+                qtrace("client sent \(bytes.count)")
                 self.queue?.async { completion() }
             } catch {
                 self.queue?.async {
@@ -218,6 +226,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
             do {
                 let message = try await stream.receive(atLeast: 1, atMost: 65536)
                 let data = message.content
+                qtrace("client received \(data.count)")
                 self.queue?.async { [weak self] in
                     guard let self else { return }
                     self.receiving = false
@@ -240,7 +249,15 @@ public final class QUICTransport: Transport, @unchecked Sendable {
         guard !closed else { return }
         closed = true
         cancelTimeout()
-        delegate?.transportDidClose(error: nil)
+        // Deferred: the core delivers CLOSE_REQUESTED mid-drain, and a
+        // synchronous transportDidClose would re-enter drain() on the same
+        // thread (CAPNP_E_BUSY). NWConnection-based transports get this
+        // deferral for free through the async .cancelled state.
+        if let queue {
+            queue.async { [weak self] in self?.delegate?.transportDidClose(error: nil) }
+        } else {
+            delegate?.transportDidClose(error: nil)
+        }
     }
 }
 
@@ -338,7 +355,13 @@ final class QUICStreamTransport: Transport, @unchecked Sendable {
     private func close(with error: (any Error)?) {
         guard !closed else { return }
         closed = true
-        delegate?.transportDidClose(error: error)
+        // Deferred for the same reason as QUICTransport.cancel().
+        let nsError = error.map { $0 as NSError }
+        if let queue {
+            queue.async { [weak self] in self?.delegate?.transportDidClose(error: nsError) }
+        } else {
+            delegate?.transportDidClose(error: nsError)
+        }
     }
 }
 
@@ -444,13 +467,14 @@ public final class QUICListener: @unchecked Sendable {
     }
 
     private func accept(_ connection: NetworkConnection<QUIC>) async {
-        // The accepted connection arrives already started by run(); a
-        // second start() would race it.
+        // Started inline, before inboundStreams is attached, so the
+        // peer's first stream cannot race the start.
         _ = connection.start()
         do {
             // Baseline: one RPC stream per connection (the client's
             // stream 0); the connection ends when the app drops it.
             try await connection.inboundStreams { [weak self] stream in
+                qtrace("server inbound stream id=\(stream.streamID)")
                 guard let self else { return }
                 let transport = QUICStreamTransport(stream: stream)
                 let handler = self.bootstrap()

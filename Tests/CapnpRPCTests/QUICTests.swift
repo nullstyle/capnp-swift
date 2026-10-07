@@ -14,16 +14,14 @@ struct QUICTests {
     static func fixtures() throws -> (TLSIdentity, Data) {
         let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().appendingPathComponent("fixtures/tls")
-        let p12 = try Data(contentsOf: dir.appendingPathComponent("test-identity.p12"))
-        let der = try Data(contentsOf: dir.appendingPathComponent("test-cert.der"))
-        return (try TLSIdentity(p12: p12, password: "capnp-swift-test"), der)
+        let cert = try Data(contentsOf: dir.appendingPathComponent("test-cert.der"))
+        let key = try Data(contentsOf: dir.appendingPathComponent("test-key.der"))
+        // Raw-DER identity, not the p12: a SecPKCS12Import identity stalls
+        // the modern QUIC TLS handshake on a keychain-authorization prompt
+        // (never answered under a test runner).
+        return (try TLSIdentity(certificateDER: cert, keyDER: key), cert)
     }
 
-    /// OPEN (M6): the QUIC handshake completes (both connections report
-    /// .ready and the client opens stream 0), but the listener's
-    /// `inboundStreams` handler never fires on this SDK, so both sides
-    /// idle-timeout; see the plan's M6 status. Everything else (ALPN from
-    /// the core, framing, close codes) is covered by `constants`.
     @Test("a QUIC listener serves a QUIC client over the baseline wire")
     @available(macOS 26.0, iOS 26.0, *)
     func roundTrip() async throws {
@@ -32,8 +30,11 @@ struct QUICTests {
         let port = try await withTimeout(.seconds(10)) { try await listener.start() }
         #expect(port != 0)
 
+        var clientOptions = RPCConnection.Options()
+        clientOptions.framing = .u32LE
         let client = try await RPCConnection.connect(
-            transport: QUICTransport(host: "127.0.0.1", port: port, trust: .testOnlyTrustThisCertificate(cert), connectTimeout: .seconds(10)))
+            transport: QUICTransport(host: "127.0.0.1", port: port, trust: .testOnlyTrustThisCertificate(cert), connectTimeout: .seconds(10)),
+            options: clientOptions)
         let greeter = Greeter.Client(cap: try await client.bootstrap(), connection: client)
         _ = try await withTimeout(.seconds(10)) { try await greeter.greet(name: "QUIC", listener: NoopListener()) }
         await client.close()
