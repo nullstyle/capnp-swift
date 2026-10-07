@@ -18,6 +18,11 @@
 //! (untagged) pointer would be classified by bare id, which is ambiguous when
 //! the export and import id spaces collide (`caps/outbound.zig` resolveCapEntry).
 //!
+//! A PROMISED host cap (a question of ours that has not returned, plus a
+//! pipeline path) becomes a `receiverAnswer` descriptor: the pair is noted in
+//! the Peer's cap table (`noteReceiverAnswerOps`) and the pointer tagged with
+//! that entry; the Peer's encoder writes the descriptor and retires the entry.
+//!
 //! Inbound (`copyInbound`): clone the inbound payload content into a new
 //! standalone message (its cap pointers keep their inbound cap-table indices)
 //! and translate the inbound cap table into `caps[]`, retaining every import
@@ -46,16 +51,17 @@ pub const RemapError = error{
     /// An IMPORT id with no live wire reference, or an EXPORT id that is not
     /// exported (stale or forged host handle).
     BadCapId,
-    /// `caps[i].kind == .promised` (pipelined caps in payloads land in M2).
+    /// A cap kind this side cannot encode (reserved values).
     UnsupportedCapKind,
 };
 
 /// Clone the host message `host_msg` (validated with default limits) into
 /// `payload.content` and remap its capability pointers through `caps`.
-/// `table` is the sending Peer's cap table (`peer.caps`); it is read only.
+/// `table` is the sending Peer's cap table (`peer.caps`); it is only written
+/// to note PROMISED caps as receiver answers (the encoder retires them).
 pub fn writeHostContent(
     allocator: std.mem.Allocator,
-    table: *const cap_table.CapTable,
+    table: *cap_table.CapTable,
     payload: *protocol.PayloadBuilder,
     host_msg: []const u8,
     caps: []const Cap,
@@ -74,7 +80,7 @@ pub fn writeHostContent(
 /// `content.builder`) from a host index into an origin-tagged pointer.
 pub fn remapContentCaps(
     allocator: std.mem.Allocator,
-    table: *const cap_table.CapTable,
+    table: *cap_table.CapTable,
     content: message.AnyPointerBuilder,
     caps: []const Cap,
 ) !void {
@@ -95,7 +101,7 @@ pub fn remapContentCaps(
 fn walk(
     msg: *const message.Message,
     builder: *message.MessageBuilder,
-    table: *const cap_table.CapTable,
+    table: *cap_table.CapTable,
     caps: []const Cap,
     segment_id: u32,
     pointer_pos: usize,
@@ -156,7 +162,7 @@ fn slotWord(msg: *const message.Message, segment_id: u32, pos: usize) error{ Inv
 
 fn rewriteCap(
     builder: *message.MessageBuilder,
-    table: *const cap_table.CapTable,
+    table: *cap_table.CapTable,
     caps: []const Cap,
     segment_id: u32,
     pointer_pos: usize,
@@ -181,8 +187,23 @@ fn rewriteCap(
             const tag: protocol.CapDescriptorTag = if (table.isExportPromise(cap.id)) .senderPromise else .senderHosted;
             try dest.setCapabilityOriginTagged(descriptors.originCodeForTag(tag), cap.id);
         },
-        .promised => return error.UnsupportedCapKind,
+        .promised => {
+            // The question must be live; conn.zig checks that before the
+            // send (the table cannot). The entry is retired by the encoder.
+            const ops = try promisedOps(table.allocator, cap);
+            defer table.allocator.free(ops);
+            const entry = try table.noteReceiverAnswerOps(cap.id, ops);
+            try dest.setCapabilityOriginTagged(descriptors.originCodeForTag(.receiverAnswer), entry);
+        },
     }
+}
+
+/// The pipeline path of a PROMISED cap as the Peer's op structs.
+pub fn promisedOps(allocator: std.mem.Allocator, cap: Cap) ![]protocol.PromisedAnswerOp {
+    const indices = cap.opsSlice();
+    const ops = try allocator.alloc(protocol.PromisedAnswerOp, indices.len);
+    for (indices, ops) |index, *op| op.* = .{ .tag = .getPointerField, .pointer_index = index };
+    return ops;
 }
 
 /// Wire references the peer holds on `import_id` (0 when unknown).
@@ -249,10 +270,14 @@ pub fn copyInbound(
             .none => .{ .kind = .none },
             .imported => |imp| .{ .kind = .import, .id = imp.id },
             .exported => |exp| .{ .kind = .@"export", .id = exp.id },
-            // A remote reference to one of OUR answers (receiverAnswer). The
-            // host cannot use it as a value until promise pipelining lands
-            // (M2); it reads as a null capability for now.
-            .promised => .{ .kind = .none },
+            // A remote reference to one of OUR answers (receiverAnswer) that
+            // the Peer has not resolved yet (the answer is still pending).
+            // capnp-zig delivers such calls at once with the entry unresolved
+            // and offers no local promise client for it (its generated
+            // `resolveX` fails on it too), so the host could only get a null
+            // capability. Refuse instead: the caller gets an exception named
+            // after this error (a call), or RETURN{EXCEPTION} (results).
+            .promised => return error.PromisedCapUnsupported,
         };
     }
 

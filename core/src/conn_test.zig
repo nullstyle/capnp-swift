@@ -458,7 +458,6 @@ test "cap_remap: bad host caps are rejected before anything is sent" {
         .{ .caps = &.{}, .err = error.CapIndexOutOfRange },
         .{ .caps = &.{.{ .kind = .import, .id = 3 }}, .err = error.BadCapId },
         .{ .caps = &.{.{ .kind = .@"export", .id = 4 }}, .err = error.BadCapId },
-        .{ .caps = &.{.{ .kind = .promised, .id = 0 }}, .err = error.UnsupportedCapKind },
     };
     for (cases) |case| {
         var mb = protocol.MessageBuilder.init(alloc);
@@ -467,6 +466,43 @@ test "cap_remap: bad host caps are rejected before anything is sent" {
         var payload = try call.payloadTyped();
         try testing.expectError(case.err, cap_remap.writeHostContent(alloc, &table, &payload, host, case.caps));
     }
+}
+
+test "cap_remap: a PROMISED host cap becomes a receiverAnswer descriptor with its pipeline path" {
+    const alloc = testing.allocator;
+    var table = cap_table.CapTable.init(alloc);
+    defer table.deinit();
+
+    // Root { ptr0: cap#0 }; caps = [ promised question 7, path [2, 0] ].
+    const host = try msgCap(alloc, 0, 0);
+    defer alloc.free(host);
+    const path = [_]u16{ 2, 0 };
+    const caps = [_]Cap{.{ .kind = .promised, .id = 7, .ops = &path, .nops = path.len }};
+
+    var mb = protocol.MessageBuilder.init(alloc);
+    defer mb.deinit();
+    var call = try mb.beginCall(1, iface, 0);
+    try call.setTargetImportedCap(9);
+    var payload = try call.payloadTyped();
+    try cap_remap.writeHostContent(alloc, &table, &payload, host, &caps);
+    try cap_table.encodeCallPayloadCaps(&table, &call, null, null, null);
+    const frame = try mb.finish();
+    defer alloc.free(frame);
+
+    var decoded = try protocol.DecodedMessage.init(alloc, frame);
+    defer decoded.deinit();
+    const c = try decoded.asCall();
+    const ct = c.params.cap_table orelse return error.TestNoCapTable;
+    try testing.expectEqual(@as(u32, 1), ct.len());
+    const d = try protocol.CapDescriptor.fromReader(try ct.get(0));
+    try testing.expectEqual(protocol.CapDescriptorTag.receiverAnswer, d.tag);
+    const promised = d.promised_answer orelse return error.TestNoPromisedAnswer;
+    try testing.expectEqual(@as(u32, 7), promised.question_id);
+    try testing.expectEqual(@as(usize, 2), promised.transform.len());
+    try testing.expectEqual(@as(u16, 2), (try promised.transform.get(0)).pointer_index);
+    try testing.expectEqual(@as(u16, 0), (try promised.transform.get(1)).pointer_index);
+    // The encoder retired the table entry it consumed.
+    try testing.expectEqual(@as(usize, 0), table.receiver_answers.count());
 }
 
 // ---------------------------------------------------------------------------

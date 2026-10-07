@@ -58,7 +58,7 @@ public enum Listener {
             self.server = server
         }
 
-        public func handle(_ call: InboundCall) async throws -> CallResponse {
+        public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
             guard call.interfaceID == Listener.interfaceID, call.methodID == Method.notify.rawValue else {
                 throw RPCError.unimplemented(reason: "Listener: no such method")
             }
@@ -110,7 +110,7 @@ public enum Greeter {
             self.server = server
         }
 
-        public func handle(_ call: InboundCall) async throws -> CallResponse {
+        public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
             guard call.interfaceID == Greeter.interfaceID, call.methodID == Method.greet.rawValue else {
                 throw RPCError.unimplemented(reason: "Greeter: no such method")
             }

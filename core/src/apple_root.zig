@@ -28,6 +28,8 @@ comptime {
 
 /// The allocator every core object uses on Apple platforms.
 pub const allocator: std.mem.Allocator = std.heap.c_allocator;
+/// What `abi.zig` reads (`@import("root").capnp_core_allocator`).
+pub const capnp_core_allocator: std.mem.Allocator = allocator;
 
 pub const panic = std.debug.FullPanic(corePanic);
 

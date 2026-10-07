@@ -23,9 +23,11 @@ pub const CapKind = enum(u8) {
     none = 0,
     /// An id the remote exported to us (one wire reference per entry).
     import = 1,
-    /// One of our own exports (from `exportCap` / `setBootstrap`).
+    /// One of our own exports (from `exportCap` / `setBootstrap` /
+    /// `promiseExport`).
     @"export" = 2,
-    /// A promised answer (pipelining). Not supported in the M0 spike.
+    /// A promised answer (pipelining): `id` is one of this side's questions
+    /// that has not returned yet, `ops` the pipeline path into its results.
     promised = 3,
 };
 
@@ -34,6 +36,16 @@ pub const CapKind = enum(u8) {
 pub const Cap = extern struct {
     kind: CapKind,
     id: u32 = 0,
+    /// PROMISED only: pointer-field indices from the question's results
+    /// struct to the capability (empty: the results root is the capability).
+    /// Borrowed for the duration of the call that passes it.
+    ops: ?[*]const u16 = null,
+    nops: u16 = 0,
+
+    pub fn opsSlice(self: Cap) []const u16 {
+        const p = self.ops orelse return &.{};
+        return p[0..self.nops];
+    }
 };
 
 pub const ReturnKind = enum(u8) {
@@ -47,6 +59,8 @@ pub const ReturnKind = enum(u8) {
 
 pub const Return = struct {
     qid: u32,
+    /// CANCELED: the host cancelled the question (`cancel`); the exception
+    /// the Peer synthesized rides along in `exception_type`/`reason`.
     kind: ReturnKind,
     /// RESULTS: standalone message whose root is the results struct; its cap
     /// pointers index `caps`.

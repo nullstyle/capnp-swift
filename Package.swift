@@ -63,7 +63,7 @@ let package = Package(
         .testTarget(
             name: "CapnpRPCTests",
             // CapnpCore directly too: CoreSelftestTests calls a core test hook.
-            dependencies: ["Capnp", "CapnpRPC", "CapnpMVP", "CapnpCore"]
+            dependencies: ["Capnp", "CapnpRPC", "CapnpNW", "CapnpMVP", "CapnpCore"]
         ),
         // Crash-symbolication probe for scripts/check-dsym.sh: traps inside a
         // known Zig frame. Not a product; never shipped.

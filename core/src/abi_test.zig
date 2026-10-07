@@ -584,15 +584,20 @@ test "errors: stale ids and bad arguments map to CAPNP_E_BAD_ID / CAPNP_E_INVAL"
     try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, ib, iface, 0, null, 0, null, 0, 0, &qid));
     try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, ib, iface, 0, null, 16, null, 0, 0, &qid));
     try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, ib, iface, 0, p.ptr, p.len, null, 0, 0, null));
-    try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, cap(c.CAPNP_CAP_PROMISED, 0), iface, 0, p.ptr, p.len, null, 0, 0, &qid));
+    // A PROMISED target that is not an open question; one whose ops pointer
+    // is missing although nops says there are some.
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_call(sa.conn, cap(c.CAPNP_CAP_PROMISED, 4242), iface, 0, p.ptr, p.len, null, 0, 0, &qid));
+    var no_ops = cap(c.CAPNP_CAP_PROMISED, 0);
+    no_ops.nops = 1;
+    try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, no_ops, iface, 0, p.ptr, p.len, null, 0, 0, &qid));
     try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, ib, iface, 0, p.ptr, p.len, null, 0, 1, &qid));
     // caps with NULL pointer but a count, and an unknown kind byte.
     try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, ib, iface, 0, pc.ptr, pc.len, null, 1, 0, &qid));
     const bad_kind = [_]c.capnp_cap{cap(9, 0)};
     try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, ib, iface, 0, pc.ptr, pc.len, &bad_kind, 1, 0, &qid));
-    // A promised cap in the params (M2).
-    const promised = [_]c.capnp_cap{cap(c.CAPNP_CAP_PROMISED, 0)};
-    try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_call(sa.conn, ib, iface, 0, pc.ptr, pc.len, &promised, 1, 0, &qid));
+    // A promised cap in the params that names no open question.
+    const promised = [_]c.capnp_cap{cap(c.CAPNP_CAP_PROMISED, 4242)};
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_call(sa.conn, ib, iface, 0, pc.ptr, pc.len, &promised, 1, 0, &qid));
     // Stale handles.
     const stale_import = [_]c.capnp_cap{cap(c.CAPNP_CAP_IMPORT, 999)};
     try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_call(sa.conn, ib, iface, 0, pc.ptr, pc.len, &stale_import, 1, 0, &qid));
@@ -748,4 +753,315 @@ test "version: the linked library reports the pinned core" {
     const v = std.mem.span(c.capnp_core_version());
     try testing.expect(std.mem.startsWith(u8, v, "core "));
     try testing.expect(std.mem.indexOf(u8, v, " / capnp-zig ") != null);
+}
+
+// ---------------------------------------------------------------------------
+// M2: pipelining, cancel, promise exports, shutdown
+// ---------------------------------------------------------------------------
+
+fn promisedCap(qid: u32, ops: []const u16) c.capnp_cap {
+    return .{ .kind = c.CAPNP_CAP_PROMISED, .id = qid, .ops = if (ops.len == 0) null else ops.ptr, .nops = @intCast(ops.len) };
+}
+
+test "pipelining: a call on a promised answer goes out at once, costs no extra round trip, and each question returns once" {
+    const a = testing.allocator;
+    var sa = try newSide(a);
+    defer sa.deinit();
+    var sb = try newSide(a);
+    defer sb.deinit();
+    const ib = try connectPair(&sa, &sb, 100);
+    const p1 = try msgU64(a, 1);
+    defer a.free(p1);
+    const p5 = try msgU64(a, 5);
+    defer a.free(p5);
+
+    // q1 asks for a capability (method 0); q2 calls method 2 on the
+    // capability q1 WILL return (its results struct, pointer field 0); q3
+    // passes that same promised capability in its params (method 3).
+    const q1 = try call(&sa, ib, 0, p1, &.{});
+    const path = [_]u16{0};
+    const q2 = try call(&sa, promisedCap(q1, &path), 2, p5, &.{});
+    const pc = try msgCap(a, 44, 0);
+    defer a.free(pc);
+    const q3 = try call(&sa, ib, 3, pc, &.{promisedCap(q1, &path)});
+
+    // Every call left A before anything came back: 3 frames, no RETURN.
+    try drainAll(&sa);
+    try testing.expectEqual(@as(usize, 3), sa.frames.items.len);
+    try testing.expectEqual(@as(usize, 1), sa.returns.items.len); // the bootstrap's
+    for (sa.frames.items) |f| try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_conn_push_bytes(sb.conn, f.ptr, f.len));
+    try drainAll(&sb);
+    // B's host has q1 (method 0); q2 waits in B's core for q1's answer. q3
+    // is refused by B's core (its params name an answer B has not produced;
+    // capnp-zig delivers it unresolved, see cap_remap.copyInbound): the
+    // caller sees an exception, the host never sees the call.
+    try testing.expectEqual(@as(usize, 1), sb.calls.items.len);
+    try testing.expectEqual(@as(u16, 0), sb.calls.items[0].method_id);
+    const answer1 = sb.calls.items[0].answer_id;
+    for (sb.frames.items) |f| try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_conn_push_bytes(sa.conn, f.ptr, f.len));
+    try drainAll(&sa);
+    const r3 = sa.returnFor(q3) orelse return error.TestNoReturn;
+    try testing.expectEqual(@as(u8, c.CAPNP_RETURN_EXCEPTION), r3.kind);
+    try testing.expectEqualStrings("PromisedCapUnsupported", r3.reason);
+
+    // B answers q1 with a new export (tag 300) at pointer 0.
+    var eb2: u32 = 0;
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_export(sb.conn, 300, &eb2));
+    const r1 = try msgCap(a, 33, 0);
+    defer a.free(r1);
+    const r1caps = [_]c.capnp_cap{cap(c.CAPNP_CAP_EXPORT, eb2)};
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, answer1, r1.ptr, r1.len, &r1caps, r1caps.len));
+    try pump(&sa, &sb);
+
+    // The pipelined q2 reached export 300 with its params.
+    try testing.expectEqual(@as(usize, 2), sb.calls.items.len);
+    const ic2 = sb.lastCall();
+    try testing.expectEqual(@as(u16, 2), ic2.method_id);
+    try testing.expectEqual(eb2, ic2.export_id);
+    try testing.expectEqual(@as(u64, 300), ic2.host_tag);
+    try testing.expectEqual(@as(u64, 5), try readU64(a, ic2.msg));
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, ic2.answer_id, p1.ptr, p1.len, null, 0));
+    try pump(&sa, &sb);
+
+    for ([_]u32{ q1, q2, q3 }) |q| try testing.expectEqual(@as(usize, 1), sa.countReturns(q));
+    for ([_]u32{ q1, q2 }) |q| try testing.expectEqual(@as(u8, c.CAPNP_RETURN_RESULTS), sa.returnFor(q).?.kind);
+    const ib2 = try rootCap(a, sa.returnFor(q1).?.msg, sa.returnFor(q1).?.caps);
+    try testing.expectEqual(@as(u8, c.CAPNP_CAP_IMPORT), ib2.kind);
+    try testing.expectEqual(@as(u64, 1), try readU64(a, sa.returnFor(q2).?.msg));
+    for ([_]u32{ q1, q2, q3 }) |q| try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_finish(sa.conn, q, 0));
+
+    // Even once the callee has produced the answer, capnp-zig hands a
+    // receiverAnswer params cap to the host unresolved (its InboundCapTable
+    // never consults the answer; handoff H9), so q4 is refused the same way.
+    try pump(&sa, &sb); // the three Finish frames reach B
+    const base = sa.frames.items.len;
+    const q1b = try call(&sa, ib, 0, p1, &.{});
+    const q4 = try call(&sa, ib, 3, pc, &.{promisedCap(q1b, &path)});
+    try drainAll(&sa);
+    try testing.expectEqual(base + 2, sa.frames.items.len);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_conn_push_bytes(sb.conn, sa.frames.items[base].ptr, sa.frames.items[base].len));
+    try drainAll(&sb);
+    const r1b = try msgCap(a, 34, 0);
+    defer a.free(r1b);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, sb.lastCall().answer_id, r1b.ptr, r1b.len, &r1caps, r1caps.len));
+    const b_calls_before_q4 = sb.calls.items.len;
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_conn_push_bytes(sb.conn, sa.frames.items[base + 1].ptr, sa.frames.items[base + 1].len));
+    try pump(&sa, &sb);
+    try testing.expectEqual(b_calls_before_q4, sb.calls.items.len);
+    const r4 = sa.returnFor(q4) orelse return error.TestNoReturn;
+    try testing.expectEqual(@as(u8, c.CAPNP_RETURN_EXCEPTION), r4.kind);
+    try testing.expectEqualStrings("PromisedCapUnsupported", r4.reason);
+    const ib1b = try rootCap(a, sa.returnFor(q1b).?.msg, sa.returnFor(q1b).?.caps);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_finish(sa.conn, q1b, 0));
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_finish(sa.conn, q4, 0));
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_release(sa.conn, ib1b.id, 1));
+    // After its RETURN a question is no longer a pipelining target.
+    var qid: u32 = 0;
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_call(sa.conn, promisedCap(q1, &path), iface, 0, p1.ptr, p1.len, null, 0, 0, &qid));
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_release(sa.conn, ib2.id, 1));
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(usize, 0), sa.close_requested + sb.close_requested);
+}
+
+test "cancel: one RETURN CANCELED, a late Return is absorbed, the answer is gone on the callee" {
+    const a = testing.allocator;
+    var sa = try newSide(a);
+    defer sa.deinit();
+    var sb = try newSide(a);
+    defer sb.deinit();
+    const ib = try connectPair(&sa, &sb, 100);
+    const p = try msgU64(a, 1);
+    defer a.free(p);
+
+    const q = try call(&sa, ib, 0, p, &.{});
+    try pump(&sa, &sb);
+    const ic = sb.lastCall();
+
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_cancel(sa.conn, q));
+    try pump(&sa, &sb); // the Finish reaches B
+    try testing.expectEqual(@as(usize, 1), sa.countReturns(q));
+    const r = sa.returnFor(q).?;
+    try testing.expectEqual(@as(u8, c.CAPNP_RETURN_CANCELED), r.kind);
+    try testing.expectEqualStrings("canceled by the host", r.reason);
+    // Gone on A: finish and a second cancel are stale ids.
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_finish(sa.conn, q, 0));
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_cancel(sa.conn, q));
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_cancel(sa.conn, 777));
+
+    // Late Finish on B: the host still holds the answer and replies; the
+    // reply is absorbed (nothing new on A) and the answer is then gone.
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, ic.answer_id, p.ptr, p.len, null, 0));
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(usize, 1), sa.countReturns(q));
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_return_results(sb.conn, ic.answer_id, p.ptr, p.len, null, 0));
+
+    // The connection is healthy: another call round-trips.
+    const q2 = try call(&sa, ib, 1, p, &.{});
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, sb.lastCall().answer_id, p.ptr, p.len, null, 0));
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(u8, c.CAPNP_RETURN_RESULTS), (sa.returnFor(q2) orelse return error.TestNoReturn).kind);
+    try testing.expectEqual(@as(usize, 0), sa.close_requested + sb.close_requested);
+}
+
+test "promise export: calls on it wait, resolve delivers them to the target, reject fails them" {
+    const a = testing.allocator;
+    var sa = try newSide(a);
+    defer sa.deinit();
+    var sb = try newSide(a);
+    defer sb.deinit();
+    const ib = try connectPair(&sa, &sb, 100);
+    const p = try msgU64(a, 1);
+    defer a.free(p);
+    const pc = try msgCap(a, 9, 0);
+    defer a.free(pc);
+
+    // B hands A a promise in a results payload.
+    var promise: u32 = 0;
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_promise_export(sb.conn, &promise));
+    const q1 = try call(&sa, ib, 0, p, &.{});
+    try pump(&sa, &sb);
+    const caps1 = [_]c.capnp_cap{cap(c.CAPNP_CAP_EXPORT, promise)};
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, sb.lastCall().answer_id, pc.ptr, pc.len, &caps1, 1));
+    try pump(&sa, &sb);
+    const ip = try rootCap(a, sa.returnFor(q1).?.msg, sa.returnFor(q1).?.caps);
+    try testing.expectEqual(@as(u8, c.CAPNP_CAP_IMPORT), ip.kind);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_finish(sa.conn, q1, 0));
+
+    // A calls the promise: B's host sees nothing yet.
+    const calls_before = sb.calls.items.len;
+    const qp = try call(&sa, ip, 5, p, &.{});
+    try pump(&sa, &sb);
+    try testing.expectEqual(calls_before, sb.calls.items.len);
+    try testing.expectEqual(@as(usize, 0), sa.countReturns(qp));
+
+    // B resolves it to a real export (tag 400): the queued call arrives there.
+    var target: u32 = 0;
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_export(sb.conn, 400, &target));
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_resolve_promise(sb.conn, promise, cap(c.CAPNP_CAP_EXPORT, target)));
+    try pump(&sa, &sb);
+    try testing.expectEqual(calls_before + 1, sb.calls.items.len);
+    const ic = sb.lastCall();
+    try testing.expectEqual(@as(u64, 400), ic.host_tag);
+    try testing.expectEqual(@as(u16, 5), ic.method_id);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, ic.answer_id, p.ptr, p.len, null, 0));
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(u8, c.CAPNP_RETURN_RESULTS), (sa.returnFor(qp) orelse return error.TestNoReturn).kind);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_finish(sa.conn, qp, 0));
+    // Once only; not on a plain export; not on an unknown id.
+    try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_resolve_promise(sb.conn, promise, cap(c.CAPNP_CAP_EXPORT, target)));
+    try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_resolve_promise(sb.conn, target, cap(c.CAPNP_CAP_EXPORT, target)));
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_resolve_promise(sb.conn, 9999, cap(c.CAPNP_CAP_EXPORT, target)));
+    try testing.expectEqual(@as(i32, c.CAPNP_E_INVAL), c.capnp_resolve_promise(sb.conn, promise, cap(c.CAPNP_CAP_NONE, 0)));
+
+    // A second promise, rejected: the waiting call fails.
+    var promise2: u32 = 0;
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_promise_export(sb.conn, &promise2));
+    const q2 = try call(&sa, ib, 0, p, &.{});
+    try pump(&sa, &sb);
+    const caps2 = [_]c.capnp_cap{cap(c.CAPNP_CAP_EXPORT, promise2)};
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, sb.lastCall().answer_id, pc.ptr, pc.len, &caps2, 1));
+    try pump(&sa, &sb);
+    const ip2 = try rootCap(a, sa.returnFor(q2).?.msg, sa.returnFor(q2).?.caps);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_finish(sa.conn, q2, 0));
+    const qr = try call(&sa, ip2, 6, p, &.{});
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(usize, 0), sa.countReturns(qr));
+    const reason = "nope";
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_reject_promise(sb.conn, promise2, reason, reason.len));
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(usize, 1), sa.countReturns(qr));
+    const r = sa.returnFor(qr).?;
+    try testing.expectEqual(@as(u8, c.CAPNP_RETURN_EXCEPTION), r.kind);
+    try testing.expect(r.reason.len > 0);
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_finish(sa.conn, qr, 0));
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_release(sa.conn, ip.id, 1));
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_release(sa.conn, ip2.id, 1));
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(usize, 0), sa.close_requested + sb.close_requested);
+}
+
+test "shutdown: no new calls, open questions drain, then CLOSE_REQUESTED; the drain timeout ends stragglers" {
+    const a = testing.allocator;
+    const ms = std.time.ns_per_ms;
+    const p = try msgU64(a, 1);
+    defer a.free(p);
+
+    // 1. Drain completes: the open question returns, then the core asks to close.
+    {
+        var sa = try newSide(a);
+        defer sa.deinit();
+        var sb = try newSide(a);
+        defer sb.deinit();
+        const ib = try connectPair(&sa, &sb, 100);
+        const q = try call(&sa, ib, 0, p, &.{});
+        try pump(&sa, &sb);
+
+        c.capnp_conn_shutdown(sa.conn);
+        c.capnp_conn_shutdown(sa.conn); // idempotent
+        var qid: u32 = 0;
+        try testing.expectEqual(@as(i32, c.CAPNP_E_CLOSED), c.capnp_call(sa.conn, ib, iface, 1, p.ptr, p.len, null, 0, 0, &qid));
+        try testing.expectEqual(@as(i32, c.CAPNP_E_CLOSED), c.capnp_bootstrap(sa.conn, &qid));
+        try pump(&sa, &sb);
+        try testing.expectEqual(@as(usize, 0), sa.close_requested); // still draining
+        try testing.expectEqual(@as(usize, 0), sa.countReturns(q));
+
+        try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_return_results(sb.conn, sb.lastCall().answer_id, p.ptr, p.len, null, 0));
+        try pump(&sa, &sb);
+        _ = c.capnp_conn_tick(sa.conn, 10 * ms);
+        try pump(&sa, &sb);
+        try testing.expectEqual(@as(usize, 1), sa.countReturns(q));
+        try testing.expectEqual(@as(u8, c.CAPNP_RETURN_RESULTS), sa.returnFor(q).?.kind);
+        try testing.expectEqual(@as(usize, 1), sa.close_requested);
+        c.capnp_conn_transport_closed(sa.conn);
+        try drainAll(&sa);
+        try testing.expectEqual(@as(usize, 1), sa.close_requested);
+    }
+
+    // 2. The drain timeout: the straggler ends as DISCONNECTED, then close.
+    {
+        var opts = defaultOpts();
+        opts.shutdown_drain_timeout_ms = 100;
+        var sa = Side.init(a, try newConn(&opts, 0));
+        defer sa.deinit();
+        var sb = try newSide(a);
+        defer sb.deinit();
+        _ = c.capnp_conn_tick(sa.conn, 1 * ms);
+        const ib = try connectPair(&sa, &sb, 100);
+        const q = try call(&sa, ib, 0, p, &.{});
+        try pump(&sa, &sb);
+
+        c.capnp_conn_shutdown(sa.conn);
+        try testing.expectEqual(@as(i32, 0), c.capnp_conn_tick(sa.conn, 50 * ms));
+        try drainAll(&sa);
+        try testing.expectEqual(@as(usize, 0), sa.close_requested);
+        try testing.expectEqual(@as(i32, 1), c.capnp_conn_tick(sa.conn, 200 * ms));
+        try drainAll(&sa);
+        try testing.expectEqual(@as(usize, 1), sa.countReturns(q));
+        try testing.expectEqual(@as(u8, c.CAPNP_RETURN_DISCONNECTED), sa.returnFor(q).?.kind);
+        try testing.expectEqual(@as(usize, 1), sa.close_requested);
+    }
+}
+
+test "set_deadline: a per-question deadline fires on a tick" {
+    const a = testing.allocator;
+    const ms = std.time.ns_per_ms;
+    var sa = try newSide(a);
+    defer sa.deinit();
+    var sb = try newSide(a);
+    defer sb.deinit();
+    _ = c.capnp_conn_tick(sa.conn, 1 * ms);
+    const ib = try connectPair(&sa, &sb, 100);
+    const p = try msgU64(a, 1);
+    defer a.free(p);
+    const q = try call(&sa, ib, 0, p, &.{});
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_set_deadline(sa.conn, q, 100));
+    try testing.expectEqual(@as(i32, c.CAPNP_E_BAD_ID), c.capnp_set_deadline(sa.conn, 777, 100));
+    try pump(&sa, &sb);
+    try testing.expectEqual(@as(i32, 0), c.capnp_conn_tick(sa.conn, 50 * ms));
+    try testing.expectEqual(@as(i32, 1), c.capnp_conn_tick(sa.conn, 150 * ms));
+    try pump(&sa, &sb);
+    const r = sa.returnFor(q) orelse return error.TestNoReturn;
+    try testing.expectEqual(@as(u8, c.CAPNP_RETURN_EXCEPTION), r.kind);
+    try testing.expectEqual(@as(u16, 1), r.exception_type);
 }

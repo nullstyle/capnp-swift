@@ -122,10 +122,10 @@ struct LoopbackTests {
         _ = await server.waitClosed()
     }
 
-    @Test("64 connections x 1k calls, each with a callback (the TSan gate)")
+    @Test("64 connections x 10k calls, each with a callback (the TSan gate)")
     func manyConnections() async throws {
         let connections = 64
-        let calls = 1000
+        let calls = 10_000
         try await withThrowingTaskGroup(of: Void.self) { group in
             for c in 0..<connections {
                 group.addTask {

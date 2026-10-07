@@ -19,9 +19,15 @@ public protocol Transport: AnyObject, Sendable {
     /// Resolves once bytes can flow (connected), or throws the connect
     /// failure (including the transport's connect timeout).
     func open() async throws
-    /// Queue `bytes` for sending, in order. Bytes sent before `open` resolves
+    /// Queue `bytes` for sending, in order. `completion` runs on the queue
+    /// once the bytes left the transport's own buffer (outbound backpressure
+    /// counts bytes between `send` and it). Bytes sent before `open` resolves
     /// are buffered.
-    func send(_ bytes: [UInt8])
+    func send(_ bytes: [UInt8], completion: @escaping @Sendable () -> Void)
+    /// Stop delivering received bytes until `resumeReceiving` (inbound
+    /// backpressure). Bytes already read may still be delivered.
+    func pauseReceiving()
+    func resumeReceiving()
     /// Close. Leads to one `transportDidClose`.
     func cancel()
 }

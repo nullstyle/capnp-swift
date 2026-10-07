@@ -32,24 +32,26 @@ public enum RPCError: Error, Sendable, Equatable {
     }
 
     /// What a handler's thrown error becomes on the wire: the exception type
-    /// ordinal and the reason the remote sees. Non-RPC errors are sanitized
-    /// to a generic reason (plan §5: never leak an app's error text).
-    static func wire(for error: any Error) -> (type: UInt16, reason: String) {
+    /// ordinal and the reason the remote sees. Only `RPCError`'s own reasons
+    /// cross the wire; any other error is sanitized to a generic reason
+    /// (plan §5: never leak an app's error text), and `sanitized` tells the
+    /// caller to log the real error with a correlation id.
+    static func wire(for error: any Error) -> (type: UInt16, reason: String, sanitized: Bool) {
         switch error {
         case let e as RPCError:
             switch e {
-            case .failed(let r): return (0, r)
-            case .overloaded(let r): return (1, r)
-            case .disconnected(let r): return (2, r)
-            case .unimplemented(let r): return (3, r)
-            case .canceled: return (0, "canceled")
-            case .malformed(let r): return (0, "malformed payload: \(r)")
-            case .core, .closed, .foreignCapability: return (0, "capnp-swift: handler failed")
+            case .failed(let r): return (0, r, false)
+            case .overloaded(let r): return (1, r, false)
+            case .disconnected(let r): return (2, r, false)
+            case .unimplemented(let r): return (3, r, false)
+            case .canceled: return (0, "canceled", false)
+            case .malformed(let r): return (0, "malformed payload: \(r)", false)
+            case .core, .closed, .foreignCapability: return (0, "capnp-swift: handler failed", true)
             }
         case is CancellationError:
-            return (0, "canceled")
+            return (0, "canceled", false)
         default:
-            return (0, "capnp-swift: handler failed")
+            return (0, "capnp-swift: handler failed", true)
         }
     }
 }

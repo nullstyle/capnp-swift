@@ -9,6 +9,8 @@
 //!                           test-abi
 //!   zig build test-abi      the C ABI through capnp_core.h (abi_test.zig),
 //!                           linked against the host libcapnp_core.a
+//!   zig build fuzz-abi      random operation sequences over the C ABI
+//!                           (-- --seconds N [--seed S]); M2 gate: 1800 s
 //!   zig build xcframework   macOS arm64 + x86_64 slices (-Dcore-optimize,
 //!                           default ReleaseSafe), lipo, then
 //!                           `xcodebuild -create-xcframework` into
@@ -101,6 +103,23 @@ pub fn build(b: *std.Build) void {
         test_abi_step.dependOn(&b.addRunArtifact(tests).step);
     }
     test_step.dependOn(test_abi_step);
+
+    // ---- fuzz-abi -----------------------------------------------------------
+    // Random operation sequences over the C ABI (src/fuzz_abi.zig is the
+    // root, so abi.zig takes its leak-checking counting allocator). Usage:
+    //   zig build fuzz-abi -Doptimize=ReleaseSafe -- --seconds 1800 [--seed S]
+    const fuzz_step = b.step("fuzz-abi", "Fuzz the C ABI (pass -- --seconds N [--seed S]); exit 1 on a violation");
+    {
+        const mod = coreModule(b, build_info, "src/fuzz_abi.zig", target, optimize, .{});
+        mod.addAnonymousImport("fuzz_seeds_json", .{ .root_source_file = b.path("fuzz/seeds/framing_fixtures.json") });
+        const exe = b.addExecutable(.{ .name = "fuzz-abi", .root_module = mod });
+        // Also installed (zig-out/bin/fuzz-abi) so a long run can use a
+        // binary that later builds do not touch.
+        fuzz_step.dependOn(&b.addInstallArtifact(exe, .{}).step);
+        const run = b.addRunArtifact(exe);
+        run.addPassthruArgs();
+        fuzz_step.dependOn(&run.step);
+    }
 
     // ---- xcframework ------------------------------------------------------
     const xc_step = b.step("xcframework", "Build <repo>/CapnpCore.xcframework (macOS; iOS with -Dios=true)");

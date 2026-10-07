@@ -17,7 +17,9 @@ public final class TCPTransport: Transport, @unchecked Sendable {
     private var delegate: (any TransportDelegate)?
     private var ready = false
     private var closed = false
-    private var buffered: [[UInt8]] = []
+    private var paused = false
+    private var receiving = false
+    private var buffered: [([UInt8], @Sendable () -> Void)] = []
     private var opening: CheckedContinuation<Void, any Error>?
     private var timeoutWork: DispatchWorkItem?
 
@@ -70,15 +72,29 @@ public final class TCPTransport: Transport, @unchecked Sendable {
         }
     }
 
-    public func send(_ bytes: [UInt8]) {
-        if closed { return }
+    public func send(_ bytes: [UInt8], completion: @escaping @Sendable () -> Void) {
+        if closed {
+            completion()
+            return
+        }
         guard ready else {
-            buffered.append(bytes)
+            buffered.append((bytes, completion))
             return
         }
         connection.send(content: Data(bytes), completion: .contentProcessed { [weak self] error in
+            completion()
             if let error { self?.finish(error: error) }
         })
+    }
+
+    public func pauseReceiving() {
+        paused = true
+    }
+
+    public func resumeReceiving() {
+        guard paused else { return }
+        paused = false
+        if ready, !closed, !receiving { receiveNext() }
     }
 
     public func cancel() {
@@ -96,7 +112,7 @@ public final class TCPTransport: Transport, @unchecked Sendable {
             timeoutWork = nil
             let pendingSends = buffered
             buffered.removeAll()
-            for frame in pendingSends { send(frame) }
+            for (frame, completion) in pendingSends { send(frame, completion: completion) }
             opening?.resume()
             opening = nil
             receiveNext()
@@ -113,6 +129,11 @@ public final class TCPTransport: Transport, @unchecked Sendable {
     }
 
     private func receiveNext() {
+        if paused || closed {
+            receiving = false
+            return
+        }
+        receiving = true
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
             guard let self, !self.closed else { return }
             if let data, !data.isEmpty {
@@ -135,7 +156,9 @@ public final class TCPTransport: Transport, @unchecked Sendable {
         closed = true
         timeoutWork?.cancel()
         timeoutWork = nil
+        let dropped = buffered
         buffered.removeAll()
+        for (_, completion) in dropped { completion() }
         if let opening {
             self.opening = nil
             opening.resume(throwing: error ?? ConnectError.cancelled)

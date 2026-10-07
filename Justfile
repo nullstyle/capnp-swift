@@ -32,9 +32,18 @@ mvp-e2e: xcframework zig-peer
     swift build --product mvp-e2e
     "$(swift build --show-bin-path)/mvp-e2e" --server interop/zig-peer/zig-out/bin/zig-peer
 
-# The M1 TSan gate: 64 connections x 1k calls over LoopbackTransport.
+# The TSan gate (M1/M2): the whole Swift suite, incl. 64 connections x 10k
+# calls over LoopbackTransport, must run with 0 ThreadSanitizer warnings.
 tsan: xcframework
-    swift test --sanitize=thread --filter Loopback
+    swift test --sanitize=thread
+
+# The ASan gate (M2).
+asan: xcframework
+    swift test --sanitize=address
+
+# Fuzz the C ABI for `seconds` (M2 gate: 1800). Exit 1 on a violation.
+fuzz-abi seconds="60":
+    cd core && mise exec -- zig build fuzz-abi -- --seconds {{seconds}}
 
 # Every gate (CLAUDE.md), in order.
 gates: core-test xcframework
@@ -46,3 +55,5 @@ gates: core-test xcframework
     scripts/check-dsym.sh release
     just mvp-e2e
     just tsan
+    just asan
+    just fuzz-abi 60

@@ -35,6 +35,12 @@ uint64_t capnp_core_features(void);
  * Static, NUL-terminated, never freed. */
 const char *capnp_core_version(void);
 
+/* The name of a Peer observer event tag (capnp_effect.event_tag): "connection",
+ * "frame", "backpressure", "resource_rejection", "protocol_error", "close",
+ * "timeout", "pressure", "call_latency", "cancel_failure"; "unknown" for a
+ * tag this core does not define. Static, NUL-terminated. */
+const char *capnp_core_event_name(uint8_t tag);
+
 /* ---- Panic hook -------------------------------------------------------- */
 
 /* Called once when the core panics, then the core executes a trap
@@ -120,18 +126,34 @@ typedef struct capnp_conn_opts {
                                            in-flight calls (every call is
                                            retained until capnp_finish) */
     uint32_t max_active_inbound_questions; /* default 4096 */
+    /* Added in M2 (a host built against the M1 header passes a smaller
+     * struct_size and gets the defaults): */
+    uint32_t max_pending_queued_calls;      /* calls waiting on a promise; default 8192 */
+    uint32_t max_pending_queued_call_bytes; /* default 16 MiB */
+    uint32_t max_resolved_answers;          /* default 4096 */
+    uint32_t max_pending_promises;          /* default 4096 */
+    uint32_t max_pending_export_promises;   /* default 4096 */
+    uint32_t max_resolved_imports;          /* default 10000 */
 } capnp_conn_opts;
 
-/* One capability in a host payload's caps[] table (plan D5). A capability
- * pointer inside a standalone host message stores an index into that table. */
+/* One capability in a host payload's caps[] table (plan D5), and the target
+ * of capnp_call. A capability pointer inside a standalone host message stores
+ * an index into that table. */
 #define CAPNP_CAP_NONE     0   /* a null capability */
 #define CAPNP_CAP_IMPORT   1   /* id = an import: the remote's export, held by
                                   the host until capnp_release */
-#define CAPNP_CAP_EXPORT   2   /* id = one of this connection's exports */
-#define CAPNP_CAP_PROMISED 3   /* a promised answer (pipelining); M2 */
+#define CAPNP_CAP_EXPORT   2   /* id = one of this connection's exports (also
+                                  a promise export) */
+#define CAPNP_CAP_PROMISED 3   /* a promised answer (pipelining): id = one of
+                                  this side's questions that has not returned
+                                  yet; ops/nops = the path into its results */
 typedef struct capnp_cap {
-    uint8_t  kind;              /* CAPNP_CAP_* */
-    uint32_t id;
+    uint8_t         kind;   /* CAPNP_CAP_* */
+    uint32_t        id;
+    const uint16_t *ops;    /* PROMISED: pointer-field indices from the results
+                               struct to the capability (NULL/0: the results
+                               root is the capability). Borrowed for the call. */
+    uint16_t        nops;
 } capnp_cap;
 
 /* Effects (plan §4). One is in flight at a time: capnp_conn_next_effect
@@ -143,14 +165,19 @@ typedef struct capnp_cap {
                                            capnp_return_results/_exception */
 #define CAPNP_EFFECT_EXPORT_DROPPED  4  /* id = export_id: the remote released
                                            it to zero (never for the bootstrap) */
-#define CAPNP_EFFECT_EVENT           5  /* a Peer observer event (opts.observer) */
+#define CAPNP_EFFECT_EVENT           5  /* a Peer observer event (opts.observer):
+                                           event_tag names it (capnp_core_event_name),
+                                           reason holds its error name or "" */
+/* 6 is reserved for ANSWER_FINISHED (the remote finished an unanswered
+ * inbound call); it needs capnp-zig handoff H5 and is not produced yet. */
 
 /* RETURN kinds (return_kind). */
 #define CAPNP_RETURN_RESULTS      0  /* msg/caps: the results */
 #define CAPNP_RETURN_EXCEPTION    1  /* exception_type (rpc.capnp Exception.Type:
                                         0 failed, 1 overloaded, 2 disconnected,
                                         3 unimplemented), reason */
-#define CAPNP_RETURN_CANCELED     2
+#define CAPNP_RETURN_CANCELED     2  /* the host called capnp_cancel; exception_type
+                                        and reason carry the synthesized exception */
 #define CAPNP_RETURN_DISCONNECTED 3  /* this connection ended (transport closed,
                                         remote Abort, teardown); reason */
 
@@ -234,13 +261,33 @@ void capnp_conn_commit_effect(capnp_conn *conn);
  * question is finished by the core itself: never capnp_finish its qid. */
 int32_t capnp_bootstrap(capnp_conn *conn, uint32_t *out_qid);
 
-/* Call method_id of interface_id on target (an IMPORT). msg is a standalone
- * message whose root is the params struct; its capability pointers index
- * caps[0..ncaps). flags must be 0 (streaming lands in M2). The question is
- * retained: after its RETURN the host must capnp_finish it. */
+/* Call method_id of interface_id on target: an IMPORT, or a PROMISED answer
+ * (pipelining: the call goes out before that question returns, and costs no
+ * extra round trip). msg is a standalone message whose root is the params
+ * struct; its capability pointers index caps[0..ncaps) (NONE, IMPORT, EXPORT
+ * or PROMISED entries). flags must be 0 (streaming lands later). The question
+ * is retained: after its RETURN the host must capnp_finish it (or
+ * capnp_cancel it before). CAPNP_E_BAD_ID for a PROMISED id that is not an
+ * open question. */
 int32_t capnp_call(capnp_conn *conn, capnp_cap target, uint64_t interface_id, uint16_t method_id,
                    const uint8_t *msg, size_t msg_len, const capnp_cap *caps, size_t ncaps,
                    uint32_t flags, uint32_t *out_qid);
+
+/* Cancel an open question: the core sends Finish and ends it at once with
+ * one RETURN CANCELED (a late Return from the remote is absorbed). After it
+ * the question is gone: do not capnp_finish it. CAPNP_E_BAD_ID for a question
+ * that already returned. A no-op once the connection is closed. */
+int32_t capnp_cancel(capnp_conn *conn, uint32_t qid);
+
+/* Set or replace the deadline of an open question, in ms from now. It fires
+ * on a later capnp_conn_tick as RETURN EXCEPTION (overloaded). */
+int32_t capnp_set_deadline(capnp_conn *conn, uint32_t qid, uint32_t timeout_ms);
+
+/* Begin a graceful shutdown: new calls fail with CAPNP_E_CLOSED, while input
+ * and ticks keep flowing so open questions can return. When none is left, or
+ * when shutdown_drain_timeout_ms passes on a tick (the rest end with RETURN
+ * DISCONNECTED), the core queues CLOSE_REQUESTED. Idempotent. */
+void capnp_conn_shutdown(capnp_conn *conn);
 
 /* Finish a returned question (the host dropped its last handle on it).
  * release_result_caps nonzero also releases the imports its results carried
@@ -261,9 +308,25 @@ int32_t capnp_export(capnp_conn *conn, uint64_t host_tag, uint32_t *out_export_i
  * lives until capnp_conn_free and never produces EXPORT_DROPPED. */
 int32_t capnp_set_bootstrap(capnp_conn *conn, uint64_t host_tag, uint32_t *out_export_id);
 
+/* Export a promise: a capability the host resolves later with
+ * capnp_resolve_promise or capnp_reject_promise. Pass it in a payload as
+ * {CAPNP_CAP_EXPORT, id}; calls on it queue in the core until it resolves.
+ * It carries no host tag and never produces EXPORT_DROPPED. */
+int32_t capnp_promise_export(capnp_conn *conn, uint32_t *out_promise_id);
+
+/* Resolve promise export promise_id to `to`: one of this connection's EXPORTs,
+ * or an IMPORT it holds. Once per promise (CAPNP_E_INVAL afterwards). A no-op
+ * once the connection is closed. */
+int32_t capnp_resolve_promise(capnp_conn *conn, uint32_t promise_id, capnp_cap to);
+
+/* Reject promise export promise_id: callers see an exception (type failed; a
+ * typed rejection needs capnp-zig handoff H5). reason is not NUL-terminated. */
+int32_t capnp_reject_promise(capnp_conn *conn, uint32_t promise_id, const char *reason, size_t reason_len);
+
 /* Answer an INBOUND_CALL (answer_id = its id) with results: msg and caps as
- * for capnp_call. CAPNP_E_BAD_ID for an answer not pending. On a refused
- * payload (a bad caps[] entry) nothing is sent and the answer stays open. */
+ * for capnp_call. CAPNP_E_BAD_ID for an answer not pending (also after the
+ * remote finished it early: the answer is gone). On a refused payload (a bad
+ * caps[] entry) nothing is sent and the answer stays open. */
 int32_t capnp_return_results(capnp_conn *conn, uint32_t answer_id, const uint8_t *msg, size_t msg_len,
                              const capnp_cap *caps, size_t ncaps);
 

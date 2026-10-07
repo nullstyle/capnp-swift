@@ -11,17 +11,18 @@
 //! Laid out so it can move to capnp-zig `src/native/` unchanged (plan H7): it
 //! imports capnp-zig only as "capnpc-zig".
 //!
-//! Peer API used (capnp-zig v0.20.0, `src/rpc/peer/mod.zig`):
-//!   initDetachedWithLimits :934, disableThreadAffinity :867,
-//!   attachTransportBinding :1283, setClock :1002, setTimeouts :1029,
-//!   setObserver :1564, start :1549, handleFrame :4171,
-//!   notifyTransportClosed :4080, checkDeadlines :2655, sendBuilder :3850,
-//!   sendBootstrap :2027, sendCallWithOptions :2908 (+ CallOptions
-//!   .retained :195), setQuestionDeinitCtx :2878, finishRetainedQuestion :2607,
-//!   releaseImport :3825, addExportWithDeinit :1926, setBootstrap :2015,
-//!   sendReturnResults :3587, sendReturnExceptionTyped :3612,
-//!   getLastRemoteAbortReason :1584, deinit :1542; field `caps` (the cap
-//!   table) is read for handle validation.
+//! Peer API used (capnp-zig v0.21.0, `src/rpc/peer/mod.zig`):
+//!   initDetachedWithLimits, disableThreadAffinity, attachTransportBinding,
+//!   setClock, setTimeouts, setObserver, start, handleFrame,
+//!   notifyTransportClosed, checkDeadlines, sendBuilder, sendBootstrap,
+//!   sendCallWithOptions and sendCallPromisedWithOpsWithOptions (+ CallOptions
+//!   .retained), setQuestionDeinitCtx, finishRetainedQuestion,
+//!   cancelQuestionTyped, setQuestionDeadline, releaseImport,
+//!   addExportWithDeinit, setBootstrap, addPromiseExport,
+//!   resolvePromiseExportToExport/ToImport/ToException, shutdown,
+//!   sendReturnResults, sendReturnExceptionTyped, getLastRemoteAbortReason,
+//!   deinit; field `caps` (the cap table) is read for handle validation and
+//!   written to note PROMISED payload caps (cap_remap.zig).
 
 const std = @import("std");
 const capnp = @import("capnpc-zig");
@@ -77,6 +78,18 @@ pub const oom_results_reason = "capnp-swift core: out of memory copying results"
 pub const oversized_results_reason = "capnp-swift core: results payload copies larger than its frame";
 /// Reason text of the RETURN when the results could not be copied otherwise.
 pub const bad_results_reason = "capnp-swift core: results payload could not be copied";
+/// Reason text of the RETURN when the results carry a capability that is a
+/// still-unresolved promised answer of ours (`cap_remap.copyInbound`).
+pub const promised_results_reason = "capnp-swift core: results carry an unresolved promised capability";
+/// Reason the Peer synthesizes for a question the host cancelled.
+pub const cancel_reason = "canceled by the host";
+
+/// The name of a Peer observer event tag (`effects.Event.tag`), or "unknown".
+pub fn eventName(tag: u8) [:0]const u8 {
+    const Tag = std.meta.Tag(events.Event);
+    const t = std.enums.fromInt(Tag, tag) orelse return "unknown";
+    return @tagName(t);
+}
 
 pub const Conn = struct {
     allocator: std.mem.Allocator,
@@ -95,8 +108,12 @@ pub const Conn = struct {
     close_node: ?*effects.Node = null,
     /// The question context whose `sendCall` is on the stack (see `call`).
     sending_qctx: ?*QuestionCtx = null,
-    /// Adopted questions whose terminal has not fired yet (intrusive list).
+    /// Adopted questions whose terminal has not fired yet (intrusive list,
+    /// swept without allocation at transport close).
     live_questions: ?*QuestionCtx = null,
+    /// The same questions by id (cancel, deadlines, PROMISED validation).
+    /// Capacity is reserved before each send, so adoption cannot fail.
+    questions: std.AutoHashMap(u32, *QuestionCtx),
 
     close_requested: bool = false,
     transport_closed: bool = false,
@@ -109,6 +126,10 @@ pub const Conn = struct {
     discarding: bool = false,
     /// A protocol error closed this connection; further input is refused.
     failed: bool = false,
+    /// `shutdown` was called: no new questions; input and ticks still flow
+    /// so the open questions can drain; the Peer closes when they are done
+    /// or the drain timeout passes.
+    shutting_down: bool = false,
     /// The remote closed this connection with an Abort; further input is
     /// refused. Not a protocol failure: the shim sends no Abort back.
     remote_aborted: bool = false,
@@ -133,6 +154,7 @@ pub const Conn = struct {
             .peer = Peer.initDetachedWithLimits(allocator, opts.limits),
             .framer = Framer.initWithOptions(allocator, .{ .max_buffered_bytes = opts.max_frame_bytes }),
             .pending_answers = std.AutoHashMap(u32, void).init(allocator),
+            .questions = std.AutoHashMap(u32, *QuestionCtx).init(allocator),
             .close_node = close_node,
             .now_ns = opts.now_ns,
         };
@@ -170,6 +192,7 @@ pub const Conn = struct {
         // After the queue: RETURN effects may borrow it.
         if (self.remote_abort_reason) |r| a.free(r);
         self.pending_answers.deinit();
+        self.questions.deinit();
         self.framer.deinit();
         a.destroy(self);
     }
@@ -253,10 +276,12 @@ pub const Conn = struct {
         return self.adoptQuestion(qc, qid);
     }
 
-    /// Call `method_id` of `interface_id` on `target` (an IMPORT). `msg` is a
+    /// Call `method_id` of `interface_id` on `target`: an IMPORT, or a
+    /// PROMISED answer (one of this side's open questions plus a pipeline
+    /// path: the call goes out before that question returns). `msg` is a
     /// standalone message whose root is the params struct; its capability
-    /// pointers index `caps`. The question is `.retained`: the host must
-    /// `finish` it after its RETURN.
+    /// pointers index `caps` (IMPORT, EXPORT, NONE or PROMISED entries). The
+    /// question is `.retained`: the host must `finish` it after its RETURN.
     pub fn call(
         self: *Conn,
         target: Cap,
@@ -267,27 +292,83 @@ pub const Conn = struct {
         flags: u32,
     ) !u32 {
         try self.checkOpen();
-        if (flags != 0) return error.Unsupported; // STREAMING lands in M2
-        if (target.kind != .import) return error.Unsupported; // PROMISED: M2
-        if (cap_remap.importRefCount(&self.peer.caps, target.id) == 0) return error.BadId;
+        if (flags != 0) return error.Unsupported; // STREAMING: later
+        switch (target.kind) {
+            .import => if (cap_remap.importRefCount(&self.peer.caps, target.id) == 0) return error.BadId,
+            .promised => if (!self.questions.contains(target.id)) return error.BadId,
+            .none, .@"export" => return error.Unsupported,
+        }
+        for (caps) |cap| {
+            if (cap.kind == .promised and !self.questions.contains(cap.id)) return error.BadId;
+        }
         const qc = try self.newQuestionCtx();
         qc.msg = msg;
         qc.caps = caps;
         self.sending_qctx = qc;
-        const qid = self.peer.sendCallWithOptions(
-            target.id,
-            interface_id,
-            method_id,
-            qc,
-            buildCall,
-            onQuestionReturn,
-            .{ .result_lifetime = .retained },
-        ) catch |err| {
+        const qid = switch (target.kind) {
+            .import => self.peer.sendCallWithOptions(
+                target.id,
+                interface_id,
+                method_id,
+                qc,
+                buildCall,
+                onQuestionReturn,
+                .{ .result_lifetime = .retained },
+            ),
+            .promised => blk: {
+                const ops = cap_remap.promisedOps(self.allocator, target) catch |err| break :blk err;
+                defer self.allocator.free(ops);
+                break :blk self.peer.sendCallPromisedWithOpsWithOptions(
+                    target.id,
+                    ops,
+                    interface_id,
+                    method_id,
+                    qc,
+                    buildCall,
+                    onQuestionReturn,
+                    .{ .result_lifetime = .retained },
+                );
+            },
+            else => unreachable,
+        } catch |err| {
             self.sending_qctx = null;
             self.abandonQuestionCtx(qc);
             return err;
         };
         return self.adoptQuestion(qc, qid);
+    }
+
+    /// Cancel an open question. The Peer sends Finish and ends the question
+    /// at once with a locally synthesized exception, which the host sees as
+    /// one RETURN{CANCELED}; a late Return from the remote is absorbed.
+    /// `error.BadId` for a question that already ended. A no-op once closed.
+    pub fn cancel(self: *Conn, qid: u32) !void {
+        if (self.isClosed()) return;
+        const qc = self.questions.get(qid) orelse return error.BadId;
+        qc.cancel_requested = true;
+        self.peer.cancelQuestionTyped(qid, cancel_reason, .failed) catch |err| {
+            qc.cancel_requested = false;
+            return err;
+        };
+    }
+
+    /// Set (or replace) the deadline of an open question, in ms from the
+    /// clock's now; it fires on a later `tick` as RETURN{EXCEPTION overloaded}.
+    pub fn setDeadline(self: *Conn, qid: u32, timeout_ms: u64) !void {
+        if (self.isClosed()) return error.Closed;
+        if (!self.questions.contains(qid)) return error.BadId;
+        try self.peer.setQuestionDeadline(qid, timeout_ms);
+    }
+
+    /// Begin a graceful shutdown: no new questions; input and ticks still
+    /// flow so open questions can return. When none is left (or the drain
+    /// timeout passes on a `tick`, ending the rest with RETURN{DISCONNECTED}),
+    /// the Peer asks the host to close (CLOSE_REQUESTED). Idempotent.
+    pub fn shutdown(self: *Conn) void {
+        if (self.isClosed() or self.shutting_down) return;
+        self.shutting_down = true;
+        self.local_disconnect = true;
+        self.peer.shutdown(null);
     }
 
     /// Finish a retained question (the host dropped its last handle on it).
@@ -335,9 +416,41 @@ pub const Conn = struct {
         return id;
     }
 
+    /// Export a promise: a capability the host will resolve later with
+    /// `resolvePromise` or `rejectPromise`. Calls on it queue in the Peer
+    /// until then. It carries no host tag and never produces EXPORT_DROPPED.
+    pub fn promiseExport(self: *Conn) !u32 {
+        try self.checkOpen();
+        return self.peer.addPromiseExport();
+    }
+
+    /// Resolve promise export `promise_id` to `to`: one of this side's EXPORTs
+    /// or an IMPORT it holds. A no-op once closed.
+    pub fn resolvePromise(self: *Conn, promise_id: u32, to: Cap) !void {
+        if (self.isClosed()) return;
+        switch (to.kind) {
+            .@"export" => try self.peer.resolvePromiseExportToExport(promise_id, to.id),
+            .import => {
+                if (cap_remap.importRefCount(&self.peer.caps, to.id) == 0) return error.BadId;
+                try self.peer.resolvePromiseExportToImport(promise_id, to.id);
+            },
+            .none, .promised => return error.Unsupported,
+        }
+    }
+
+    /// Reject promise export `promise_id` with an exception (`failed`; a
+    /// typed rejection needs capnp-zig handoff H5). A no-op once closed.
+    pub fn rejectPromise(self: *Conn, promise_id: u32, reason: []const u8) !void {
+        if (self.isClosed()) return;
+        try self.peer.resolvePromiseExportToException(promise_id, reason);
+    }
+
     /// Answer an INBOUND_CALL with results (`msg` + `caps`, as for `call`).
     pub fn returnResults(self: *Conn, answer_id: u32, msg: []const u8, caps: []const Cap) !void {
         if (!self.pending_answers.contains(answer_id)) return error.BadId;
+        for (caps) |cap| {
+            if (cap.kind == .promised and !self.questions.contains(cap.id)) return error.BadId;
+        }
         var bc: ReturnBuildCtx = .{ .conn = self, .msg = msg, .caps = caps };
         try self.peer.sendReturnResults(answer_id, &bc, buildReturn);
         _ = self.pending_answers.remove(answer_id);
@@ -359,7 +472,7 @@ pub const Conn = struct {
     }
 
     fn checkOpen(self: *Conn) !void {
-        if (self.isClosed()) return error.Closed;
+        if (self.isClosed() or self.shutting_down) return error.Closed;
     }
 
     /// The remote sent Abort (the Peer kept its reason and returned
@@ -409,6 +522,8 @@ pub const Conn = struct {
         if (self.live_questions) |head| head.prev = qc;
         self.live_questions = qc;
         qc.linked = true;
+        // Capacity was reserved in newQuestionCtx.
+        self.questions.putAssumeCapacity(qc.qid, qc);
     }
 
     fn unlinkQuestion(self: *Conn, qc: *QuestionCtx) void {
@@ -418,6 +533,7 @@ pub const Conn = struct {
         qc.prev = null;
         qc.next = null;
         qc.linked = false;
+        _ = self.questions.remove(qc.qid);
     }
 
     fn pushNode(self: *Conn, node: *effects.Node) void {
@@ -472,6 +588,7 @@ pub const Conn = struct {
     }
 
     fn newQuestionCtx(self: *Conn) !*QuestionCtx {
+        try self.questions.ensureUnusedCapacity(1);
         const node = try effects.Node.create(self.allocator);
         errdefer node.destroy(self.allocator);
         const qc = try self.allocator.create(QuestionCtx);
@@ -525,7 +642,7 @@ pub const Conn = struct {
         self.allocator.destroy(ec);
     }
 
-    fn fillReturn(self: *Conn, node: *effects.Node, ret: protocol.Return, caps: *const cap_table.InboundCapTable) !void {
+    fn fillReturn(self: *Conn, node: *effects.Node, ret: protocol.Return, caps: *const cap_table.InboundCapTable, canceled: bool) !void {
         const qid = ret.answer_id;
         switch (ret.tag) {
             .results => {
@@ -546,9 +663,12 @@ pub const Conn = struct {
                 else if (ret.exception) |e| e.reason else "";
                 const reason = try self.allocator.dupe(u8, text);
                 node.owned_reason = reason;
+                // `cancel` ends the question through a Peer-synthesized
+                // exception: the host asked, so it is a CANCELED terminal.
+                const kind: ReturnKind = if (canceled) .canceled else if (local) .disconnected else .exception;
                 node.effect = .{ .@"return" = .{
                     .qid = qid,
-                    .kind = if (local) .disconnected else .exception,
+                    .kind = kind,
                     .exception_type = ex_type,
                     .reason = reason,
                 } };
@@ -576,6 +696,8 @@ const QuestionCtx = struct {
     /// (its `node` belongs to the queue now). The Peer still holds the ctx;
     /// its later on_return / deinit_ctx only frees it.
     swept: bool = false,
+    /// Set by `cancel` before the Peer synthesizes the terminal exception.
+    cancel_requested: bool = false,
     /// `Conn.live_questions` links: adopted, terminal not fired yet.
     linked: bool = false,
     prev: ?*QuestionCtx = null,
@@ -684,13 +806,14 @@ fn onQuestionReturn(
         return;
     }
     const node = qc.node;
+    const canceled = qc.cancel_requested;
     self.releaseQuestionCtx(qc);
     self.stats.terminal_via_on_return +|= 1;
     if (self.discarding) {
         node.destroy(self.allocator);
         return;
     }
-    self.fillReturn(node, ret, caps) catch |err| {
+    self.fillReturn(node, ret, caps, canceled) catch |err| {
         // Never lose the terminal: report it without the payload. Imports were
         // not retained, so the Peer releases them after this callback.
         node.freePayload(self.allocator);
@@ -701,6 +824,7 @@ fn onQuestionReturn(
             .reason = switch (err) {
                 error.OutOfMemory => oom_results_reason,
                 error.PayloadCopyExceedsFrame => oversized_results_reason,
+                error.PromisedCapUnsupported => promised_results_reason,
                 else => bad_results_reason,
             },
         } };
