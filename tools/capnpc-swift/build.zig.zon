@@ -1,0 +1,20 @@
+.{
+    .name = .capnp_swift_capnpc_swift,
+    .version = "0.0.1",
+    .fingerprint = 0x24aaf40665d39004,
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        // The same capnp-zig tag core/build.zig.zon pins (bump all three
+        // together: core, interop/zig-peer, this file). `zig build` fetches
+        // it; never run `zig fetch <url>` (CLAUDE.md).
+        .capnpc_zig = .{
+            .url = "https://github.com/nullstyle/capnp-zig/archive/refs/tags/v0.21.0.tar.gz",
+            .hash = "capnpc_zig-0.21.0-nUduFa7PRwBrWc9CyzM8u052LMqBhHzvA52R1s407iCg",
+        },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+    },
+}
