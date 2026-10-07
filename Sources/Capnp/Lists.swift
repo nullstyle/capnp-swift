@@ -508,3 +508,77 @@ extension PointerListBuilderSlice {
         message.allocateByteList(pointerWord: pointerWordIndex(of: element), bytes: data)
     }
 }
+
+/// A Float32 list, read through its bit patterns.
+public struct Float32ListReader: Sendable {
+    let raw: FixedSizeListReader<UInt32>
+    init(raw: FixedSizeListReader<UInt32>) { self.raw = raw }
+
+    public var count: Int { raw.count }
+    public var isEmpty: Bool { raw.isEmpty }
+    public var indices: Range<Int> { raw.indices }
+
+    public subscript(index: Int) -> Float32 {
+        Float32(bitPattern: raw[index])
+    }
+
+    public func elements() -> [Float32] {
+        var out: [Float32] = []
+        out.reserveCapacity(count)
+        for i in indices { out.append(self[i]) }
+        return out
+    }
+}
+
+/// A Float64 list, read through its bit patterns.
+public struct Float64ListReader: Sendable {
+    let raw: FixedSizeListReader<UInt64>
+    init(raw: FixedSizeListReader<UInt64>) { self.raw = raw }
+
+    public var count: Int { raw.count }
+    public var isEmpty: Bool { raw.isEmpty }
+    public var indices: Range<Int> { raw.indices }
+
+    public subscript(index: Int) -> Float64 {
+        Float64(bitPattern: raw[index])
+    }
+
+    public func elements() -> [Float64] {
+        var out: [Float64] = []
+        out.reserveCapacity(count)
+        for i in indices { out.append(self[i]) }
+        return out
+    }
+}
+
+extension StructReader {
+    public func readFloat32ListOrDefault(_ index: Int) throws -> Float32ListReader? {
+        try readFixedSizeListOrDefault(index, as: UInt32.self).map(Float32ListReader.init)
+    }
+
+    public func readFloat64ListOrDefault(_ index: Int) throws -> Float64ListReader? {
+        try readFixedSizeListOrDefault(index, as: UInt64.self).map(Float64ListReader.init)
+    }
+}
+
+extension StructBuilder {
+    /// A Float32 list field at pointer slot `index`.
+    public func initFloat32List(_ index: Int, count: Int) -> FixedSizeListBuilder<UInt32> {
+        initFixedSizeList(index, count: count, as: UInt32.self)
+    }
+
+    /// A Float64 list field at pointer slot `index`.
+    public func initFloat64List(_ index: Int, count: Int) -> FixedSizeListBuilder<UInt64> {
+        initFixedSizeList(index, count: count, as: UInt64.self)
+    }
+}
+
+extension FixedSizeListBuilder {
+    public func setFloat32(_ index: Int, _ value: Float32) where Element == UInt32 {
+        self[index] = value.bitPattern
+    }
+
+    public func setFloat64(_ index: Int, _ value: Float64) where Element == UInt64 {
+        self[index] = value.bitPattern
+    }
+}

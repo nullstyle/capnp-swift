@@ -30,29 +30,32 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(exe);
 
-    // The golden gate: run the built plugin on a committed CodeGeneratorRequest
-    // (no schema compiler needed) and diff its output against the committed
-    // golden file. `-Dupdate-goldens` rewrites the golden instead.
+    // The golden gates: run the built plugin on committed CodeGeneratorRequests
+    // (no schema compiler needed) and diff each output against its committed
+    // golden file. `-Dupdate-goldens` rewrites the goldens instead.
     const update_goldens = b.option(bool, "update-goldens", "Rewrite tests/golden/*.swift instead of diffing") orelse false;
-    const golden_check = b.step("golden-check", "Diff the plugin output against its golden");
+    const golden_check = b.step("golden-check", "Diff the plugin output against its goldens");
     {
-        const run = b.addRunArtifact(exe);
-        run.setStdIn(.{ .lazy_path = b.path("tests/requests/mvp.request.bin") });
-        const out = run.addPrefixedOutputDirectoryArg("--output-dir=", "gen");
+        const goldens = [_][]const u8{ "mvp", "defaults" };
+        inline for (goldens) |name| {
+            const run = b.addRunArtifact(exe);
+            run.setStdIn(.{ .lazy_path = b.path("tests/requests/" ++ name ++ ".request.bin") });
+            const out = run.addPrefixedOutputDirectoryArg("--output-dir=", "gen-" ++ name);
 
-        const golden = b.path("tests/golden/mvp.swift");
-        const generated = out.join(b.allocator, "mvp.swift") catch @panic("OOM");
-        if (update_goldens) {
-            const cp = b.addSystemCommand(&.{"cp"});
-            cp.addFileArg(generated);
-            cp.addFileArg(golden);
-            b.getInstallStep().dependOn(&cp.step);
-        } else {
-            const diff = b.addSystemCommand(&.{"diff"});
-            diff.addArg("-u");
-            diff.addFileArg(golden);
-            diff.addFileArg(generated);
-            golden_check.dependOn(&diff.step);
+            const golden = b.path("tests/golden/" ++ name ++ ".swift");
+            const generated = out.join(b.allocator, name ++ ".swift") catch @panic("OOM");
+            if (update_goldens) {
+                const cp = b.addSystemCommand(&.{"cp"});
+                cp.addFileArg(generated);
+                cp.addFileArg(golden);
+                b.getInstallStep().dependOn(&cp.step);
+            } else {
+                const diff = b.addSystemCommand(&.{"diff"});
+                diff.addArg("-u");
+                diff.addFileArg(golden);
+                diff.addFileArg(generated);
+                golden_check.dependOn(&diff.step);
+            }
         }
     }
 

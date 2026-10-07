@@ -94,6 +94,12 @@ public struct Message: Sendable {
         self.segments = segments
     }
 
+    /// Internal: assemble from already-parsed pieces (failure paths only).
+    init(segments: [Range<Int>], bytes: [UInt8]) {
+        self.bytes = bytes
+        self.segments = segments
+    }
+
     static func u32(_ b: [UInt8], _ i: Int) -> UInt32 {
         UInt32(b[i]) | UInt32(b[i + 1]) << 8 | UInt32(b[i + 2]) << 16 | UInt32(b[i + 3]) << 24
     }
