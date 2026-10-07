@@ -68,7 +68,7 @@ let package = Package(
         ),
         .testTarget(
             name: "CapnpConformanceTests",
-            dependencies: ["Capnp", "CapnpTestSchemas", "CapnpImportLib", "CapnpImportApp"]
+            dependencies: ["Capnp", "CapnpTestSchemas", "CapnpTestVendor", "CapnpImportLib", "CapnpImportApp"]
         ),
         .testTarget(
             name: "CapnpRPCTests",
@@ -82,6 +82,13 @@ let package = Package(
             name: "CapnpMVPGen",
             dependencies: ["Capnp", "CapnpRPC"],
             path: "interop/mvp-swift-gen"
+        ),
+        // The kaos/capnp_test vendor corpus (plan §8 M3 gate: the compiler's
+        // `eval` binaries read through generated code).
+        .target(
+            name: "CapnpTestVendor",
+            dependencies: ["Capnp", "CapnpRPC"],
+            path: "generated/vendor"
         ),
         // The two-target import gate (plan §8 M3): app.capnp's generated
         // code imports the Lib module across the target boundary.

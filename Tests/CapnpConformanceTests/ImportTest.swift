@@ -14,13 +14,17 @@ import Testing
 struct ImportTargetsTests {
     @Test("a generated type crosses the module boundary with its default")
     func crossModuleType() throws {
-        // A Boxed message carrying lib.capnp's default value, read through
-        // the app target's cross-module reference.
+        // Boxed.value defaults to 42; the wire stores value ^ default, so
+        // zeroed storage reads as the default (capnp's default encoding).
         var bytes: [UInt8] = [0, 0, 0, 0, 2, 0, 0, 0] // 1 segment, 2 words
-        bytes.append(contentsOf: [0, 0, 0, 0, 1, 0, 0, 0]) // root struct: offset 0 (the next word), 1 data word
-        bytes.append(contentsOf: [42, 0, 0, 0, 0, 0, 0, 0])
-        let boxed = try CapnpImportLib.Boxed.Reader(Message(bytes: bytes).rootStruct())
-        #expect(boxed.value == 42)
+        bytes.append(contentsOf: [0, 0, 0, 0, 1, 0, 0, 0]) // root struct: offset 0, 1 data word
+        bytes.append(contentsOf: [UInt8](repeating: 0, count: 8))
+        let defaulted = try CapnpImportLib.Boxed.Reader(Message(bytes: bytes).rootStruct())
+        #expect(defaulted.value == 42)
+        // A non-default value: 7 xor 42 = 45 on the wire reads back 7.
+        bytes[16] = 45
+        let seven = try CapnpImportLib.Boxed.Reader(Message(bytes: bytes).rootStruct())
+        #expect(seven.value == 7)
         // UsesBox's box accessor names the foreign type through the module.
         let uses = try CapnpImportApp.UsesBox.Reader(Message(bytes: MessageBuilder.emptyStruct()).rootStruct())
         _ = uses.box

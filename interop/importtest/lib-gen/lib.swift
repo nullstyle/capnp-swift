@@ -11,23 +11,19 @@ public struct Boxed {
         let root: StructReader
         public init(_ root: StructReader) { self.root = root }
         public var value: UInt32 {
-            if !root.covers(byteOffset: 0, 4) { return 0 }
-            return root.readUInt32(at: 0)
+            return root.readUInt32(at: 0) ^ 42
         }
 
     }
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var value: UInt32 {
             get { root.readUInt32(at: 0) }
             set { root.setUInt32(at: 0, newValue) }
         }
 
-        private func defaults() {
-        root.setUInt32(at: 0, 42)
-        }
     }
 
 }

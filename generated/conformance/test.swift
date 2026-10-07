@@ -121,7 +121,7 @@ public struct TestAllTypes {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var boolField: Bool {
             get { root.readBool(at: 0) }
             set { root.setBool(at: 0, newValue) }
@@ -226,8 +226,6 @@ public struct TestAllTypes {
 
         public func initInterfaceList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(19, count: count) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -239,58 +237,47 @@ public struct TestDefaults {
         static let StructFieldDefaultBytes = [UInt8]([0x0, 0x0, 0x0, 0x0, 0x6, 0x0, 0x14, 0x0, 0x1, 0xf4, 0x80, 0xd, 0xe, 0x10, 0x4c, 0xfb, 0x4e, 0x73, 0xe8, 0x38, 0xa6, 0x33, 0x0, 0x0, 0x5a, 0x0, 0xd2, 0x4, 0x14, 0x88, 0x62, 0x3, 0xd2, 0xa, 0x6f, 0x12, 0x21, 0x19, 0xcc, 0x4, 0x5f, 0x70, 0x9, 0xaf, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x90, 0x75, 0x40, 0x4d, 0x0, 0x0, 0x0, 0x22, 0x0, 0x0, 0x0, 0x4d, 0x0, 0x0, 0x0, 0x1a, 0x0, 0x0, 0x0, 0x4c, 0x0, 0x0, 0x0, 0x6, 0x0, 0x14, 0x0, 0x25, 0x1, 0x0, 0x0, 0x18, 0x0, 0x0, 0x0, 0x21, 0x1, 0x0, 0x0, 0x29, 0x0, 0x0, 0x0, 0x21, 0x1, 0x0, 0x0, 0x22, 0x0, 0x0, 0x0, 0x21, 0x1, 0x0, 0x0, 0x23, 0x0, 0x0, 0x0, 0x21, 0x1, 0x0, 0x0, 0x24, 0x0, 0x0, 0x0, 0x25, 0x1, 0x0, 0x0, 0x25, 0x0, 0x0, 0x0, 0x31, 0x1, 0x0, 0x0, 0x22, 0x0, 0x0, 0x0, 0x31, 0x1, 0x0, 0x0, 0x23, 0x0, 0x0, 0x0, 0x31, 0x1, 0x0, 0x0, 0x24, 0x0, 0x0, 0x0, 0x35, 0x1, 0x0, 0x0, 0x25, 0x0, 0x0, 0x0, 0x41, 0x1, 0x0, 0x0, 0x34, 0x0, 0x0, 0x0, 0x49, 0x1, 0x0, 0x0, 0x35, 0x0, 0x0, 0x0, 0x5d, 0x1, 0x0, 0x0, 0x1e, 0x0, 0x0, 0x0, 0x71, 0x1, 0x0, 0x0, 0x1e, 0x0, 0x0, 0x0, 0x85, 0x1, 0x0, 0x0, 0x77, 0x2, 0x0, 0x0, 0xd5, 0x2, 0x0, 0x0, 0x1b, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x62, 0x61, 0x7a, 0x0, 0x0, 0x0, 0x0, 0x0, 0x71, 0x75, 0x78, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x4d, 0x0, 0x0, 0x0, 0x3a, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x48, 0x0, 0x0, 0x0, 0x6, 0x0, 0x14, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x6e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x4d, 0x0, 0x0, 0x0, 0x72, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x72, 0x65, 0x61, 0x6c, 0x6c, 0x79, 0x20, 0x6e, 0x65, 0x73, 0x74, 0x65, 0x64, 0x0, 0x0, 0x0, 0x1a, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xc, 0xde, 0x80, 0x7f, 0x0, 0x0, 0x0, 0x0, 0xd2, 0x4, 0xd2, 0xe9, 0x0, 0x80, 0xff, 0x7f, 0x4e, 0x61, 0xbc, 0x0, 0x40, 0xd3, 0xa0, 0xfa, 0x0, 0x0, 0x0, 0x80, 0xff, 0xff, 0xff, 0x7f, 0x79, 0xdf, 0xd, 0x86, 0x48, 0x70, 0x0, 0x0, 0x2e, 0x75, 0x13, 0xfd, 0x8a, 0x96, 0xfd, 0xff, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x80, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f, 0xc, 0x22, 0x0, 0xff, 0x0, 0x0, 0x0, 0x0, 0xd2, 0x4, 0x2e, 0x16, 0x0, 0x0, 0xff, 0xff, 0x4e, 0x61, 0xbc, 0x0, 0xc0, 0x2c, 0x5f, 0x5, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0xff, 0xff, 0x79, 0xdf, 0xd, 0x86, 0x48, 0x70, 0x0, 0x0, 0xd2, 0x8a, 0xec, 0x2, 0x75, 0x69, 0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x0, 0x0, 0x0, 0x0, 0x38, 0xb4, 0x96, 0x49, 0xc2, 0xbd, 0xf0, 0x7c, 0xc2, 0xbd, 0xf0, 0xfc, 0xea, 0x1c, 0x8, 0x2, 0xea, 0x1c, 0x8, 0x82, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x40, 0xde, 0x77, 0x83, 0x21, 0x12, 0xdc, 0x42, 0x29, 0x90, 0x23, 0xca, 0xe5, 0xc8, 0x76, 0x7f, 0x29, 0x90, 0x23, 0xca, 0xe5, 0xc8, 0x76, 0xff, 0x91, 0xf7, 0x50, 0x37, 0x9e, 0x78, 0x66, 0x0, 0x91, 0xf7, 0x50, 0x37, 0x9e, 0x78, 0x66, 0x80, 0x9, 0x0, 0x0, 0x0, 0x2a, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x32, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x3a, 0x0, 0x0, 0x0, 0x71, 0x75, 0x75, 0x78, 0x0, 0x0, 0x0, 0x0, 0x63, 0x6f, 0x72, 0x67, 0x65, 0x0, 0x0, 0x0, 0x67, 0x72, 0x61, 0x75, 0x6c, 0x74, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x32, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x2a, 0x0, 0x0, 0x0, 0x9, 0x0, 0x0, 0x0, 0x22, 0x0, 0x0, 0x0, 0x67, 0x61, 0x72, 0x70, 0x6c, 0x79, 0x0, 0x0, 0x77, 0x61, 0x6c, 0x64, 0x6f, 0x0, 0x0, 0x0, 0x66, 0x72, 0x65, 0x64, 0x0, 0x0, 0x0, 0x0, 0xc, 0x0, 0x0, 0x0, 0x6, 0x0, 0x14, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1d, 0x1, 0x0, 0x0, 0x7a, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xbd, 0x0, 0x0, 0x0, 0x7a, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x5d, 0x0, 0x0, 0x0, 0x7a, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x78, 0x20, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x6c, 0x69, 0x73, 0x74, 0x20, 0x31, 0x0, 0x0, 0x78, 0x20, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x6c, 0x69, 0x73, 0x74, 0x20, 0x32, 0x0, 0x0, 0x78, 0x20, 0x73, 0x74, 0x72, 0x75, 0x63, 0x74, 0x6c, 0x69, 0x73, 0x74, 0x20, 0x33, 0x0, 0x0, 0x3, 0x0, 0x1, 0x0, 0x6, 0x0, 0x0, 0x0])
         static let StructFieldDefault = CapnpDefaultMessage(bytes: StructFieldDefaultBytes)
         public var boolField: Bool {
-            if !root.covers(byteOffset: 0, 1) { return false }
-            return root.readBool(at: 0)
+            return !root.readBool(at: 0)
         }
 
         public var int8Field: Int8 {
-            if !root.covers(byteOffset: 1, 1) { return 0 }
-            return root.readInt8(at: 1)
+            return root.readInt8(at: 1) ^ -123
         }
 
         public var int16Field: Int16 {
-            if !root.covers(byteOffset: 2, 2) { return 0 }
-            return root.readInt16(at: 2)
+            return root.readInt16(at: 2) ^ -12345
         }
 
         public var int32Field: Int32 {
-            if !root.covers(byteOffset: 4, 4) { return 0 }
-            return root.readInt32(at: 4)
+            return root.readInt32(at: 4) ^ -12345678
         }
 
         public var int64Field: Int64 {
-            if !root.covers(byteOffset: 8, 8) { return 0 }
-            return root.readInt64(at: 8)
+            return root.readInt64(at: 8) ^ -123456789012345
         }
 
         public var uInt8Field: UInt8 {
-            if !root.covers(byteOffset: 16, 1) { return 0 }
-            return root.readUInt8(at: 16)
+            return root.readUInt8(at: 16) ^ 234
         }
 
         public var uInt16Field: UInt16 {
-            if !root.covers(byteOffset: 18, 2) { return 0 }
-            return root.readUInt16(at: 18)
+            return root.readUInt16(at: 18) ^ 45678
         }
 
         public var uInt32Field: UInt32 {
-            if !root.covers(byteOffset: 20, 4) { return 0 }
-            return root.readUInt32(at: 20)
+            return root.readUInt32(at: 20) ^ 3456789012
         }
 
         public var uInt64Field: UInt64 {
-            if !root.covers(byteOffset: 24, 8) { return 0 }
-            return root.readUInt64(at: 24)
+            return root.readUInt64(at: 24) ^ 12345678901234567890
         }
 
         public var float32Field: Float32 {
-            if !root.covers(byteOffset: 32, 4) { return Float32(bitPattern: 0x449a5000) }
-            return root.readFloat32(at: 32)
+            return Float32(bitPattern: root.readUInt32(at: 32) ^ 0x449a5000)
         }
 
         public var float64Field: Float64 {
-            if !root.covers(byteOffset: 40, 8) { return Float64(bitPattern: 0xc9b58b82c0e0bb00) }
-            return root.readFloat64(at: 40)
+            return Float64(bitPattern: root.readUInt64(at: 40) ^ 0xc9b58b82c0e0bb00)
         }
 
         public func textField() throws -> String {
@@ -309,8 +296,7 @@ public struct TestDefaults {
         }
 
         public var enumField: TestEnum {
-            if !root.covers(byteOffset: 36, 2) { return TestEnum(rawValue: 5) }
-            return TestEnum(rawValue: root.readUInt16(at: 36))
+            return TestEnum(rawValue: root.readUInt16(at: 36) ^ 5)
         }
 
         public func voidList() throws -> PointerListReader? { try root.readPointerListOrDefault(3) }
@@ -366,7 +352,7 @@ public struct TestDefaults {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var boolField: Bool {
             get { root.readBool(at: 0) }
             set { root.setBool(at: 0, newValue) }
@@ -471,20 +457,6 @@ public struct TestDefaults {
 
         public func initInterfaceList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(19, count: count) }
 
-        private func defaults() {
-        root.setBool(at: 0, true)
-        root.setInt8(at: 1, -123)
-        root.setInt16(at: 2, -12345)
-        root.setInt32(at: 4, -12345678)
-        root.setInt64(at: 8, -123456789012345)
-        root.setUInt8(at: 16, 234)
-        root.setUInt16(at: 9, 45678)
-        root.setUInt32(at: 5, 3456789012)
-        root.setUInt64(at: 3, 12345678901234567890)
-        root.setUInt32(at: 32, 0x449a5000)
-        root.setUInt64(at: 40, 0xc9b58b82c0e0bb00)
-        root.setEnum16(at: 36, 5)
-        }
     }
 
 }
@@ -499,9 +471,7 @@ public struct TestAnyPointer {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
-        private func defaults() {
-        }
+        public init(_ root: StructBuilder) { self.root = root }
     }
 
 }
@@ -520,9 +490,7 @@ public struct TestAnyOthers {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
-        private func defaults() {
-        }
+        public init(_ root: StructBuilder) { self.root = root }
     }
 
 }
@@ -571,7 +539,7 @@ public struct TestOutOfOrder {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func setQux(_ v: String) { root.setText(0, v) }
 
         public func setGrault(_ v: String) { root.setText(1, v) }
@@ -590,8 +558,6 @@ public struct TestOutOfOrder {
 
         public func setBaz(_ v: String) { root.setText(8, v) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -672,7 +638,7 @@ public struct TestUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
             public var u0f0s1: Bool {
@@ -729,8 +695,6 @@ public struct TestUnion {
 
             public func setU0f1sp(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -836,7 +800,7 @@ public struct TestUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 2)) }
 
             public var u1f0s1: Bool {
@@ -920,8 +884,6 @@ public struct TestUnion {
 
             public func setU1f2sp(_ v: String) { root.setText(1, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -965,7 +927,7 @@ public struct TestUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 4)) }
 
             public var u2f0s1: Bool {
@@ -993,8 +955,6 @@ public struct TestUnion {
                 set { root.setInt64(at: 48, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -1038,7 +998,7 @@ public struct TestUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 6)) }
 
             public var u3f0s1: Bool {
@@ -1066,8 +1026,6 @@ public struct TestUnion {
                 set { root.setInt64(at: 56, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -1103,7 +1061,7 @@ public struct TestUnion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var union0: Union0.Builder { Union0.Builder(root) }
 
         public var union1: Union1.Builder { Union1.Builder(root) }
@@ -1152,8 +1110,6 @@ public struct TestUnion {
             set { root.setUInt8(at: 35, newValue) }
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -1195,7 +1151,7 @@ public struct TestUnnamedUnion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var which: Which { Which(discriminant: root.readUInt16(at: 4)) }
 
         public func setBefore(_ v: String) { root.setText(0, v) }
@@ -1217,8 +1173,6 @@ public struct TestUnnamedUnion {
 
         public func setAfter(_ v: String) { root.setText(1, v) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -1252,7 +1206,7 @@ public struct TestUnionInUnion {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public var which: Which { Which(discriminant: root.readUInt16(at: 4)) }
 
                 public var foo: Int32 {
@@ -1265,8 +1219,6 @@ public struct TestUnionInUnion {
                     set { root.setInt32(at: 0, newValue) }
                 }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -1297,7 +1249,7 @@ public struct TestUnionInUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 8)) }
 
             public var inner: Inner.Builder { Inner.Builder(root) }
@@ -1307,8 +1259,6 @@ public struct TestUnionInUnion {
                 set { root.setInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -1322,11 +1272,9 @@ public struct TestUnionInUnion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var outer: Outer.Builder { Outer.Builder(root) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -1349,7 +1297,7 @@ public struct TestGroups {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public var corge: Int32 {
                     get { root.readInt32(at: 0) }
                     set { root.setInt32(at: 0, newValue) }
@@ -1362,8 +1310,6 @@ public struct TestGroups {
 
                 public func setGarply(_ v: String) { root.setText(0, v) }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -1386,7 +1332,7 @@ public struct TestGroups {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public var corge: Int32 {
                     get { root.readInt32(at: 0) }
                     set { root.setInt32(at: 0, newValue) }
@@ -1396,8 +1342,6 @@ public struct TestGroups {
 
                 public func setGarply(_ v: String) { root.setText(1, v) }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -1418,7 +1362,7 @@ public struct TestGroups {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public var corge: Int32 {
                     get { root.readInt32(at: 0) }
                     set { root.setInt32(at: 0, newValue) }
@@ -1431,8 +1375,6 @@ public struct TestGroups {
                     set { root.setInt64(at: 8, newValue) }
                 }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -1467,7 +1409,7 @@ public struct TestGroups {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 4)) }
 
             public var foo: Foo.Builder { Foo.Builder(root) }
@@ -1476,8 +1418,6 @@ public struct TestGroups {
 
             public var bar: Bar.Builder { Bar.Builder(root) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -1491,11 +1431,9 @@ public struct TestGroups {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var groups: Groups.Builder { Groups.Builder(root) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -1522,7 +1460,7 @@ public struct TestInterleavedGroups {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public var grault: UInt64 {
                     get { root.readUInt64(at: 32) }
                     set { root.setUInt64(at: 32, newValue) }
@@ -1537,8 +1475,6 @@ public struct TestInterleavedGroups {
 
                 public func setXyzzy(_ v: String) { root.setText(4, v) }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -1583,7 +1519,7 @@ public struct TestInterleavedGroups {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 28)) }
 
             public var foo: UInt32 {
@@ -1607,8 +1543,6 @@ public struct TestInterleavedGroups {
 
             public func setFred(_ v: String) { root.setText(2, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -1634,7 +1568,7 @@ public struct TestInterleavedGroups {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public var grault: UInt64 {
                     get { root.readUInt64(at: 40) }
                     set { root.setUInt64(at: 40, newValue) }
@@ -1649,8 +1583,6 @@ public struct TestInterleavedGroups {
 
                 public func setXyzzy(_ v: String) { root.setText(5, v) }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -1695,7 +1627,7 @@ public struct TestInterleavedGroups {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 30)) }
 
             public var foo: UInt32 {
@@ -1719,8 +1651,6 @@ public struct TestInterleavedGroups {
 
             public func setFred(_ v: String) { root.setText(3, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -1736,13 +1666,11 @@ public struct TestInterleavedGroups {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var group1: Group1.Builder { Group1.Builder(root) }
 
         public var group2: Group2.Builder { Group2.Builder(root) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -1783,7 +1711,7 @@ public struct TestUnionDefaults {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initS16s8s64s8Set() -> TestUnion.Builder {
             TestUnion.Builder(root.initStruct(0, dataWords: 8, pointerWords: 2))
         }
@@ -1800,8 +1728,6 @@ public struct TestUnionDefaults {
             TestUnnamedUnion.Builder(root.initStruct(3, dataWords: 2, pointerWords: 2))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -1841,20 +1767,18 @@ public struct TestNestedTypes {
             let root: StructReader
             public init(_ root: StructReader) { self.root = root }
             public var outerNestedEnum: TestNestedTypes.TestNestedTypes_NestedEnum {
-                if !root.covers(byteOffset: 0, 2) { return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: 1) }
-                return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0))
+                return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0) ^ 1)
             }
 
             public var innerNestedEnum: TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum {
-                if !root.covers(byteOffset: 2, 2) { return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: 2) }
-                return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 2))
+                return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 2) ^ 2)
             }
 
         }
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var outerNestedEnum: TestNestedTypes.TestNestedTypes_NestedEnum {
                 get { TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0)) }
                 set { root.setEnum16(at: 0, newValue.rawValue) }
@@ -1865,10 +1789,6 @@ public struct TestNestedTypes {
                 set { root.setEnum16(at: 2, newValue.rawValue) }
             }
 
-            private func defaults() {
-            root.setEnum16(at: 0, 1)
-            root.setEnum16(at: 2, 2)
-            }
         }
 
     }
@@ -1881,20 +1801,18 @@ public struct TestNestedTypes {
         }
 
         public var outerNestedEnum: TestNestedTypes.TestNestedTypes_NestedEnum {
-            if !root.covers(byteOffset: 0, 2) { return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: 1) }
-            return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0))
+            return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0) ^ 1)
         }
 
         public var innerNestedEnum: TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum {
-            if !root.covers(byteOffset: 2, 2) { return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: 2) }
-            return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 2))
+            return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 2) ^ 2)
         }
 
     }
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initNestedStruct() -> TestNestedTypes.TestNestedTypes_NestedStruct.Builder {
             TestNestedTypes.TestNestedTypes_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 0))
         }
@@ -1909,10 +1827,6 @@ public struct TestNestedTypes {
             set { root.setEnum16(at: 2, newValue.rawValue) }
         }
 
-        private func defaults() {
-        root.setEnum16(at: 0, 1)
-        root.setEnum16(at: 2, 2)
-        }
     }
 
 }
@@ -1922,20 +1836,18 @@ public struct TestUsing {
         let root: StructReader
         public init(_ root: StructReader) { self.root = root }
         public var innerNestedEnum: TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum {
-            if !root.covers(byteOffset: 0, 2) { return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: 2) }
-            return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 0))
+            return TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 0) ^ 2)
         }
 
         public var outerNestedEnum: TestNestedTypes.TestNestedTypes_NestedEnum {
-            if !root.covers(byteOffset: 2, 2) { return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: 1) }
-            return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 2))
+            return TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 2) ^ 1)
         }
 
     }
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var innerNestedEnum: TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum {
             get { TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 0)) }
             set { root.setEnum16(at: 0, newValue.rawValue) }
@@ -1946,10 +1858,6 @@ public struct TestUsing {
             set { root.setEnum16(at: 2, newValue.rawValue) }
         }
 
-        private func defaults() {
-        root.setEnum16(at: 0, 2)
-        root.setEnum16(at: 2, 1)
-        }
     }
 
 }
@@ -1963,9 +1871,7 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -1980,14 +1886,12 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: Bool {
                 get { root.readBool(at: 0) }
                 set { root.setBool(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2002,14 +1906,12 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: UInt8 {
                 get { root.readUInt8(at: 0) }
                 set { root.setUInt8(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2024,14 +1926,12 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: UInt16 {
                 get { root.readUInt16(at: 0) }
                 set { root.setUInt16(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2046,14 +1946,12 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2068,14 +1966,12 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: UInt64 {
                 get { root.readUInt64(at: 0) }
                 set { root.setUInt64(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2092,11 +1988,9 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setF(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2113,11 +2007,9 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setPad(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2136,7 +2028,7 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: Bool {
                 get { root.readBool(at: 0) }
                 set { root.setBool(at: 0, newValue) }
@@ -2144,8 +2036,6 @@ public struct TestLists {
 
             public func setPad(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2164,7 +2054,7 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: UInt8 {
                 get { root.readUInt8(at: 0) }
                 set { root.setUInt8(at: 0, newValue) }
@@ -2172,8 +2062,6 @@ public struct TestLists {
 
             public func setPad(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2192,7 +2080,7 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: UInt16 {
                 get { root.readUInt16(at: 0) }
                 set { root.setUInt16(at: 0, newValue) }
@@ -2200,8 +2088,6 @@ public struct TestLists {
 
             public func setPad(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2220,7 +2106,7 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
@@ -2228,8 +2114,6 @@ public struct TestLists {
 
             public func setPad(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2248,7 +2132,7 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var f: UInt64 {
                 get { root.readUInt64(at: 0) }
                 set { root.setUInt64(at: 0, newValue) }
@@ -2256,8 +2140,6 @@ public struct TestLists {
 
             public func setPad(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2276,7 +2158,7 @@ public struct TestLists {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setF(_ v: String) { root.setText(0, v) }
 
             public var pad: UInt64 {
@@ -2284,8 +2166,6 @@ public struct TestLists {
                 set { root.setUInt64(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2366,7 +2246,7 @@ public struct TestLists {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initList0(_ count: Int) -> StructListBuilder {
             root.initStructList(0, dataWords: 0, pointerWords: 0, count: count)
         }
@@ -2401,8 +2281,6 @@ public struct TestLists {
 
         public func initStructListList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(9, count: count) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -2414,20 +2292,18 @@ public struct TestFieldZeroIsBit {
         public var bit: Bool { root.readBool(at: 0) }
 
         public var secondBit: Bool {
-            if !root.covers(byteOffset: 1, 1) { return false }
-            return root.readBool(at: 1)
+            return !root.readBool(at: 1)
         }
 
         public var thirdField: UInt8 {
-            if !root.covers(byteOffset: 1, 1) { return 0 }
-            return root.readUInt8(at: 1)
+            return root.readUInt8(at: 1) ^ 123
         }
 
     }
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var bit: Bool {
             get { root.readBool(at: 0) }
             set { root.setBool(at: 0, newValue) }
@@ -2443,10 +2319,6 @@ public struct TestFieldZeroIsBit {
             set { root.setUInt8(at: 1, newValue) }
         }
 
-        private func defaults() {
-        root.setBool(at: 1, true)
-        root.setUInt8(at: 1, 123)
-        }
     }
 
 }
@@ -2466,13 +2338,11 @@ public struct TestListDefaults {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initLists() -> TestLists.Builder {
             TestLists.Builder(root.initStruct(0, dataWords: 0, pointerWords: 10))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -2511,7 +2381,7 @@ public struct TestLateUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 6)) }
 
             public func setQux(_ v: String) { root.setText(1, v) }
@@ -2523,8 +2393,6 @@ public struct TestLateUnion {
                 set { root.setFloat32(at: 8, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2562,7 +2430,7 @@ public struct TestLateUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 12)) }
 
             public func setQux(_ v: String) { root.setText(2, v) }
@@ -2574,8 +2442,6 @@ public struct TestLateUnion {
                 set { root.setFloat32(at: 16, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2599,7 +2465,7 @@ public struct TestLateUnion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var foo: Int32 {
             get { root.readInt32(at: 0) }
             set { root.setInt32(at: 0, newValue) }
@@ -2616,8 +2482,6 @@ public struct TestLateUnion {
 
         public var anotherUnion: AnotherUnion.Builder { AnotherUnion.Builder(root) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -2640,7 +2504,7 @@ public struct TestOldVersion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var old1: Int64 {
             get { root.readInt64(at: 0) }
             set { root.setInt64(at: 0, newValue) }
@@ -2652,8 +2516,6 @@ public struct TestOldVersion {
             TestOldVersion.Builder(root.initStruct(1, dataWords: 1, pointerWords: 2))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -2673,8 +2535,7 @@ public struct TestNewVersion {
         }
 
         public var new1: Int64 {
-            if !root.covers(byteOffset: 8, 8) { return 0 }
-            return root.readInt64(at: 8)
+            return root.readInt64(at: 8) ^ 987
         }
 
         public func new2() throws -> String {
@@ -2686,7 +2547,7 @@ public struct TestNewVersion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var old1: Int64 {
             get { root.readInt64(at: 0) }
             set { root.setInt64(at: 0, newValue) }
@@ -2705,9 +2566,6 @@ public struct TestNewVersion {
 
         public func setNew2(_ v: String) { root.setText(2, v) }
 
-        private func defaults() {
-        root.setInt64(at: 8, 987)
-        }
     }
 
 }
@@ -2737,7 +2595,7 @@ public struct TestOldUnionVersion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
         public var b: UInt64 {
@@ -2745,8 +2603,6 @@ public struct TestOldUnionVersion {
             set { root.setUInt64(at: 8, newValue) }
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -2777,7 +2633,7 @@ public struct TestNewUnionVersion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 8)) }
 
             public var a1: UInt64 {
@@ -2785,8 +2641,6 @@ public struct TestNewUnionVersion {
                 set { root.setUInt64(at: 16, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2817,7 +2671,7 @@ public struct TestNewUnionVersion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
         public var a: A.Builder { A.Builder(root) }
@@ -2827,8 +2681,6 @@ public struct TestNewUnionVersion {
             set { root.setUInt64(at: 8, newValue) }
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -2850,13 +2702,11 @@ public struct TestStructUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setSomeText(_ v: String) { root.setText(0, v) }
 
             public func setMoreText(_ v: String) { root.setText(1, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2892,7 +2742,7 @@ public struct TestStructUnion {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
             public func initStruct() -> TestStructUnion.TestStructUnion_SomeStruct.Builder {
@@ -2903,8 +2753,6 @@ public struct TestStructUnion {
                 TestAnyPointer.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2918,11 +2766,9 @@ public struct TestStructUnion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var un: Un.Builder { Un.Builder(root) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -2942,7 +2788,7 @@ public struct TestPrintInlineStructs {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var int32Field: Int32 {
                 get { root.readInt32(at: 0) }
                 set { root.setInt32(at: 0, newValue) }
@@ -2950,8 +2796,6 @@ public struct TestPrintInlineStructs {
 
             public func setTextField(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -2976,15 +2820,13 @@ public struct TestPrintInlineStructs {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func setSomeText(_ v: String) { root.setText(0, v) }
 
         public func initStructList(_ count: Int) -> StructListBuilder {
             root.initStructList(1, dataWords: 1, pointerWords: 1, count: count)
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -2994,20 +2836,18 @@ public struct TestWholeFloatDefault {
         let root: StructReader
         public init(_ root: StructReader) { self.root = root }
         public var field: Float32 {
-            if !root.covers(byteOffset: 0, 4) { return Float32(bitPattern: 0x42f60000) }
-            return root.readFloat32(at: 0)
+            return Float32(bitPattern: root.readUInt32(at: 0) ^ 0x42f60000)
         }
 
         public var bigField: Float32 {
-            if !root.covers(byteOffset: 4, 4) { return Float32(bitPattern: 0x71c9f2ca) }
-            return root.readFloat32(at: 4)
+            return Float32(bitPattern: root.readUInt32(at: 4) ^ 0x71c9f2ca)
         }
 
     }
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var field: Float32 {
             get { root.readFloat32(at: 0) }
             set { root.setFloat32(at: 0, newValue) }
@@ -3018,10 +2858,6 @@ public struct TestWholeFloatDefault {
             set { root.setFloat32(at: 4, newValue) }
         }
 
-        private func defaults() {
-        root.setUInt32(at: 0, 0x42f60000)
-        root.setUInt32(at: 4, 0x71c9f2ca)
-        }
     }
 
 }
@@ -3039,9 +2875,7 @@ public struct TestGenerics {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -3069,9 +2903,7 @@ public struct TestGenerics {
                         let root: StructBuilder
                         /// Handler exports collected by the interface-typed setters.
                         public var exports: [any ExportHandler] = []
-                        public init(_ root: StructBuilder) { self.root = root; defaults() }
-                        private func defaults() {
-                        }
+                        public init(_ root: StructBuilder) { self.root = root }
                     }
 
                 }
@@ -3093,9 +2925,7 @@ public struct TestGenerics {
 
                     public struct Builder {
                         let root: StructBuilder
-                        public init(_ root: StructBuilder) { self.root = root; defaults() }
-                        private func defaults() {
-                        }
+                        public init(_ root: StructBuilder) { self.root = root }
                     }
 
                 }
@@ -3185,9 +3015,7 @@ public struct TestGenerics {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
-                private func defaults() {
-                }
+                public init(_ root: StructBuilder) { self.root = root }
             }
 
         }
@@ -3211,7 +3039,7 @@ public struct TestGenerics {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func initInnerBound() -> TestGenerics.TestGenerics_Inner.Builder {
                 TestGenerics.TestGenerics_Inner.Builder(root.initStruct(2, dataWords: 0, pointerWords: 2))
             }
@@ -3220,8 +3048,6 @@ public struct TestGenerics {
                 TestGenerics.TestGenerics_Inner.Builder(root.initStruct(3, dataWords: 0, pointerWords: 2))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -3260,9 +3086,7 @@ public struct TestGenerics {
                             let root: StructBuilder
                             /// Handler exports collected by the interface-typed setters.
                             public var exports: [any ExportHandler] = []
-                            public init(_ root: StructBuilder) { self.root = root; defaults() }
-                            private func defaults() {
-                            }
+                            public init(_ root: StructBuilder) { self.root = root }
                         }
 
                     }
@@ -3286,9 +3110,7 @@ public struct TestGenerics {
                             let root: StructBuilder
                             /// Handler exports collected by the interface-typed setters.
                             public var exports: [any ExportHandler] = []
-                            public init(_ root: StructBuilder) { self.root = root; defaults() }
-                            private func defaults() {
-                            }
+                            public init(_ root: StructBuilder) { self.root = root }
                         }
 
                     }
@@ -3380,9 +3202,7 @@ public struct TestGenerics {
                     let root: StructBuilder
                     /// Handler exports collected by the interface-typed setters.
                     public var exports: [any ExportHandler] = []
-                    public init(_ root: StructBuilder) { self.root = root; defaults() }
-                    private func defaults() {
-                    }
+                    public init(_ root: StructBuilder) { self.root = root }
                 }
 
             }
@@ -3408,7 +3228,7 @@ public struct TestGenerics {
                 let root: StructBuilder
                 /// Handler exports collected by the interface-typed setters.
                 public var exports: [any ExportHandler] = []
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public func initInnerBound() -> TestGenerics.TestGenerics_Inner.Builder {
                     TestGenerics.TestGenerics_Inner.Builder(root.initStruct(2, dataWords: 0, pointerWords: 2))
                 }
@@ -3417,8 +3237,6 @@ public struct TestGenerics {
                     TestGenerics.TestGenerics_Inner.Builder(root.initStruct(3, dataWords: 0, pointerWords: 2))
                 }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -3446,13 +3264,11 @@ public struct TestGenerics {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public func initGen() -> TestGenerics.Builder {
                     TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
                 }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -3555,7 +3371,7 @@ public struct TestGenerics {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func initInner() -> TestGenerics.TestGenerics_Inner.Builder {
                 TestGenerics.TestGenerics_Inner.Builder(root.initStruct(1, dataWords: 0, pointerWords: 2))
             }
@@ -3572,8 +3388,6 @@ public struct TestGenerics {
                 TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(4, dataWords: 0, pointerWords: 4))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -3588,14 +3402,12 @@ public struct TestGenerics {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var ugfoo: Int32 {
                 get { root.readInt32(at: 4) }
                 set { root.setInt32(at: 4, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -3639,7 +3451,7 @@ public struct TestGenerics {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
         public func initRev() -> TestGenerics.Builder {
@@ -3652,8 +3464,6 @@ public struct TestGenerics {
             root.initStructList(2, dataWords: 0, pointerWords: 2, count: count)
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -3670,11 +3480,9 @@ public struct BoxedText {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func setText(_ v: String) { root.setText(0, v) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -3691,13 +3499,11 @@ public struct TestGenericsWrapper {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initValue() -> TestGenerics.Builder {
             TestGenerics.Builder(root.initStruct(0, dataWords: 1, pointerWords: 3))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -3714,13 +3520,11 @@ public struct TestGenericsWrapper2 {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initValue() -> TestGenericsWrapper.Builder {
             TestGenericsWrapper.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -3750,9 +3554,7 @@ public enum TestImplicitMethodParams {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -3777,14 +3579,12 @@ public enum TestImplicitMethodParams {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public var ugfoo: Int32 {
                     get { root.readInt32(at: 4) }
                     set { root.setInt32(at: 4, newValue) }
                 }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -3828,7 +3628,7 @@ public enum TestImplicitMethodParams {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
             public func initRev() -> TestGenerics.Builder {
@@ -3841,8 +3641,6 @@ public enum TestImplicitMethodParams {
                 root.initStructList(2, dataWords: 0, pointerWords: 2, count: count)
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -3946,9 +3744,7 @@ public enum TestImplicitMethodParamsInGeneric {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -3973,14 +3769,12 @@ public enum TestImplicitMethodParamsInGeneric {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public var ugfoo: Int32 {
                     get { root.readInt32(at: 4) }
                     set { root.setInt32(at: 4, newValue) }
                 }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -4024,7 +3818,7 @@ public enum TestImplicitMethodParamsInGeneric {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
             public func initRev() -> TestGenerics.Builder {
@@ -4037,8 +3831,6 @@ public enum TestImplicitMethodParamsInGeneric {
                 root.initStructList(2, dataWords: 0, pointerWords: 2, count: count)
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -4140,11 +3932,9 @@ public struct TestGenericsUnion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -4274,7 +4064,7 @@ public struct TestUseGenerics {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initBasic() -> TestGenerics.Builder {
             TestGenerics.Builder(root.initStruct(0, dataWords: 1, pointerWords: 3))
         }
@@ -4355,8 +4145,6 @@ public struct TestUseGenerics {
             TestGenerics.Builder(root.initStruct(20, dataWords: 1, pointerWords: 3))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -4369,9 +4157,7 @@ public struct TestEmptyStruct {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
-        private func defaults() {
-        }
+        public init(_ root: StructBuilder) { self.root = root }
     }
 
 }
@@ -4384,9 +4170,7 @@ public struct TestConstants {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
-        private func defaults() {
-        }
+        public init(_ root: StructBuilder) { self.root = root }
     }
 
 }
@@ -4407,9 +4191,7 @@ public struct TestAnyPointerConstants {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
-        private func defaults() {
-        }
+        public init(_ root: StructBuilder) { self.root = root }
     }
 
 }
@@ -4424,11 +4206,9 @@ public struct TestListOfAny {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initCapList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(0, count: count) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -4459,8 +4239,7 @@ public enum TestInterface {
             public var j: Bool { root.readBool(at: 32) }
 
             public var expectedCallCount: Int32 {
-                if !root.covers(byteOffset: 8, 4) { return 0 }
-                return root.readInt32(at: 8)
+                return root.readInt32(at: 8) ^ -1
             }
 
         }
@@ -4469,7 +4248,7 @@ public enum TestInterface {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var i: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
@@ -4485,9 +4264,6 @@ public enum TestInterface {
                 set { root.setInt32(at: 8, newValue) }
             }
 
-            private func defaults() {
-            root.setInt32(at: 8, -1)
-            }
         }
 
     }
@@ -4513,11 +4289,9 @@ public enum TestInterface {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setX(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -4532,9 +4306,7 @@ public enum TestInterface {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -4556,9 +4328,7 @@ public enum TestInterface {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -4577,13 +4347,11 @@ public enum TestInterface {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func initS() -> TestAllTypes.Builder {
                 TestAllTypes.Builder(root.initStruct(0, dataWords: 6, pointerWords: 20))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -4605,9 +4373,7 @@ public enum TestInterface {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -4622,9 +4388,7 @@ public enum TestInterface {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -4649,11 +4413,9 @@ public enum TestInterface {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -4668,9 +4430,7 @@ public enum TestInterface {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -4695,11 +4455,9 @@ public enum TestInterface {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -4714,9 +4472,7 @@ public enum TestInterface {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -4741,11 +4497,9 @@ public enum TestInterface {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -4760,9 +4514,7 @@ public enum TestInterface {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -4787,11 +4539,9 @@ public enum TestInterface {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -5081,9 +4831,7 @@ public enum TestExtends {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -5105,9 +4853,7 @@ public enum TestExtends {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -5207,7 +4953,7 @@ public enum TestExtends {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var boolField: Bool {
                 get { root.readBool(at: 0) }
                 set { root.setBool(at: 0, newValue) }
@@ -5312,8 +5058,6 @@ public enum TestExtends {
 
             public func initInterfaceList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(19, count: count) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -5335,9 +5079,7 @@ public enum TestExtends {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -5352,9 +5094,7 @@ public enum TestExtends {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -5461,7 +5201,7 @@ public enum TestExtends {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var boolField: Bool {
                 get { root.readBool(at: 0) }
                 set { root.setBool(at: 0, newValue) }
@@ -5566,8 +5306,6 @@ public enum TestExtends {
 
             public func initInterfaceList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(19, count: count) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -5860,11 +5598,9 @@ public enum TestPipeline {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -5879,9 +5615,7 @@ public enum TestPipeline {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -5919,7 +5653,7 @@ public enum TestPipeline {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var n: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
@@ -5931,8 +5665,6 @@ public enum TestPipeline {
                 exports.append(TestInterface.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -5962,15 +5694,13 @@ public enum TestPipeline {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setS(_ v: String) { root.setText(0, v) }
 
             public func initOutBox() -> TestPipeline.TestPipeline_Box.Builder {
                 TestPipeline.TestPipeline_Box.Builder(root.initStruct(1, dataWords: 0, pointerWords: 1))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -5999,7 +5729,7 @@ public enum TestPipeline {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setCap(_ server: any TestInterface.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
@@ -6008,8 +5738,6 @@ public enum TestPipeline {
 
             public func initList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(2, count: count) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6031,9 +5759,7 @@ public enum TestPipeline {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -6052,14 +5778,12 @@ public enum TestPipeline {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var n: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6089,15 +5813,13 @@ public enum TestPipeline {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setS(_ v: String) { root.setText(0, v) }
 
             public func initOutBox() -> TestPipeline.TestPipeline_AnyBox.Builder {
                 TestPipeline.TestPipeline_AnyBox.Builder(root.initStruct(1, dataWords: 0, pointerWords: 1))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6112,9 +5834,7 @@ public enum TestPipeline {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -6140,13 +5860,11 @@ public enum TestPipeline {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func initOutBox() -> TestPipeline.TestPipeline_Box.Builder {
                 TestPipeline.TestPipeline_Box.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6338,14 +6056,12 @@ public enum TestCallOrder {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var expected: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6369,14 +6085,12 @@ public enum TestCallOrder {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var n: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6475,7 +6189,7 @@ public enum TestTailCallee {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var i: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
@@ -6485,8 +6199,6 @@ public enum TestTailCallee {
 
             public func setC(capIndex: UInt32) { root.setCapability(1, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6515,7 +6227,7 @@ public enum TestTailCallee {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var i: Int32 {
                 get { root.readInt32(at: 0) }
                 set { root.setInt32(at: 0, newValue) }
@@ -6523,8 +6235,6 @@ public enum TestTailCallee {
 
             public func setT(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6555,7 +6265,7 @@ public enum TestTailCallee {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var i: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
@@ -6565,8 +6275,6 @@ public enum TestTailCallee {
 
             public func setC(capIndex: UInt32) { root.setCapability(1, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6680,7 +6388,7 @@ public enum TestTailCaller {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var i: Int32 {
                 get { root.readInt32(at: 0) }
                 set { root.setInt32(at: 0, newValue) }
@@ -6692,8 +6400,6 @@ public enum TestTailCaller {
                 exports.append(TestTailCallee.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6724,7 +6430,7 @@ public enum TestTailCaller {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var i: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
@@ -6734,8 +6440,6 @@ public enum TestTailCaller {
 
             public func setC(capIndex: UInt32) { root.setCapability(1, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6841,14 +6545,12 @@ public enum TestStreaming {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var i: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6865,14 +6567,12 @@ public enum TestStreaming {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var j: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -6887,9 +6587,7 @@ public enum TestStreaming {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -6915,7 +6613,7 @@ public enum TestStreaming {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var totalI: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
@@ -6926,8 +6624,6 @@ public enum TestStreaming {
                 set { root.setUInt32(at: 4, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7138,15 +6834,13 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setCap(_ server: any TestInterface.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
                 exports.append(TestInterface.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7172,11 +6866,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setS(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7201,15 +6893,13 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setCap(_ server: any TestInterface.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
                 exports.append(TestInterface.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7235,11 +6925,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setS(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7264,15 +6952,13 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setCap(_ server: any TestInterface.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
                 exports.append(TestInterface.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7297,11 +6983,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setCapCopy(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7326,15 +7010,13 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setCap(_ server: any TestInterface.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
                 exports.append(TestInterface.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7356,9 +7038,7 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -7368,8 +7048,7 @@ public enum TestMoreStuff {
             let root: StructReader
             public init(_ root: StructReader) { self.root = root }
             public var expectedCallCount: Int32 {
-                if !root.covers(byteOffset: 0, 4) { return 0 }
-                return root.readInt32(at: 0)
+                return root.readInt32(at: 0) ^ -1
             }
 
         }
@@ -7378,15 +7057,12 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var expectedCallCount: Int32 {
                 get { root.readInt32(at: 0) }
                 set { root.setInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            root.setInt32(at: 0, -1)
-            }
         }
 
     }
@@ -7412,11 +7088,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setS(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7431,9 +7105,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -7458,11 +7130,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7487,15 +7157,13 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setCap(_ server: any TestCallOrder.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
                 exports.append(TestCallOrder.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7520,11 +7188,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7549,15 +7215,13 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setCap(_ server: any TestInterface.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
                 exports.append(TestInterface.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7579,9 +7243,7 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -7595,8 +7257,7 @@ public enum TestMoreStuff {
             }
 
             public var b: UInt32 {
-                if !root.covers(byteOffset: 0, 4) { return 0 }
-                return root.readUInt32(at: 0)
+                return root.readUInt32(at: 0) ^ 123
             }
 
             public func c() throws -> String {
@@ -7610,7 +7271,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setA(_ v: String) { root.setText(0, v) }
 
             public var b: UInt32 {
@@ -7620,9 +7281,6 @@ public enum TestMoreStuff {
 
             public func setC(_ v: String) { root.setText(1, v) }
 
-            private func defaults() {
-            root.setUInt32(at: 0, 123)
-            }
         }
 
     }
@@ -7653,13 +7311,11 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setD(_ v: String) { root.setText(0, v) }
 
             public func setE(_ v: String) { root.setText(1, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7674,9 +7330,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -7701,11 +7355,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setHandle(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7720,9 +7372,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -7747,11 +7397,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setNullCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7766,9 +7414,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -7794,11 +7440,9 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setStr(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7827,7 +7471,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setA(_ v: String) { root.setText(0, v) }
 
             /// Export `server` for the call and point the field at it.
@@ -7836,8 +7480,6 @@ public enum TestMoreStuff {
                 exports.append(TestInterface.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7859,9 +7501,7 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -7898,7 +7538,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func initFill(_ count: Int) -> FixedSizeListBuilder<UInt8> { root.initFixedSizeList(0, count: count, as: UInt8.self) }
 
             /// Export `server` for the call and point the field at it.
@@ -7913,8 +7553,6 @@ public enum TestMoreStuff {
                 exports.append(TestInterface.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7941,7 +7579,7 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setFdCap3(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
             public var secondFdPresent: Bool {
@@ -7949,8 +7587,6 @@ public enum TestMoreStuff {
                 set { root.setBool(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -7965,9 +7601,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -7989,9 +7623,7 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -8006,9 +7638,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -8030,9 +7660,7 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -8047,9 +7675,7 @@ public enum TestMoreStuff {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -8071,9 +7697,7 @@ public enum TestMoreStuff {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -8681,9 +8305,7 @@ public enum TestMembrane {
                 let root: StructBuilder
                 /// Handler exports collected by the interface-typed setters.
                 public var exports: [any ExportHandler] = []
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
-                private func defaults() {
-                }
+                public init(_ root: StructBuilder) { self.root = root }
             }
 
         }
@@ -8709,11 +8331,9 @@ public enum TestMembrane {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public func setText(_ v: String) { root.setText(0, v) }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -8728,9 +8348,7 @@ public enum TestMembrane {
                 let root: StructBuilder
                 /// Handler exports collected by the interface-typed setters.
                 public var exports: [any ExportHandler] = []
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
-                private func defaults() {
-                }
+                public init(_ root: StructBuilder) { self.root = root }
             }
 
         }
@@ -8756,11 +8374,9 @@ public enum TestMembrane {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public init(_ root: StructBuilder) { self.root = root }
                 public func setText(_ v: String) { root.setText(0, v) }
 
-                private func defaults() {
-                }
             }
 
         }
@@ -8881,11 +8497,9 @@ public enum TestMembrane {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setText(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -8912,9 +8526,7 @@ public enum TestMembrane {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -8939,11 +8551,9 @@ public enum TestMembrane {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setThing(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -8970,7 +8580,7 @@ public enum TestMembrane {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setThing(_ server: any TestMembrane.TestMembrane_Thing.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
@@ -8982,8 +8592,6 @@ public enum TestMembrane {
                 set { root.setBool(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -9009,11 +8617,9 @@ public enum TestMembrane {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setText(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -9040,7 +8646,7 @@ public enum TestMembrane {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setThing(_ server: any TestMembrane.TestMembrane_Thing.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
@@ -9052,8 +8658,6 @@ public enum TestMembrane {
                 set { root.setBool(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -9079,11 +8683,9 @@ public enum TestMembrane {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setText(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -9108,15 +8710,13 @@ public enum TestMembrane {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             /// Export `server` for the call and point the field at it.
             public mutating func setThing(_ server: any TestMembrane.TestMembrane_Thing.Server) {
                 root.setCapability(0, capIndex: UInt32(exports.count))
                 exports.append(TestMembrane.TestMembrane_Thing.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -9141,11 +8741,9 @@ public enum TestMembrane {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setThing(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -9160,9 +8758,7 @@ public enum TestMembrane {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9184,9 +8780,7 @@ public enum TestMembrane {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9402,13 +8996,11 @@ public struct TestContainMembrane {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func setCap(capIndex: UInt32) { root.setCapability(0, capIndex: capIndex) }
 
         public func initList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(1, count: count) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -9429,13 +9021,11 @@ public struct TestTransferCap {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setText(_ v: String) { root.setText(0, v) }
 
             public func setCap(capIndex: UInt32) { root.setCapability(1, capIndex: capIndex) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -9456,13 +9046,11 @@ public struct TestTransferCap {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initList(_ count: Int) -> StructListBuilder {
             root.initStructList(0, dataWords: 0, pointerWords: 2, count: count)
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -9491,9 +9079,7 @@ public enum TestKeywordMethods {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9515,9 +9101,7 @@ public enum TestKeywordMethods {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9532,9 +9116,7 @@ public enum TestKeywordMethods {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9556,9 +9138,7 @@ public enum TestKeywordMethods {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9573,9 +9153,7 @@ public enum TestKeywordMethods {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9597,9 +9175,7 @@ public enum TestKeywordMethods {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9614,9 +9190,7 @@ public enum TestKeywordMethods {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9638,9 +9212,7 @@ public enum TestKeywordMethods {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9830,9 +9402,7 @@ public enum TestAuthenticatedBootstrap {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9856,9 +9426,7 @@ public enum TestAuthenticatedBootstrap {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -9947,7 +9515,7 @@ public struct TestSturdyRefHostId {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func setHost(_ v: String) { root.setText(0, v) }
 
         public var unique: Bool {
@@ -9955,8 +9523,6 @@ public struct TestSturdyRefHostId {
             set { root.setBool(at: 0, newValue) }
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -9971,14 +9537,12 @@ public struct TestThirdPartyCompletion {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var token: UInt64 {
             get { root.readUInt64(at: 0) }
             set { root.setUInt64(at: 0, newValue) }
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -9993,14 +9557,12 @@ public struct TestThirdPartyToAwait {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var token: UInt64 {
             get { root.readUInt64(at: 0) }
             set { root.setUInt64(at: 0, newValue) }
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -10023,7 +9585,7 @@ public struct TestThirdPartyToContact {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initPath() -> TestSturdyRefHostId.Builder {
             TestSturdyRefHostId.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
         }
@@ -10035,8 +9597,6 @@ public struct TestThirdPartyToContact {
 
         public func setSentBy(_ v: String) { root.setText(1, v) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -10049,9 +9609,7 @@ public struct TestJoinResult {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
-        private func defaults() {
-        }
+        public init(_ root: StructBuilder) { self.root = root }
     }
 
 }
@@ -10101,7 +9659,7 @@ public struct TestNameAnnotation {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var badNestedFieldName: Bool {
                 get { root.readBool(at: 0) }
                 set { root.setBool(at: 0, newValue) }
@@ -10111,8 +9669,6 @@ public struct TestNameAnnotation {
                 TestNameAnnotation.TestNameAnnotation_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -10126,9 +9682,7 @@ public struct TestNameAnnotation {
 
             public struct Builder {
                 let root: StructBuilder
-                public init(_ root: StructBuilder) { self.root = root; defaults() }
-                private func defaults() {
-                }
+                public init(_ root: StructBuilder) { self.root = root }
             }
 
         }
@@ -10161,7 +9715,7 @@ public struct TestNameAnnotation {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 6)) }
 
             public var badlyNamedGroup: BadlyNamedGroup.Builder { BadlyNamedGroup.Builder(root) }
@@ -10170,8 +9724,6 @@ public struct TestNameAnnotation {
                 TestNameAnnotation.TestNameAnnotation_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -10206,7 +9758,7 @@ public struct TestNameAnnotation {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var which: Which { Which(discriminant: root.readUInt16(at: 2)) }
 
         public var badFieldName: Bool {
@@ -10226,8 +9778,6 @@ public struct TestNameAnnotation {
 
         public var badlyNamedUnion: BadlyNamedUnion.Builder { BadlyNamedUnion.Builder(root) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -10255,14 +9805,12 @@ public enum TestNameAnnotationInterface {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var badlyNamedParam: UInt8 {
                 get { root.readUInt8(at: 0) }
                 set { root.setUInt8(at: 0, newValue) }
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -10284,9 +9832,7 @@ public enum TestNameAnnotationInterface {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -10375,15 +9921,14 @@ public struct TestImpliedFirstField {
             }
 
             public var i: UInt32 {
-                if !root.covers(byteOffset: 0, 4) { return 0 }
-                return root.readUInt32(at: 0)
+                return root.readUInt32(at: 0) ^ 321
             }
 
         }
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setText(_ v: String) { root.setText(0, v) }
 
             public var i: UInt32 {
@@ -10391,9 +9936,6 @@ public struct TestImpliedFirstField {
                 set { root.setUInt32(at: 0, newValue) }
             }
 
-            private func defaults() {
-            root.setUInt32(at: 0, 321)
-            }
         }
 
     }
@@ -10413,7 +9955,7 @@ public struct TestImpliedFirstField {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public var i: UInt32 {
                 get { root.readUInt32(at: 0) }
                 set { root.setUInt32(at: 0, newValue) }
@@ -10421,8 +9963,6 @@ public struct TestImpliedFirstField {
 
             public func setStr(_ v: String) { root.setText(2, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -10452,7 +9992,7 @@ public struct TestImpliedFirstField {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initTextStruct() -> TestImpliedFirstField.TestImpliedFirstField_TextStruct.Builder {
             TestImpliedFirstField.TestImpliedFirstField_TextStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
         }
@@ -10463,8 +10003,6 @@ public struct TestImpliedFirstField {
 
         public var intGroup: IntGroup.Builder { IntGroup.Builder(root) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -10481,13 +10019,11 @@ public struct TestCycleANoCaps {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initFoo() -> TestCycleBNoCaps.Builder {
             TestCycleBNoCaps.Builder(root.initStruct(0, dataWords: 0, pointerWords: 2))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -10513,7 +10049,7 @@ public struct TestCycleBNoCaps {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initFoo(_ count: Int) -> StructListBuilder {
             root.initStructList(0, dataWords: 0, pointerWords: 1, count: count)
         }
@@ -10522,8 +10058,6 @@ public struct TestCycleBNoCaps {
             TestAllTypes.Builder(root.initStruct(1, dataWords: 6, pointerWords: 20))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -10540,13 +10074,11 @@ public struct TestCycleAWithCaps {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initFoo() -> TestCycleBWithCaps.Builder {
             TestCycleBWithCaps.Builder(root.initStruct(0, dataWords: 0, pointerWords: 2))
         }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -10571,15 +10103,13 @@ public struct TestCycleBWithCaps {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initFoo(_ count: Int) -> StructListBuilder {
             root.initStructList(0, dataWords: 0, pointerWords: 1, count: count)
         }
 
         public func setBar(capIndex: UInt32) { root.setCapability(1, capIndex: capIndex) }
 
-        private func defaults() {
-        }
     }
 
 }

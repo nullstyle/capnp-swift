@@ -19,13 +19,11 @@ public struct UsesBox {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public func initBox() -> CapnpImportLib.Boxed.Builder {
             CapnpImportLib.Boxed.Builder(root.initStruct(0, dataWords: 1, pointerWords: 0))
         }
 
-        private func defaults() {
-        }
     }
 
 }

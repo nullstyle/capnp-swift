@@ -33,11 +33,9 @@ public enum Listener {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setMsg(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -59,9 +57,7 @@ public enum Listener {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
-            private func defaults() {
-            }
+            public init(_ root: StructBuilder) { self.root = root }
         }
 
     }
@@ -175,7 +171,7 @@ public enum Greeter {
             let root: StructBuilder
             /// Handler exports collected by the interface-typed setters.
             public var exports: [any ExportHandler] = []
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setName(_ v: String) { root.setText(0, v) }
 
             /// Export `server` for the call and point the field at it.
@@ -184,8 +180,6 @@ public enum Greeter {
                 exports.append(Listener.Export(server))
             }
 
-            private func defaults() {
-            }
         }
 
     }
@@ -211,11 +205,9 @@ public enum Greeter {
 
         public struct Builder {
             let root: StructBuilder
-            public init(_ root: StructBuilder) { self.root = root; defaults() }
+            public init(_ root: StructBuilder) { self.root = root }
             public func setReply(_ v: String) { root.setText(0, v) }
 
-            private func defaults() {
-            }
         }
 
     }
