@@ -21,7 +21,7 @@ public struct UsesBox {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initBox() -> CapnpImportLib.Boxed.Builder {
-            CapnpImportLib.Boxed.Builder(root.initStruct(0, dataWords: 1, pointerWords: 0))
+            return CapnpImportLib.Boxed.Builder(root.initStruct(0, dataWords: 1, pointerWords: 0))
         }
 
     }

@@ -182,7 +182,7 @@ public struct TestAllTypes {
         public func setDataField(_ v: [UInt8]) { root.setData(1, v) }
 
         public func initStructField() -> TestAllTypes.Builder {
-            TestAllTypes.Builder(root.initStruct(2, dataWords: 6, pointerWords: 20))
+            return TestAllTypes.Builder(root.initStruct(2, dataWords: 6, pointerWords: 20))
         }
 
         public var enumField: TestEnum {
@@ -424,7 +424,7 @@ public struct TestDefaults {
         public func setDataField(_ v: [UInt8]) { root.setData(1, v) }
 
         public func initStructField() -> TestAllTypes.Builder {
-            TestAllTypes.Builder(root.initStruct(2, dataWords: 6, pointerWords: 20))
+            return TestAllTypes.Builder(root.initStruct(2, dataWords: 6, pointerWords: 20))
         }
 
         public var enumField: TestEnum {
@@ -652,6 +652,8 @@ public struct TestUnion {
             public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
+            public func setU0f0s0() { root.setUInt16(at: 0, 0) }
+
             public var u0f0s1: Bool {
                 get { root.readBool(at: 64) }
                 set { root.setBool(at: 64, newValue) }
@@ -677,7 +679,9 @@ public struct TestUnion {
                 set { root.setInt64(at: 8, newValue) }
             }
 
-            public func setU0f0sp(_ v: String) { root.setText(0, v) }
+            public func setU0f0sp(_ v: String) { root.setUInt16(at: 0, 6); root.setText(0, v) }
+
+            public func setU0f1s0() { root.setUInt16(at: 0, 7) }
 
             public var u0f1s1: Bool {
                 get { root.readBool(at: 64) }
@@ -704,7 +708,7 @@ public struct TestUnion {
                 set { root.setInt64(at: 8, newValue) }
             }
 
-            public func setU0f1sp(_ v: String) { root.setText(0, v) }
+            public func setU0f1sp(_ v: String) { root.setUInt16(at: 0, 13); root.setText(0, v) }
 
         }
 
@@ -814,6 +818,8 @@ public struct TestUnion {
             public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 2)) }
 
+            public func setU1f0s0() { root.setUInt16(at: 2, 0) }
+
             public var u1f0s1: Bool {
                 get { root.readBool(at: 129) }
                 set { root.setBool(at: 129, newValue) }
@@ -864,9 +870,11 @@ public struct TestUnion {
                 set { root.setInt64(at: 24, newValue) }
             }
 
-            public func setU1f0sp(_ v: String) { root.setText(1, v) }
+            public func setU1f0sp(_ v: String) { root.setUInt16(at: 2, 11); root.setText(1, v) }
 
-            public func setU1f1sp(_ v: String) { root.setText(1, v) }
+            public func setU1f1sp(_ v: String) { root.setUInt16(at: 2, 12); root.setText(1, v) }
+
+            public func setU1f2s0() { root.setUInt16(at: 2, 13) }
 
             public var u1f2s1: Bool {
                 get { root.readBool(at: 129) }
@@ -893,7 +901,7 @@ public struct TestUnion {
                 set { root.setInt64(at: 24, newValue) }
             }
 
-            public func setU1f2sp(_ v: String) { root.setText(1, v) }
+            public func setU1f2sp(_ v: String) { root.setUInt16(at: 2, 19); root.setText(1, v) }
 
         }
 
@@ -1552,7 +1560,7 @@ public struct TestInterleavedGroups {
 
             public func setWaldo(_ v: String) { root.setText(0, v) }
 
-            public func setFred(_ v: String) { root.setText(2, v) }
+            public func setFred(_ v: String) { root.setUInt16(at: 28, 2); root.setText(2, v) }
 
         }
 
@@ -1660,7 +1668,7 @@ public struct TestInterleavedGroups {
 
             public func setWaldo(_ v: String) { root.setText(1, v) }
 
-            public func setFred(_ v: String) { root.setText(3, v) }
+            public func setFred(_ v: String) { root.setUInt16(at: 30, 2); root.setText(3, v) }
 
         }
 
@@ -1724,19 +1732,19 @@ public struct TestUnionDefaults {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initS16s8s64s8Set() -> TestUnion.Builder {
-            TestUnion.Builder(root.initStruct(0, dataWords: 8, pointerWords: 2))
+            return TestUnion.Builder(root.initStruct(0, dataWords: 8, pointerWords: 2))
         }
 
         public func initS0sps1s32Set() -> TestUnion.Builder {
-            TestUnion.Builder(root.initStruct(1, dataWords: 8, pointerWords: 2))
+            return TestUnion.Builder(root.initStruct(1, dataWords: 8, pointerWords: 2))
         }
 
         public func initUnnamed1() -> TestUnnamedUnion.Builder {
-            TestUnnamedUnion.Builder(root.initStruct(2, dataWords: 2, pointerWords: 2))
+            return TestUnnamedUnion.Builder(root.initStruct(2, dataWords: 2, pointerWords: 2))
         }
 
         public func initUnnamed2() -> TestUnnamedUnion.Builder {
-            TestUnnamedUnion.Builder(root.initStruct(3, dataWords: 2, pointerWords: 2))
+            return TestUnnamedUnion.Builder(root.initStruct(3, dataWords: 2, pointerWords: 2))
         }
 
     }
@@ -1825,7 +1833,7 @@ public struct TestNestedTypes {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initNestedStruct() -> TestNestedTypes.TestNestedTypes_NestedStruct.Builder {
-            TestNestedTypes.TestNestedTypes_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 0))
+            return TestNestedTypes.TestNestedTypes_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 0))
         }
 
         public var outerNestedEnum: TestNestedTypes.TestNestedTypes_NestedEnum {
@@ -2353,7 +2361,7 @@ public struct TestListDefaults {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initLists() -> TestLists.Builder {
-            TestLists.Builder(root.initStruct(0, dataWords: 0, pointerWords: 10))
+            return TestLists.Builder(root.initStruct(0, dataWords: 0, pointerWords: 10))
         }
 
     }
@@ -2397,7 +2405,7 @@ public struct TestLateUnion {
             public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 6)) }
 
-            public func setQux(_ v: String) { root.setText(1, v) }
+            public func setQux(_ v: String) { root.setUInt16(at: 6, 0); root.setText(1, v) }
 
             public func initCorge(_ count: Int) -> FixedSizeListBuilder<Int32> { root.initFixedSizeList(1, count: count, as: Int32.self) }
 
@@ -2446,7 +2454,7 @@ public struct TestLateUnion {
             public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 12)) }
 
-            public func setQux(_ v: String) { root.setText(2, v) }
+            public func setQux(_ v: String) { root.setUInt16(at: 12, 0); root.setText(2, v) }
 
             public func initCorge(_ count: Int) -> FixedSizeListBuilder<Int32> { root.initFixedSizeList(2, count: count, as: Int32.self) }
 
@@ -2526,7 +2534,7 @@ public struct TestOldVersion {
         public func setOld2(_ v: String) { root.setText(0, v) }
 
         public func initOld3() -> TestOldVersion.Builder {
-            TestOldVersion.Builder(root.initStruct(1, dataWords: 1, pointerWords: 2))
+            return TestOldVersion.Builder(root.initStruct(1, dataWords: 1, pointerWords: 2))
         }
 
     }
@@ -2569,7 +2577,7 @@ public struct TestNewVersion {
         public func setOld2(_ v: String) { root.setText(0, v) }
 
         public func initOld3() -> TestNewVersion.Builder {
-            TestNewVersion.Builder(root.initStruct(1, dataWords: 2, pointerWords: 3))
+            return TestNewVersion.Builder(root.initStruct(1, dataWords: 2, pointerWords: 3))
         }
 
         public var new1: Int64 {
@@ -2612,6 +2620,8 @@ public struct TestOldUnionVersion {
         public init(_ root: StructBuilder) { self.root = root }
         public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
+        public func setA() { root.setUInt16(at: 0, 0) }
+
         public var b: UInt64 {
             get { root.readUInt64(at: 8) }
             set { root.setUInt64(at: 8, newValue) }
@@ -2649,6 +2659,8 @@ public struct TestNewUnionVersion {
             let root: StructBuilder
             public init(_ root: StructBuilder) { self.root = root }
             public var which: Which { Which(discriminant: root.readUInt16(at: 8)) }
+
+            public func setA0() { root.setUInt16(at: 8, 0) }
 
             public var a1: UInt64 {
                 get { root.readUInt64(at: 16) }
@@ -2760,11 +2772,13 @@ public struct TestStructUnion {
             public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
             public func initStruct() -> TestStructUnion.TestStructUnion_SomeStruct.Builder {
-                TestStructUnion.TestStructUnion_SomeStruct.Builder(root.initStruct(0, dataWords: 0, pointerWords: 2))
+                root.setUInt16(at: 0, 0)
+                return TestStructUnion.TestStructUnion_SomeStruct.Builder(root.initStruct(0, dataWords: 0, pointerWords: 2))
             }
 
             public func initObject() -> TestAnyPointer.Builder {
-                TestAnyPointer.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
+                root.setUInt16(at: 0, 1)
+                return TestAnyPointer.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
             }
 
         }
@@ -3064,11 +3078,11 @@ public struct TestGenerics {
             let root: StructBuilder
             public init(_ root: StructBuilder) { self.root = root }
             public func initInnerBound() -> TestGenerics.TestGenerics_Inner.Builder {
-                TestGenerics.TestGenerics_Inner.Builder(root.initStruct(2, dataWords: 0, pointerWords: 2))
+                return TestGenerics.TestGenerics_Inner.Builder(root.initStruct(2, dataWords: 0, pointerWords: 2))
             }
 
             public func initInnerUnbound() -> TestGenerics.TestGenerics_Inner.Builder {
-                TestGenerics.TestGenerics_Inner.Builder(root.initStruct(3, dataWords: 0, pointerWords: 2))
+                return TestGenerics.TestGenerics_Inner.Builder(root.initStruct(3, dataWords: 0, pointerWords: 2))
             }
 
         }
@@ -3258,11 +3272,11 @@ public struct TestGenerics {
                 public var caps: [CapSlot] = []
                 public init(_ root: StructBuilder) { self.root = root }
                 public func initInnerBound() -> TestGenerics.TestGenerics_Inner.Builder {
-                    TestGenerics.TestGenerics_Inner.Builder(root.initStruct(2, dataWords: 0, pointerWords: 2))
+                    return TestGenerics.TestGenerics_Inner.Builder(root.initStruct(2, dataWords: 0, pointerWords: 2))
                 }
 
                 public func initInnerUnbound() -> TestGenerics.TestGenerics_Inner.Builder {
-                    TestGenerics.TestGenerics_Inner.Builder(root.initStruct(3, dataWords: 0, pointerWords: 2))
+                    return TestGenerics.TestGenerics_Inner.Builder(root.initStruct(3, dataWords: 0, pointerWords: 2))
                 }
 
             }
@@ -3299,7 +3313,7 @@ public struct TestGenerics {
                 public var caps: [CapSlot] = []
                 public init(_ root: StructBuilder) { self.root = root }
                 public func initGen() -> TestGenerics.Builder {
-                    TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
+                    return TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
                 }
 
             }
@@ -3408,19 +3422,19 @@ public struct TestGenerics {
             let root: StructBuilder
             public init(_ root: StructBuilder) { self.root = root }
             public func initInner() -> TestGenerics.TestGenerics_Inner.Builder {
-                TestGenerics.TestGenerics_Inner.Builder(root.initStruct(1, dataWords: 0, pointerWords: 2))
+                return TestGenerics.TestGenerics_Inner.Builder(root.initStruct(1, dataWords: 0, pointerWords: 2))
             }
 
             public func initInner2() -> TestGenerics.TestGenerics_Inner2.Builder {
-                TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(2, dataWords: 0, pointerWords: 4))
+                return TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(2, dataWords: 0, pointerWords: 4))
             }
 
             public func initInner2Bind() -> TestGenerics.TestGenerics_Inner2.Builder {
-                TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(3, dataWords: 0, pointerWords: 4))
+                return TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(3, dataWords: 0, pointerWords: 4))
             }
 
             public func initInner2Text() -> TestGenerics.TestGenerics_Inner2.Builder {
-                TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(4, dataWords: 0, pointerWords: 4))
+                return TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(4, dataWords: 0, pointerWords: 4))
             }
 
         }
@@ -3490,8 +3504,10 @@ public struct TestGenerics {
         public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
         public func initRev() -> TestGenerics.Builder {
-            TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
+            return TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
         }
+
+        public func setUv() { root.setUInt16(at: 0, 0) }
 
         public var ug: Ug.Builder { Ug.Builder(root) }
 
@@ -3536,7 +3552,7 @@ public struct TestGenericsWrapper {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initValue() -> TestGenerics.Builder {
-            TestGenerics.Builder(root.initStruct(0, dataWords: 1, pointerWords: 3))
+            return TestGenerics.Builder(root.initStruct(0, dataWords: 1, pointerWords: 3))
         }
 
     }
@@ -3557,7 +3573,7 @@ public struct TestGenericsWrapper2 {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initValue() -> TestGenericsWrapper.Builder {
-            TestGenericsWrapper.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
+            return TestGenericsWrapper.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
         }
 
     }
@@ -3674,8 +3690,10 @@ public enum TestImplicitMethodParams {
             public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
             public func initRev() -> TestGenerics.Builder {
-                TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
+                return TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
             }
+
+            public func setUv() { root.setUInt16(at: 0, 0) }
 
             public var ug: Ug.Builder { Ug.Builder(root) }
 
@@ -3873,8 +3891,10 @@ public enum TestImplicitMethodParamsInGeneric {
             public var which: Which { Which(discriminant: root.readUInt16(at: 0)) }
 
             public func initRev() -> TestGenerics.Builder {
-                TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
+                return TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
             }
+
+            public func setUv() { root.setUInt16(at: 0, 0) }
 
             public var ug: Ug.Builder { Ug.Builder(root) }
 
@@ -4126,83 +4146,83 @@ public struct TestUseGenerics {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initBasic() -> TestGenerics.Builder {
-            TestGenerics.Builder(root.initStruct(0, dataWords: 1, pointerWords: 3))
+            return TestGenerics.Builder(root.initStruct(0, dataWords: 1, pointerWords: 3))
         }
 
         public func initInner() -> TestGenerics.TestGenerics_Inner.Builder {
-            TestGenerics.TestGenerics_Inner.Builder(root.initStruct(1, dataWords: 0, pointerWords: 2))
+            return TestGenerics.TestGenerics_Inner.Builder(root.initStruct(1, dataWords: 0, pointerWords: 2))
         }
 
         public func initInner2() -> TestGenerics.TestGenerics_Inner2.Builder {
-            TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(2, dataWords: 0, pointerWords: 4))
+            return TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(2, dataWords: 0, pointerWords: 4))
         }
 
         public func initUnspecified() -> TestGenerics.Builder {
-            TestGenerics.Builder(root.initStruct(3, dataWords: 1, pointerWords: 3))
+            return TestGenerics.Builder(root.initStruct(3, dataWords: 1, pointerWords: 3))
         }
 
         public func initUnspecifiedInner() -> TestGenerics.TestGenerics_Inner2.Builder {
-            TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(4, dataWords: 0, pointerWords: 4))
+            return TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(4, dataWords: 0, pointerWords: 4))
         }
 
         public func initDefault() -> TestGenerics.Builder {
-            TestGenerics.Builder(root.initStruct(5, dataWords: 1, pointerWords: 3))
+            return TestGenerics.Builder(root.initStruct(5, dataWords: 1, pointerWords: 3))
         }
 
         public func initDefaultInner() -> TestGenerics.TestGenerics_Inner.Builder {
-            TestGenerics.TestGenerics_Inner.Builder(root.initStruct(6, dataWords: 0, pointerWords: 2))
+            return TestGenerics.TestGenerics_Inner.Builder(root.initStruct(6, dataWords: 0, pointerWords: 2))
         }
 
         public func initDefaultUser() -> TestUseGenerics.Builder {
-            TestUseGenerics.Builder(root.initStruct(7, dataWords: 0, pointerWords: 21))
+            return TestUseGenerics.Builder(root.initStruct(7, dataWords: 0, pointerWords: 21))
         }
 
         public func initWrapper() -> TestGenericsWrapper.Builder {
-            TestGenericsWrapper.Builder(root.initStruct(8, dataWords: 0, pointerWords: 1))
+            return TestGenericsWrapper.Builder(root.initStruct(8, dataWords: 0, pointerWords: 1))
         }
 
         public func initDefaultWrapper() -> TestGenericsWrapper.Builder {
-            TestGenericsWrapper.Builder(root.initStruct(9, dataWords: 0, pointerWords: 1))
+            return TestGenericsWrapper.Builder(root.initStruct(9, dataWords: 0, pointerWords: 1))
         }
 
         public func initDefaultWrapper2() -> TestGenericsWrapper2.Builder {
-            TestGenericsWrapper2.Builder(root.initStruct(10, dataWords: 0, pointerWords: 1))
+            return TestGenericsWrapper2.Builder(root.initStruct(10, dataWords: 0, pointerWords: 1))
         }
 
         public func initAliasFoo() -> TestAllTypes.Builder {
-            TestAllTypes.Builder(root.initStruct(11, dataWords: 6, pointerWords: 20))
+            return TestAllTypes.Builder(root.initStruct(11, dataWords: 6, pointerWords: 20))
         }
 
         public func initAliasInner() -> TestGenerics.TestGenerics_Inner.Builder {
-            TestGenerics.TestGenerics_Inner.Builder(root.initStruct(12, dataWords: 0, pointerWords: 2))
+            return TestGenerics.TestGenerics_Inner.Builder(root.initStruct(12, dataWords: 0, pointerWords: 2))
         }
 
         public func initAliasInner2() -> TestGenerics.TestGenerics_Inner2.Builder {
-            TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(13, dataWords: 0, pointerWords: 4))
+            return TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(13, dataWords: 0, pointerWords: 4))
         }
 
         public func initAliasInner2Bind() -> TestGenerics.TestGenerics_Inner2.Builder {
-            TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(14, dataWords: 0, pointerWords: 4))
+            return TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(14, dataWords: 0, pointerWords: 4))
         }
 
         public func initAliasInner2Text() -> TestGenerics.TestGenerics_Inner2.Builder {
-            TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(15, dataWords: 0, pointerWords: 4))
+            return TestGenerics.TestGenerics_Inner2.Builder(root.initStruct(15, dataWords: 0, pointerWords: 4))
         }
 
         public func setAliasRev(_ v: String) { root.setText(16, v) }
 
         public func initUseAliases() -> TestGenerics.TestGenerics_UseAliases.Builder {
-            TestGenerics.TestGenerics_UseAliases.Builder(root.initStruct(17, dataWords: 0, pointerWords: 6))
+            return TestGenerics.TestGenerics_UseAliases.Builder(root.initStruct(17, dataWords: 0, pointerWords: 6))
         }
 
         public func initCap() -> TestGenerics.Builder {
-            TestGenerics.Builder(root.initStruct(18, dataWords: 1, pointerWords: 3))
+            return TestGenerics.Builder(root.initStruct(18, dataWords: 1, pointerWords: 3))
         }
 
         public func setGenericCap(capIndex: UInt32) { root.setCapability(19, capIndex: capIndex) }
 
         public func initBindEnumList() -> TestGenerics.Builder {
-            TestGenerics.Builder(root.initStruct(20, dataWords: 1, pointerWords: 3))
+            return TestGenerics.Builder(root.initStruct(20, dataWords: 1, pointerWords: 3))
         }
 
     }
@@ -4420,7 +4440,7 @@ public enum TestInterface {
             public var caps: [CapSlot] = []
             public init(_ root: StructBuilder) { self.root = root }
             public func initS() -> TestAllTypes.Builder {
-                TestAllTypes.Builder(root.initStruct(0, dataWords: 6, pointerWords: 20))
+                return TestAllTypes.Builder(root.initStruct(0, dataWords: 6, pointerWords: 20))
             }
 
         }
@@ -5197,7 +5217,7 @@ public enum TestExtends {
             public func setDataField(_ v: [UInt8]) { root.setData(1, v) }
 
             public func initStructField() -> TestAllTypes.Builder {
-                TestAllTypes.Builder(root.initStruct(2, dataWords: 6, pointerWords: 20))
+                return TestAllTypes.Builder(root.initStruct(2, dataWords: 6, pointerWords: 20))
             }
 
             public var enumField: TestEnum {
@@ -5455,7 +5475,7 @@ public enum TestExtends {
             public func setDataField(_ v: [UInt8]) { root.setData(1, v) }
 
             public func initStructField() -> TestAllTypes.Builder {
-                TestAllTypes.Builder(root.initStruct(2, dataWords: 6, pointerWords: 20))
+                return TestAllTypes.Builder(root.initStruct(2, dataWords: 6, pointerWords: 20))
             }
 
             public var enumField: TestEnum {
@@ -5909,7 +5929,7 @@ public enum TestPipeline {
             public func setS(_ v: String) { root.setText(0, v) }
 
             public func initOutBox() -> TestPipeline.TestPipeline_Box.Builder {
-                TestPipeline.TestPipeline_Box.Builder(root.initStruct(1, dataWords: 0, pointerWords: 1))
+                return TestPipeline.TestPipeline_Box.Builder(root.initStruct(1, dataWords: 0, pointerWords: 1))
             }
 
         }
@@ -6038,7 +6058,7 @@ public enum TestPipeline {
             public func setS(_ v: String) { root.setText(0, v) }
 
             public func initOutBox() -> TestPipeline.TestPipeline_AnyBox.Builder {
-                TestPipeline.TestPipeline_AnyBox.Builder(root.initStruct(1, dataWords: 0, pointerWords: 1))
+                return TestPipeline.TestPipeline_AnyBox.Builder(root.initStruct(1, dataWords: 0, pointerWords: 1))
             }
 
         }
@@ -6088,7 +6108,7 @@ public enum TestPipeline {
             public var caps: [CapSlot] = []
             public init(_ root: StructBuilder) { self.root = root }
             public func initOutBox() -> TestPipeline.TestPipeline_Box.Builder {
-                TestPipeline.TestPipeline_Box.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
+                return TestPipeline.TestPipeline_Box.Builder(root.initStruct(0, dataWords: 0, pointerWords: 1))
             }
 
         }
@@ -10245,7 +10265,7 @@ public struct TestThirdPartyToContact {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initPath() -> TestSturdyRefHostId.Builder {
-            TestSturdyRefHostId.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
+            return TestSturdyRefHostId.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
         }
 
         public var token: UInt64 {
@@ -10324,7 +10344,7 @@ public struct TestNameAnnotation {
             }
 
             public func initAnotherBadNestedFieldName() -> TestNameAnnotation.TestNameAnnotation_NestedStruct.Builder {
-                TestNameAnnotation.TestNameAnnotation_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
+                return TestNameAnnotation.TestNameAnnotation_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
             }
 
         }
@@ -10379,7 +10399,8 @@ public struct TestNameAnnotation {
             public var badlyNamedGroup: BadlyNamedGroup.Builder { BadlyNamedGroup.Builder(root) }
 
             public func initBaz() -> TestNameAnnotation.TestNameAnnotation_NestedStruct.Builder {
-                TestNameAnnotation.TestNameAnnotation_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
+                root.setUInt16(at: 6, 1)
+                return TestNameAnnotation.TestNameAnnotation_NestedStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
             }
 
         }
@@ -10660,7 +10681,7 @@ public struct TestImpliedFirstField {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initTextStruct() -> TestImpliedFirstField.TestImpliedFirstField_TextStruct.Builder {
-            TestImpliedFirstField.TestImpliedFirstField_TextStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
+            return TestImpliedFirstField.TestImpliedFirstField_TextStruct.Builder(root.initStruct(0, dataWords: 1, pointerWords: 1))
         }
 
         public func initTextStructList(_ count: Int) -> StructListBuilder {
@@ -10687,7 +10708,7 @@ public struct TestCycleANoCaps {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initFoo() -> TestCycleBNoCaps.Builder {
-            TestCycleBNoCaps.Builder(root.initStruct(0, dataWords: 0, pointerWords: 2))
+            return TestCycleBNoCaps.Builder(root.initStruct(0, dataWords: 0, pointerWords: 2))
         }
 
     }
@@ -10721,7 +10742,7 @@ public struct TestCycleBNoCaps {
         }
 
         public func initBar() -> TestAllTypes.Builder {
-            TestAllTypes.Builder(root.initStruct(1, dataWords: 6, pointerWords: 20))
+            return TestAllTypes.Builder(root.initStruct(1, dataWords: 6, pointerWords: 20))
         }
 
     }
@@ -10742,7 +10763,7 @@ public struct TestCycleAWithCaps {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public func initFoo() -> TestCycleBWithCaps.Builder {
-            TestCycleBWithCaps.Builder(root.initStruct(0, dataWords: 0, pointerWords: 2))
+            return TestCycleBWithCaps.Builder(root.initStruct(0, dataWords: 0, pointerWords: 2))
         }
 
     }

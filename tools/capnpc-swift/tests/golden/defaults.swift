@@ -88,13 +88,15 @@ public struct Widget {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public var id: UInt32 {
-            get { root.readUInt32(at: 0) }
-            set { root.setUInt32(at: 0, newValue) }
+            get {  root.readUInt32(at: 0) ^ 123
+            }
+            set { root.setUInt32(at: 0, newValue ^ 123)            }
         }
 
         public var flag: Bool {
-            get { root.readBool(at: 32) }
-            set { root.setBool(at: 32, newValue) }
+            get {  !root.readBool(at: 32)
+            }
+            set { root.setBool(at: 32, !newValue)            }
         }
 
         public func setName(_ v: String) { root.setText(0, v) }
@@ -104,7 +106,7 @@ public struct Widget {
         public func initNums(_ count: Int) -> FixedSizeListBuilder<UInt16> { root.initFixedSizeList(2, count: count, as: UInt16.self) }
 
         public func initInner() -> Inner.Builder {
-            Inner.Builder(root.initStruct(3, dataWords: 1, pointerWords: 1))
+            return Inner.Builder(root.initStruct(3, dataWords: 1, pointerWords: 1))
         }
 
         public var color: Color {
