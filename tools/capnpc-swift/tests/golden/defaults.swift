@@ -20,7 +20,7 @@ public struct Inner {
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var id: UInt32 {
             get { root.readUInt32(at: 0) }
             set { root.setUInt32(at: 0, newValue) }
@@ -28,8 +28,6 @@ public struct Inner {
 
         public func setLabel(_ v: String) { root.setText(0, v) }
 
-        private func defaults() {
-        }
     }
 
 }
@@ -56,13 +54,11 @@ public struct Widget {
         static let InnerDefaultBytes = [UInt8]([0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x2a, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x32, 0x0, 0x0, 0x0, 0x69, 0x6e, 0x6e, 0x65, 0x72, 0x0, 0x0, 0x0])
         static let InnerDefault = CapnpDefaultMessage(bytes: InnerDefaultBytes)
         public var id: UInt32 {
-            if !root.covers(byteOffset: 0, 4) { return 0 }
-            return root.readUInt32(at: 0)
+            return root.readUInt32(at: 0) ^ 123
         }
 
         public var flag: Bool {
-            if !root.covers(byteOffset: 32, 1) { return false }
-            return root.readBool(at: 32)
+            return !root.readBool(at: 32)
         }
 
         public func name() throws -> String {
@@ -83,15 +79,14 @@ public struct Widget {
         }
 
         public var color: Color {
-            if !root.covers(byteOffset: 6, 2) { return Color(rawValue: 1) }
-            return Color(rawValue: root.readUInt16(at: 6))
+            return Color(rawValue: root.readUInt16(at: 6) ^ 1)
         }
 
     }
 
     public struct Builder {
         let root: StructBuilder
-        public init(_ root: StructBuilder) { self.root = root; defaults() }
+        public init(_ root: StructBuilder) { self.root = root }
         public var id: UInt32 {
             get { root.readUInt32(at: 0) }
             set { root.setUInt32(at: 0, newValue) }
@@ -117,11 +112,6 @@ public struct Widget {
             set { root.setEnum16(at: 6, newValue.rawValue) }
         }
 
-        private func defaults() {
-        root.setUInt32(at: 0, 123)
-        root.setBool(at: 32, true)
-        root.setEnum16(at: 6, 1)
-        }
     }
 
 }
