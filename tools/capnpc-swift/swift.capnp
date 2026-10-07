@@ -13,5 +13,5 @@
 # annotation prefix @1 :Text;
 #   Reserved: a name prefix for the file's types. Not yet emitted.
 
-annotation module @0xd4c3b2a1e5f60718 :Text;
-annotation prefix @0xf7e2d1c0b4a59683 :Text;
+annotation module @0x87972259171bec98 (file) :Text;
+annotation prefix @0x9692d33e395c3989 (file, struct, enum, interface, const, annotation) :Text;
