@@ -20,8 +20,9 @@ public struct Boxed {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public var value: UInt32 {
-            get { root.readUInt32(at: 0) }
-            set { root.setUInt32(at: 0, newValue) }
+            get {  root.readUInt32(at: 0) ^ 42
+            }
+            set { root.setUInt32(at: 0, newValue ^ 42)            }
         }
 
     }

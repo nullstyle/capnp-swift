@@ -395,58 +395,69 @@ public struct TestDefaults {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public var boolField: Bool {
-            get { root.readBool(at: 0) }
-            set { root.setBool(at: 0, newValue) }
+            get {  !root.readBool(at: 0)
+            }
+            set { root.setBool(at: 0, !newValue)            }
         }
 
         public var int8Field: Int8 {
-            get { root.readInt8(at: 1) }
-            set { root.setInt8(at: 1, newValue) }
+            get {  root.readInt8(at: 1) ^ -123
+            }
+            set { root.setInt8(at: 1, newValue ^ -123)            }
         }
 
         public var int16Field: Int16 {
-            get { root.readInt16(at: 2) }
-            set { root.setInt16(at: 2, newValue) }
+            get {  root.readInt16(at: 2) ^ -12345
+            }
+            set { root.setInt16(at: 2, newValue ^ -12345)            }
         }
 
         public var int32Field: Int32 {
-            get { root.readInt32(at: 4) }
-            set { root.setInt32(at: 4, newValue) }
+            get {  root.readInt32(at: 4) ^ -12345678
+            }
+            set { root.setInt32(at: 4, newValue ^ -12345678)            }
         }
 
         public var int64Field: Int64 {
-            get { root.readInt64(at: 8) }
-            set { root.setInt64(at: 8, newValue) }
+            get {  root.readInt64(at: 8) ^ -123456789012345
+            }
+            set { root.setInt64(at: 8, newValue ^ -123456789012345)            }
         }
 
         public var uInt8Field: UInt8 {
-            get { root.readUInt8(at: 16) }
-            set { root.setUInt8(at: 16, newValue) }
+            get {  root.readUInt8(at: 16) ^ 234
+            }
+            set { root.setUInt8(at: 16, newValue ^ 234)            }
         }
 
         public var uInt16Field: UInt16 {
-            get { root.readUInt16(at: 18) }
-            set { root.setUInt16(at: 18, newValue) }
+            get {  root.readUInt16(at: 18) ^ 45678
+            }
+            set { root.setUInt16(at: 18, newValue ^ 45678)            }
         }
 
         public var uInt32Field: UInt32 {
-            get { root.readUInt32(at: 20) }
-            set { root.setUInt32(at: 20, newValue) }
+            get {  root.readUInt32(at: 20) ^ 3456789012
+            }
+            set { root.setUInt32(at: 20, newValue ^ 3456789012)            }
         }
 
         public var uInt64Field: UInt64 {
-            get { root.readUInt64(at: 24) }
-            set { root.setUInt64(at: 24, newValue) }
+            get {  root.readUInt64(at: 24) ^ 12345678901234567890
+            }
+            set { root.setUInt64(at: 24, newValue ^ 12345678901234567890)            }
         }
 
         public var float32Field: Float32 {
-            get { root.readFloat32(at: 32) }
-            set { root.setFloat32(at: 32, newValue) }
+            get {  Float32(bitPattern: root.readUInt32(at: 32) ^ 0x449a5000)
+            }
+            set { root.setFloat32(at: 32, Float32(bitPattern: newValue.bitPattern ^ 0x449a5000))            }
         }
 
         public var float64Field: Float64 {
-            get { root.readFloat64(at: 40) }
-            set { root.setFloat64(at: 40, newValue) }
+            get {  Float64(bitPattern: root.readUInt64(at: 40) ^ 0xc9b58b82c0e0bb00)
+            }
+            set { root.setFloat64(at: 40, Float64(bitPattern: newValue.bitPattern ^ 0xc9b58b82c0e0bb00))            }
         }
 
         public func setTextField(_ v: String) { root.setText(0, v) }

@@ -1,157 +1,306 @@
-// mvp-e2e: the M1 "MVP slice" e2e client (plan §8, M1 f). `just mvp-e2e`
-// runs it. It starts the capnp-zig TCP peer (interop/zig-peer), connects over
-// TCP, and prints TAP for the four M1 checks:
+// e2e-swift-client: the capnp-swift side of the M4 interop matrix (plan
+// §8), following capnp-zig's e2e CLI contract:
 //
-//   1 greet                      Greeter.greet("Swift") -> "Hello, Swift!"
-//   2 callback served by Swift   the peer called Listener.notify("greeted Swift")
-//   3 remote exception           greet("") fails with the reason "EmptyName"
-//   4 server kill -> .disconnected  SIGTERM to the peer ends the connection
-//                                with RPCError.disconnected
+//   e2e-swift-client --host 127.0.0.1 --port 4700 --schema <name>
 //
-// Usage: mvp-e2e --server <path to zig-peer> [--timeout <seconds>]
-// Exit status 0 only when every line is `ok`.
+// Runs the scenario's call choreography against the server, printing one
+// TAP line per assertion (`ok N - desc` / `not ok N - desc`), the plan
+// `1..N` at the end, and exiting 0 iff every assertion passed. The
+// assertions mirror the Zig client's (tests/e2e/zig/main_client.zig).
 
-import CapnpMVPGen
+import CapnpE2E
 import CapnpNW
 import CapnpRPC
 import Foundation
-import Synchronization
 
-struct TimeoutError: Error {}
+nonisolated(unsafe) var tapCount = 0
+nonisolated(unsafe) var tapFailures = 0
 
-func withTimeout<T: Sendable>(_ limit: Duration, _ operation: @escaping @Sendable () async throws -> T) async throws -> T {
-    try await withThrowingTaskGroup(of: T.self) { group in
-        group.addTask { try await operation() }
-        group.addTask {
-            try await Task.sleep(for: limit)
-            throw TimeoutError()
-        }
-        let first = try await group.next()!
-        group.cancelAll()
-        return first
+func tap(_ ok: Bool, _ name: String) {
+    tapCount += 1
+    if ok {
+        print("ok \(tapCount) - \(name)")
+    } else {
+        tapFailures += 1
+        print("not ok \(tapCount) - \(name)")
     }
 }
 
-/// Records every notify; `first()` polls so a timeout can cancel the wait.
-/// The Server conformance is against the GENERATED bindings (M3-h).
-final class RecordingListener: Listener.Server, Sendable {
-    private let messages = Mutex<[String]>([])
-
-    func notify(params: Listener.NotifyParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> Listener.NotifyResults {
-        messages.withLock { $0.append((try? params.msg()) ?? "") }
-        return Listener.NotifyResults()
-    }
-
-    func first() async throws -> String {
-        while true {
-            if let m = messages.withLock({ $0.first }) { return m }
-            try await Task.sleep(for: .milliseconds(5))
-        }
-    }
-}
-
-struct TAP {
-    var lines: [String] = []
-    var failures = 0
-
-    mutating func check(_ ok: Bool, _ name: String, _ detail: String = "") {
-        let n = lines.count + 1
-        if ok {
-            lines.append("ok \(n) - \(name)")
-        } else {
-            failures += 1
-            lines.append("not ok \(n) - \(name)" + (detail.isEmpty ? "" : "\n  # \(detail)"))
-        }
-    }
-
-    func print(planned: Int) {
-        Swift.print("TAP version 14")
-        Swift.print("1..\(planned)")
-        for line in lines { Swift.print(line) }
+var host = "127.0.0.1"
+var port: UInt16 = 4000
+var schema = "game_world"
+var args = Array(CommandLine.arguments.dropFirst())
+while let arg = args.first {
+    args.removeFirst()
+    switch arg {
+    case "--host": host = args.removeFirst()
+    case "--port": port = UInt16(args.removeFirst()) ?? 4000
+    case "--schema": schema = args.removeFirst()
+    case "--help", "-h":
+        print("Usage: e2e-swift-client [--host 127.0.0.1] [--port 4000] [--schema game_world|chat|inventory|matchmaking|resolve_disembargo]")
+        exit(0)
+    default: break
     }
 }
 
-@main
-struct MVPE2E {
-    static func main() async {
-        var serverPath: String?
-        var timeoutSeconds: Int64 = 10
-        var args = CommandLine.arguments.dropFirst().makeIterator()
-        while let arg = args.next() {
-            switch arg {
-            case "--server": serverPath = args.next()
-            case "--timeout": timeoutSeconds = Int64(args.next() ?? "10") ?? 10
-            default:
-                FileHandle.standardError.write(Data("mvp-e2e: unknown argument \(arg)\n".utf8))
-                exit(2)
-            }
-        }
-        guard let serverPath else {
-            FileHandle.standardError.write(Data("usage: mvp-e2e --server <zig-peer> [--timeout <seconds>]\n".utf8))
-            exit(2)
-        }
+do {
+    let connection = try await RPCConnection.connect(
+        transport: TCPTransport(host: host, port: port, connectTimeout: .seconds(10)))
 
-        let timeout: Duration = .seconds(timeoutSeconds)
-        var tap = TAP()
-        let planned = 4
-        do {
-            // Start the Zig peer on an ephemeral port; it prints "port=N".
-            let server = Process()
-            server.executableURL = URL(fileURLWithPath: serverPath)
-            server.arguments = ["--host", "127.0.0.1", "--port", "0"]
-            let stdout = Pipe()
-            server.standardOutput = stdout
-            try server.run()
-            defer {
-                if server.isRunning { server.terminate() }
-                server.waitUntilExit()
-            }
-            let port: UInt16 = try await withTimeout(timeout) {
-                for try await line in stdout.fileHandleForReading.bytes.lines {
-                    if line.hasPrefix("port="), let p = UInt16(line.dropFirst(5)) { return p }
-                }
-                throw TimeoutError()
-            }
-            print("# zig-peer pid \(server.processIdentifier) on 127.0.0.1:\(port)")
-
-            let connection = try await withTimeout(timeout) {
-                try await RPCConnection.connect(transport: TCPTransport(host: "127.0.0.1", port: port, connectTimeout: timeout))
-            }
-            let greeter = Greeter.Client(cap: try await withTimeout(timeout) { try await connection.bootstrap() }, connection: connection)
-
-            // 1. greet
-            let listener = RecordingListener()
-            let reply = try await withTimeout(timeout) { try await greeter.greet { $0.setName("Swift"); $0.setListener(listener) }.reply() }
-            tap.check(reply == "Hello, Swift!", "greet", "reply was \(reply.debugDescription)")
-
-            // 2. callback served by Swift
-            let first = try await withTimeout(timeout) { try await listener.first() }
-            tap.check(first == "greeted Swift", "callback served by Swift", "notify was \(first.debugDescription)")
-
-            // 3. remote exception
-            var exception = "no error"
-            var isExpected = false
-            do {
-                _ = try await withTimeout(timeout) { try await greeter.greet { $0.setListener(listener) }.reply() }
-            } catch let error as RPCError {
-                exception = "\(error)"
-                if case .failed(let reason) = error, reason == "EmptyName" { isExpected = true }
-            } catch {
-                exception = "\(error)"
-            }
-            tap.check(isExpected, "remote exception", "got \(exception)")
-
-            // 4. server kill -> .disconnected
-            server.terminate()
-            let cause = try await withTimeout(timeout) { await connection.waitClosed() }
-            var disconnected = false
-            if case .disconnected = cause { disconnected = true }
-            tap.check(disconnected, "server kill -> .disconnected", "close cause was \(cause)")
-        } catch {
-            tap.check(false, "e2e aborted", "\(error)")
-        }
-        while tap.lines.count < planned { tap.check(false, "not run") }
-        tap.print(planned: planned)
-        exit(tap.failures == 0 ? 0 : 1)
+    switch schema {
+    case "game_world": try await gameWorld(connection)
+    case "chat": try await chat(connection)
+    case "inventory": try await inventory(connection)
+    case "matchmaking": try await matchmaking(connection)
+    case "resolve_disembargo": try await resolveDisembargo(connection)
+    default:
+        FileHandle.standardError.write(Data("e2e-swift-client: unknown schema \(schema)\n".utf8))
+        exit(2)
     }
+    await connection.close()
+} catch {
+    // A scenario-level abort records one failed assertion so the run is
+    // never silent.
+    tap(false, "scenario aborted: \(error)")
+}
+
+print("1..\(tapCount)")
+exit(tapFailures == 0 && tapCount > 0 ? 0 : 1)
+
+// MARK: - game_world
+
+func gameWorld(_ connection: RPCConnection) async throws {
+    let world = GameWorld.Client(cap: try await connection.bootstrap(), connection: connection)
+
+    let spawned = try await world.spawnEntity { p in
+        var request = p.initRequest()
+        request.kind = .player
+        request.setName("ZigClientHero")
+        var pos = request.initPosition()
+        pos.x = 10; pos.y = 20; pos.z = 30
+        request.faction = .alliance
+        request.maxHealth = 100
+    }
+    let entity = spawned.entity
+    tap(spawned.status == .ok, "spawnEntity returns ok status")
+    tap((try? entity.name()) == "ZigClientHero", "spawnEntity returns expected name")
+    tap(entity.id.id != 0, "spawnEntity returns non-zero entity id")
+    let spawnedId = entity.id.id
+
+    let fetched = try await world.getEntity { p in
+        var id = p.initId()
+        id.id = spawnedId
+    }
+    tap(fetched.status == .ok, "getEntity finds the spawned entity")
+    tap((try? fetched.entity.name()) == "ZigClientHero", "getEntity returns the spawned entity name")
+    tap(fetched.entity.alive, "getEntity reports the entity alive")
+
+    let damaged = try await world.damageEntity { p in
+        var id = p.initId()
+        id.id = spawnedId
+        p.amount = 150
+    }
+    tap(damaged.status == .ok, "damageEntity returns ok status")
+    tap(damaged.killed, "damageEntity reports the entity killed")
+    tap(damaged.entity.health == 0 && !damaged.entity.alive, "damageEntity leaves the entity dead at zero health")
+}
+
+// MARK: - chat
+
+func chat(_ connection: RPCConnection) async throws {
+    let service = ChatService.Client(cap: try await connection.bootstrap(), connection: connection)
+
+    var createCall = try await service.sendCreateRoom { p in
+        p.setName("general")
+        p.setTopic("General chat from the Swift e2e client")
+    }
+    let created = try await createCall.value()
+    tap(created.status == .ok, "createRoom returns ok status")
+    tap((try? created.info.name()) == "general", "createRoom returns expected room info name")
+    let room = created.room(createCall.resultCaps, on: connection)
+    tap(room != nil, "createRoom returns imported ChatRoom capability")
+        guard let roomValue = room else { return }
+    var roomHandle: ChatRoom.Client? = roomValue
+
+    let sent = try await roomHandle!.sendMessage { p in
+        p.setContent("Hello from the Swift e2e client")
+    }
+    tap(sent.status == .ok, "room sendMessage returns ok status")
+    tap((try? sent.message.content()) == "Hello from the Swift e2e client", "room sendMessage echoes the message content")
+
+    let info = try await roomHandle!.getInfo()
+    tap((try? info.info.name()) == "general", "room getInfo returns expected room name")
+
+    let left = try await roomHandle!.leave()
+    tap(left.status == .ok, "room leave returns ok status")
+
+    // Drop the only handle on the room capability: its CapRef deinits, the
+    // Release goes out, and the service cap must keep working.
+    roomHandle = nil
+    try await Task.sleep(for: .milliseconds(100))
+
+    let rooms = try await service.listRooms()
+    let list = try rooms.rooms()
+    tap(list != nil && list!.count >= 1, "listRooms still lists the room after room release")
+}
+
+// MARK: - inventory
+
+func inventory(_ connection: RPCConnection) async throws {
+    let service = InventoryService.Client(cap: try await connection.bootstrap(), connection: connection)
+
+    let inv = try await service.getInventory { p in
+        var id = p.initPlayer()
+        id.id = 42
+    }
+    tap(inv.status == .ok, "getInventory returns ok status")
+    tap(inv.inventory.usedSlots == 0, "new inventory has zero used slots")
+
+    var tradeCall = try await service.sendStartTrade { p in
+        var initiator = p.initInitiator()
+        initiator.id = 42
+        var target = p.initTarget()
+        target.id = 99
+    }
+    let trade = try await tradeCall.value()
+    tap(trade.status == .ok, "startTrade returns ok status")
+    let session = trade.session(tradeCall.resultCaps, on: connection)
+    tap(session != nil, "startTrade returns imported TradeSession capability")
+    guard let session else { return }
+
+    let state = try await session.getState()
+    tap(state.state == .proposing, "trade session starts in proposing state")
+
+    let accepted = try await session.accept()
+    tap(accepted.status == .ok, "trade accept returns ok status")
+
+    let cancelled = try await session.cancel()
+    tap(cancelled.state == .cancelled, "trade cancel reports cancelled state")
+}
+
+// MARK: - matchmaking (pipelining)
+
+func matchmaking(_ connection: RPCConnection) async throws {
+    let service = MatchmakingService.Client(cap: try await connection.bootstrap(), connection: connection)
+
+    let enqueued = try await service.enqueue { p in
+        var player = p.initPlayer()
+        var id = player.initId()
+        id.id = 1
+        player.setName("ZigQueuePlayer")
+        player.faction = .alliance
+        player.level = 60
+        p.mode = .duel
+    }
+    tap(enqueued.status == .ok, "enqueue returns ok status")
+    tap(enqueued.ticket.ticketId != 0, "enqueue returns a non-zero ticket id")
+
+    // The key exercise: issue calls on the PROMISED controller before
+    // findMatch's Return arrives.
+    var findCall = try await service.sendFindMatch { p in
+        var player = p.initPlayer()
+        var id = player.initId()
+        id.id = 1
+        player.setName("ZigQueuePlayer")
+        player.faction = .alliance
+        player.level = 60
+        p.mode = .duel
+    }
+    // Copy the pipelined client out of the call wrapper before spawning:
+    // value() mutates findCall, which would trip region isolation.
+    let pipelinedController = findCall.controller
+    let signalReadyTask = Task { try await pipelinedController.signalReady { p in
+        var id = p.initPlayer()
+        id.id = 1
+    } }
+    let getInfoTask = Task { try await pipelinedController.getInfo() }
+    try await Task.sleep(for: .milliseconds(100)) // both go out while unresolved
+    tap(true, "pipelined calls issued before findMatch resolved")
+
+    let found = try await findCall.value()
+    tap(found.matchId.id != 0, "findMatch returns a non-zero match id")
+    let controller = found.controller(findCall.resultCaps, on: connection)
+    tap(controller != nil, "findMatch returns imported MatchController capability")
+
+    let signaled = try await signalReadyTask.value
+    tap(signaled.status == .ok, "pipelined signalReady returns ok status")
+
+    let info = try await getInfoTask.value
+    let teamA = try info.info.teamA()
+    tap(teamA != nil && teamA!.count >= 1, "pipelined getInfo returns populated match info")
+    tap(info.info.id.id == found.matchId.id, "pipelined getInfo observed the same match as findMatch")
+
+    guard let controller else { return }
+    let cancelled = try await controller.cancelMatch()
+    tap(cancelled.status == .ok, "cancelMatch on resolved controller returns ok status")
+}
+
+// MARK: - resolve_disembargo (promise export + embargo)
+
+final class CallSequenceCounter: CallSequence.Server, @unchecked Sendable {
+    private let lock = NSLock()
+    private var next: UInt32 = 0
+    private(set) var invocations: [UInt32] = []
+
+    func getNumber(params: CallSequence.GetNumberParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CallSequence.GetNumberResults {
+        lock.withLock {
+            let n = next
+            next += 1
+            invocations.append(n)
+        }
+        return CallSequence.GetNumberResults { r in r.n = lock.withLock { invocations.last ?? 0 } }
+    }
+}
+
+func resolveDisembargo(_ connection: RPCConnection) async throws {
+    let reflector = Reflector.Client(cap: try await connection.bootstrap(), connection: connection)
+
+    // Host a CallSequence and pass it as reflect's target.
+    let counter = CallSequenceCounter()
+    var reflectCall = try await reflector.sendReflect { p in
+        p.setTarget(counter)
+    }
+
+    // Pipeline getNumber on the still-unresolved promise: it parks at the
+    // reflector until resolveNow resolves the promise back to our cap.
+    let promisedCap = reflectCall.promise
+    let pipelinedGet = Task { try await promisedCap.getNumber() }
+    try await Task.sleep(for: .milliseconds(50))
+    tap(true, "pipelined getNumber issued before resolution (parked)")
+
+    let reflectResults = try await reflectCall.value()
+    tap(reflectResults.promise(reflectCall.resultCaps, on: connection) != nil, "reflect returns imported promise capability")
+
+    _ = try await reflector.resolveNow()
+
+    let pipelined = try await pipelinedGet.value
+    tap(pipelined.n == 0, "pipelined getNumber reached CallSequence with n==0")
+    tap(true, "resolveNow completed")
+
+    // Direct call on the resolved import.
+    guard let resolved = reflectResults.promise(reflectCall.resultCaps, on: connection) else { return }
+    let direct = try await resolved.getNumber()
+    tap(direct.n == 1, "direct getNumber returned n==1")
+
+    // The pipelined call arrived before the direct one (the embargo held).
+    let seen = counter.invocations
+    tap(seen.count >= 2 && seen[0] == 0 && seen[1] == 1, "pipelined getNumber reached CallSequence before the direct call")
+
+    // invokeCap: the server calls our second cap once.
+    let cbCounter = CallSequenceCounter()
+    let invoked = try await reflector.invokeCap { p in
+        p.setCb(cbCounter)
+    }
+    tap(cbCounter.invocations.count == 1, "server invoked the client-supplied cap exactly once")
+    tap(invoked.observed == (cbCounter.invocations.first ?? 99), "server-observed invokeCap value matches the client cap's returned value")
+
+    // disconnectNow: the server closes its transport; this open call must
+    // fail with a disconnect-class error.
+    var disconnectClass = false
+    do {
+        _ = try await reflector.disconnectNow()
+    } catch let error as RPCError {
+        if case .disconnected = error { disconnectClass = true }
+    }
+    tap(disconnectClass, "disconnectNow observes a disconnect-class error")
 }

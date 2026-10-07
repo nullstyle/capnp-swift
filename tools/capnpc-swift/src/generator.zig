@@ -305,7 +305,7 @@ pub const Generator = struct {
         if (has_union) try self.emitWhichEnum(w, &struct_node, indent + 1);
 
         try self.emitReader(w, node, indent + 1);
-        try self.emitBuilder(w, node, indent + 1);
+        try self.emitBuilder(w, node, indent + 1, false);
 
         try w.print("{s}}}\n\n", .{pad});
     }
@@ -318,11 +318,14 @@ pub const Generator = struct {
         try w.print("{s}public struct {s} {{\n", .{ pad, name });
         try w.print("{s}    /// The built response bytes (a standalone message).\n", .{pad});
         try w.print("{s}    public let bytes: [UInt8]\n", .{pad});
+        try w.print("{s}    /// Capability slots the interface-typed setters collected.\n", .{pad});
+        try w.print("{s}    public var caps: [CapSlot] = []\n", .{pad});
         try w.print("{s}    public init(_ body: (inout Builder) -> Void = {{ _ in }}) {{\n", .{pad});
         try w.print("{s}        let mb = MessageBuilder()\n", .{pad});
         try w.print("{s}        var builder = Builder(mb.initRoot(dataWords: {d}, pointerWords: {d}))\n", .{ pad, struct_node.data_word_count, struct_node.pointer_count });
         try w.print("{s}        body(&builder)\n", .{pad});
         try w.print("{s}        self.bytes = mb.toBytes()\n", .{pad});
+        try w.print("{s}        self.caps = builder.caps\n", .{pad});
         try w.print("{s}    }}\n\n", .{pad});
 
         for (struct_node.fields) |field| {
@@ -332,7 +335,7 @@ pub const Generator = struct {
         }
         if (struct_node.discriminant_count > 0) try self.emitWhichEnum(w, &struct_node, indent + 1);
         try self.emitReader(w, node, indent + 1);
-        try self.emitBuilder(w, node, indent + 1);
+        try self.emitBuilder(w, node, indent + 1, true);
         try w.print("{s}}}\n\n", .{pad});
     }
 
@@ -374,21 +377,21 @@ pub const Generator = struct {
         try w.print("{s}}}\n\n", .{pad});
     }
 
-    fn emitBuilder(self: *Generator, w: *std.Io.Writer, node: *schema.Node, indent: usize) !void {
+    fn emitBuilder(self: *Generator, w: *std.Io.Writer, node: *schema.Node, indent: usize, is_results: bool) !void {
         const struct_node = node.struct_node.?;
         const pad = indentation(indent);
         try w.print("{s}public struct Builder {{\n", .{pad});
         try w.print("{s}    let root: StructBuilder\n", .{pad});
         if (self.in_params_struct) {
-            try w.print("{s}    /// Handler exports collected by the interface-typed setters.\n", .{pad});
-            try w.print("{s}    public var exports: [any ExportHandler] = []\n", .{pad});
+            try w.print("{s}    /// Capability slots collected by the interface-typed setters.\n", .{pad});
+            try w.print("{s}    public var caps: [CapSlot] = []\n", .{pad});
         }
         try w.print("{s}    public init(_ root: StructBuilder) {{ self.root = root }}\n", .{pad});
         if (struct_node.discriminant_count > 0) {
             try w.print("{s}    public var which: Which {{ Which(discriminant: root.readUInt16(at: {d})) }}\n\n", .{ pad, struct_node.discriminant_offset * 2 });
         }
         for (struct_node.fields) |field| {
-            try self.emitFieldBuilder(w, node, field, indent + 1);
+            try self.emitFieldBuilder(w, node, field, indent + 1, is_results);
         }
         try w.print("{s}}}\n\n", .{pad});
     }
@@ -470,7 +473,10 @@ pub const Generator = struct {
             if (!method.isStreaming()) {
                 if (self.getNode(method.result_struct_type)) |rn| {
                     const rname = try self.suffixed(mcap, "Results");
+                    const saved = self.in_params_struct;
+                    self.in_params_struct = true;
                     try self.emitResultsStruct(w, rn, rname, indent + 1);
+                    self.in_params_struct = saved;
                 }
             }
         }
@@ -563,7 +569,7 @@ pub const Generator = struct {
                 try w.print("{s}        let bytes = mb.toBytes().count\n", .{pad});
                 try w.print("{s}        try await connection.streamWindow.acquire(bytes: bytes)\n", .{pad});
                 try w.print("{s}        defer {{ connection.streamWindow.release(bytes: bytes) }}\n", .{pad});
-                try w.print("{s}        _ = try await connection.call(target, interface: {s}.interfaceID, method: Method.{s}.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))\n", .{ pad, iname, mname });
+                try w.print("{s}        _ = try await connection.call(target, interface: {s}.interfaceID, method: Method.{s}.rawValue, params: mb.toBytes(), caps: params.caps)\n", .{ pad, iname, mname });
                 try w.print("{s}    }}\n\n", .{pad});
                 continue;
             }
@@ -581,16 +587,18 @@ pub const Generator = struct {
             try w.print("{s}        let mb = MessageBuilder()\n", .{pad});
             try w.print("{s}        var params = {s}.Builder(mb.initRoot(dataWords: {d}, pointerWords: {d}))\n", .{ pad, params_name, dw, pw });
             try w.print("{s}        body(&params)\n", .{pad});
-            try w.print("{s}        let result = try await connection.call(target, interface: {s}.interfaceID, method: Method.{s}.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))\n", .{ pad, iname, mname });
+            try w.print("{s}        let result = try await connection.call(target, interface: {s}.interfaceID, method: Method.{s}.rawValue, params: mb.toBytes(), caps: params.caps)\n", .{ pad, iname, mname });
             try w.print("{s}        return try decoding {{ try {s}.Reader(Message(bytes: result.message).rootStruct()) }}\n", .{ pad, results_name });
             try w.print("{s}    }}\n\n", .{pad});
 
             // Typed promise: sendGreet -> GreetCall (pipeline on result caps).
             try w.print("{s}    public struct {s}: Sendable {{\n", .{ pad, call_name });
-            try w.print("{s}        public let promise: RemotePromise\n", .{pad});
+            try w.print("{s}        public let question: RemotePromise\n", .{pad});
+            try w.print("{s}        public private(set) var resultCaps: [CapTableEntry] = []\n", .{pad});
             try w.print("{s}        public let connection: RPCConnection\n", .{pad});
-            try w.print("{s}        public func value() async throws -> {s}.Reader {{\n", .{ pad, results_name });
-            try w.print("{s}            let result = try await promise.result()\n", .{pad});
+            try w.print("{s}        public mutating func value() async throws -> {s}.Reader {{\n", .{ pad, results_name });
+            try w.print("{s}            let result = try await question.result()\n", .{pad});
+            try w.print("{s}            resultCaps = result.caps\n", .{pad});
             try w.print("{s}            return try decoding {{ try {s}.Reader(Message(bytes: result.message).rootStruct()) }}\n", .{ pad, results_name });
             try w.print("{s}        }}\n", .{pad});
             if (results_node) |rn| {
@@ -604,7 +612,7 @@ pub const Generator = struct {
                     const iref = self.swiftRef(inode);
                     const fname = try self.swiftMemberName(field.name);
                     try w.print("{s}        /// Pipelined `{s}`: callable before the RETURN.\n", .{ pad, field.name });
-                    try w.print("{s}        public var {s}: {s}.Client {{ {s}.Client(pipelined: promise.pipeline([{d}]), connection: connection) }}\n", .{ pad, fname, iref, iref, slot.offset });
+                    try w.print("{s}        public var {s}: {s}.Client {{ {s}.Client(pipelined: question.pipeline([{d}]), connection: connection) }}\n", .{ pad, fname, iref, iref, slot.offset });
                 }
             }
             try w.print("{s}    }}\n\n", .{pad});
@@ -612,8 +620,8 @@ pub const Generator = struct {
             try w.print("{s}        let mb = MessageBuilder()\n", .{pad});
             try w.print("{s}        var params = {s}.Builder(mb.initRoot(dataWords: {d}, pointerWords: {d}))\n", .{ pad, params_name, dw, pw });
             try w.print("{s}        body(&params)\n", .{pad});
-            try w.print("{s}        let promise = try await connection.send(target, interface: {s}.interfaceID, method: Method.{s}.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))\n", .{ pad, iname, mname });
-            try w.print("{s}        return {s}(promise: promise, connection: connection)\n", .{ pad, call_name });
+            try w.print("{s}        let promise = try await connection.send(target, interface: {s}.interfaceID, method: Method.{s}.rawValue, params: mb.toBytes(), caps: params.caps)\n", .{ pad, iname, mname });
+            try w.print("{s}        return {s}(question: promise, connection: connection)\n", .{ pad, call_name });
             try w.print("{s}    }}\n\n", .{pad});
         }
         try w.print("{s}}}\n\n", .{pad});
@@ -671,7 +679,7 @@ pub const Generator = struct {
                     try w.print("{s}                return CallResponse(message: MessageBuilder.emptyStruct())\n", .{pad});
                 } else {
                     try w.print("{s}                let results = try await server.{s}(params: params, caps: call.caps, on: call.connection)\n", .{ pad, mname });
-                    try w.print("{s}                return CallResponse(message: results.bytes)\n", .{pad});
+                    try w.print("{s}                return CallResponse(message: results.bytes, caps: results.caps)\n", .{pad});
                 }
             }
             try w.print("{s}            default:\n", .{pad});
@@ -756,8 +764,8 @@ pub const Generator = struct {
             .interface => |i| {
                 try w.print("{s}/// The capability's index into the payload's cap table (nil when null).\n", .{pad});
                 try w.print("{s}public func {s}CapIndex() -> UInt32? {{ (try? root.readCapabilityIndex({d})) ?? nil }}\n\n", .{ pad, name, slot.offset });
-                if (self.in_params_struct) {
-                    if (self.getNode(i.type_id)) |inode| {
+                if (self.getNode(i.type_id)) |inode| {
+                    {
                         const iref = self.swiftRef(inode);
                         try w.print("{s}/// The capability as a Client, resolved through the payload's cap table.\n", .{pad});
                         try w.print("{s}public func {s}(_ caps: [CapTableEntry], on connection: RPCConnection) -> {s}.Client? {{\n", .{ pad, name, iref });
@@ -921,7 +929,7 @@ pub const Generator = struct {
         }
     }
 
-    fn emitFieldBuilder(self: *Generator, w: *std.Io.Writer, parent: *schema.Node, field: schema.Field, indent: usize) !void {
+    fn emitFieldBuilder(self: *Generator, w: *std.Io.Writer, parent: *schema.Node, field: schema.Field, indent: usize, is_results: bool) !void {
         const pad = indentation(indent);
         const name = try self.fieldAccessorName(parent, field);
         if (field.group) |group| {
@@ -932,19 +940,26 @@ pub const Generator = struct {
         }
         const slot = field.slot orelse return;
         const off = dataByteOffset(slot);
+        const dv = slot.default_value;
         switch (slot.type) {
-            .void => {},
-            .bool => try self.buildScalar(w, pad, name, "Bool", slot, "setBool(at: {d}, newValue)", "readBool(at: {d})"),
-            .int8 => try self.buildScalar(w, pad, name, "Int8", slot, "setInt8(at: {d}, newValue)", "readInt8(at: {d})"),
-            .int16 => try self.buildScalar(w, pad, name, "Int16", slot, "setInt16(at: {d}, newValue)", "readInt16(at: {d})"),
-            .int32 => try self.buildScalar(w, pad, name, "Int32", slot, "setInt32(at: {d}, newValue)", "readInt32(at: {d})"),
-            .int64 => try self.buildScalar(w, pad, name, "Int64", slot, "setInt64(at: {d}, newValue)", "readInt64(at: {d})"),
-            .uint8 => try self.buildScalar(w, pad, name, "UInt8", slot, "setUInt8(at: {d}, newValue)", "readUInt8(at: {d})"),
-            .uint16 => try self.buildScalar(w, pad, name, "UInt16", slot, "setUInt16(at: {d}, newValue)", "readUInt16(at: {d})"),
-            .uint32 => try self.buildScalar(w, pad, name, "UInt32", slot, "setUInt32(at: {d}, newValue)", "readUInt32(at: {d})"),
-            .uint64 => try self.buildScalar(w, pad, name, "UInt64", slot, "setUInt64(at: {d}, newValue)", "readUInt64(at: {d})"),
-            .float32 => try self.buildScalar(w, pad, name, "Float32", slot, "setFloat32(at: {d}, newValue)", "readFloat32(at: {d})"),
-            .float64 => try self.buildScalar(w, pad, name, "Float64", slot, "setFloat64(at: {d}, newValue)", "readFloat64(at: {d})"),
+            .void => {
+                if (field.discriminant_value != no_discriminant) {
+                    // A union member with no payload: setting it only writes
+                    // the discriminant.
+                    try w.print("{s}public func set{s}() {{ root.setUInt16(at: {d}, {d}) }}\n\n", .{ pad, try self.capitalized(name), parent.struct_node.?.discriminant_offset * 2, field.discriminant_value });
+                }
+            },
+            .bool => try self.buildScalarXor(w, pad, name, "Bool", slot, dv, "setBool", "readBool"),
+            .int8 => try self.buildScalarXor(w, pad, name, "Int8", slot, dv, "setInt8", "readInt8"),
+            .int16 => try self.buildScalarXor(w, pad, name, "Int16", slot, dv, "setInt16", "readInt16"),
+            .int32 => try self.buildScalarXor(w, pad, name, "Int32", slot, dv, "setInt32", "readInt32"),
+            .int64 => try self.buildScalarXor(w, pad, name, "Int64", slot, dv, "setInt64", "readInt64"),
+            .uint8 => try self.buildScalarXor(w, pad, name, "UInt8", slot, dv, "setUInt8", "readUInt8"),
+            .uint16 => try self.buildScalarXor(w, pad, name, "UInt16", slot, dv, "setUInt16", "readUInt16"),
+            .uint32 => try self.buildScalarXor(w, pad, name, "UInt32", slot, dv, "setUInt32", "readUInt32"),
+            .uint64 => try self.buildScalarXor(w, pad, name, "UInt64", slot, dv, "setUInt64", "readUInt64"),
+            .float32 => try self.buildScalarXor(w, pad, name, "Float32", slot, dv, "setFloat32", "readFloat32"),
+            .float64 => try self.buildScalarXor(w, pad, name, "Float64", slot, dv, "setFloat64", "readFloat64"),
             .@"enum" => |e| {
                 const enum_node = self.getNode(e.type_id) orelse return error.MissingEnumNode;
                 const type_name = self.swiftRef(enum_node);
@@ -953,35 +968,156 @@ pub const Generator = struct {
                 try w.print("{s}    set {{ root.setEnum16(at: {d}, newValue.rawValue) }}\n", .{ pad, off });
                 try w.print("{s}}}\n\n", .{pad});
             },
-            .text => try w.print("{s}public func set{s}(_ v: String) {{ root.setText({d}, v) }}\n\n", .{ pad, try self.capitalized(name), slot.offset }),
-            .data => try w.print("{s}public func set{s}(_ v: [UInt8]) {{ root.setData({d}, v) }}\n\n", .{ pad, try self.capitalized(name), slot.offset }),
+            .text => {
+                try w.print("{s}public func set{s}(_ v: String) {{", .{ pad, try self.capitalized(name) });
+                if (field.discriminant_value != no_discriminant) {
+                    try w.print(" root.setUInt16(at: {d}, {d});", .{ parent.struct_node.?.discriminant_offset * 2, field.discriminant_value });
+                }
+                try w.print(" root.setText({d}, v) }}\n\n", .{slot.offset});
+            },
+            .data => {
+                try w.print("{s}public func set{s}(_ v: [UInt8]) {{", .{ pad, try self.capitalized(name) });
+                if (field.discriminant_value != no_discriminant) {
+                    try w.print(" root.setUInt16(at: {d}, {d});", .{ parent.struct_node.?.discriminant_offset * 2, field.discriminant_value });
+                }
+                try w.print(" root.setData({d}, v) }}\n\n", .{slot.offset});
+            },
             .@"struct" => |s| {
                 const target = self.getNode(s.type_id) orelse return error.MissingStructNode;
                 const target_node = target.struct_node.?;
                 const type_name = self.swiftRef(target);
                 const cap = try self.capitalized(name);
                 try w.print("{s}public func init{s}() -> {s}.Builder {{\n", .{ pad, cap, type_name });
-                try w.print("{s}    {s}.Builder(root.initStruct({d}, dataWords: {d}, pointerWords: {d}))\n", .{ pad, type_name, slot.offset, target_node.data_word_count, target_node.pointer_count });
+                if (field.discriminant_value != no_discriminant) {
+                    try w.print("{s}    root.setUInt16(at: {d}, {d})\n", .{ pad, parent.struct_node.?.discriminant_offset * 2, field.discriminant_value });
+                }
+                try w.print("{s}    return {s}.Builder(root.initStruct({d}, dataWords: {d}, pointerWords: {d}))\n", .{ pad, type_name, slot.offset, target_node.data_word_count, target_node.pointer_count });
                 try w.print("{s}}}\n\n", .{pad});
             },
             .list => |l| try self.emitListBuilder(w, pad, name, slot, l.element_type),
             .interface => |i| {
                 if (self.in_params_struct) {
                     if (self.getNode(i.type_id)) |inode| {
+                        {
                         const iref = self.swiftRef(inode);
                         const cap = try self.capitalized(name);
-                        try w.print("{s}/// Export `server` for the call and point the field at it.\n", .{pad});
+                        try w.print("{s}/// Export `server` and point the field at it.\n", .{pad});
                         try w.print("{s}public mutating func set{s}(_ server: any {s}.Server) {{\n", .{ pad, cap, iref });
-                        try w.print("{s}    root.setCapability({d}, capIndex: UInt32(exports.count))\n", .{ pad, slot.offset });
-                        try w.print("{s}    exports.append({s}.Export(server))\n", .{ pad, iref });
+                        try w.print("{s}    root.setCapability({d}, capIndex: UInt32(caps.count))\n", .{ pad, slot.offset });
+                        try w.print("{s}    caps.append(.export({s}.Export(server)))\n", .{ pad, iref });
                         try w.print("{s}}}\n\n", .{pad});
+                        if (is_results) {
+                            try w.print("{s}/// Point the field at an unresolved promise export (resolved later).\n", .{pad});
+                            try w.print("{s}public mutating func set{s}(promise: PromiseExport) {{\n", .{ pad, cap });
+                            try w.print("{s}    root.setCapability({d}, capIndex: UInt32(caps.count))\n", .{ pad, slot.offset });
+                            try w.print("{s}    caps.append(.promise(promise))\n", .{pad});
+                            try w.print("{s}}}\n\n", .{pad});
+                        }
                         return;
+                    }
                     }
                 }
                 try w.print("{s}public func set{s}(capIndex: UInt32) {{ root.setCapability({d}, capIndex: capIndex) }}\n\n", .{ pad, try self.capitalized(name), slot.offset });
             },
             .any_pointer => {},
         }
+    }
+
+    fn buildScalarXor(self: *Generator, w: *std.Io.Writer, pad: []const u8, name: []const u8, swift_type: []const u8, slot: schema.FieldSlot, dv: ?schema.Value, comptime set_meth: []const u8, comptime get_meth: []const u8) !void {
+        const off = dataByteOffset(slot);
+        const has_default = switch (dv orelse schema.Value{ .void = {} }) {
+            .void => false,
+            .bool => |v| v,
+            .int8 => |v| v != 0,
+            .int16 => |v| v != 0,
+            .int32 => |v| v != 0,
+            .int64 => |v| v != 0,
+            .uint8 => |v| v != 0,
+            .uint16 => |v| v != 0,
+            .uint32 => |v| v != 0,
+            .uint64 => |v| v != 0,
+            .float32 => |v| @as(u32, @bitCast(v)) != 0,
+            .float64 => |v| @as(u64, @bitCast(v)) != 0,
+            .@"enum" => |v| v != 0,
+            else => false,
+        };
+        const setter = try std.fmt.allocPrint(self.scratch(), set_meth ++ "(at: {d}, ", .{off});
+        const getter = try std.fmt.allocPrint(self.scratch(), get_meth ++ "(at: {d})", .{off});
+        if (!has_default) {
+            try w.print("{s}public var {s}: {s} {{\n", .{ pad, name, swift_type });
+            try w.print("{s}    get {{ root.{s} }}\n", .{ pad, getter });
+            try w.print("{s}    set {{ root.{s}newValue) }}\n", .{ pad, setter });
+            try w.print("{s}}}\n\n", .{pad});
+            return;
+        }
+        try w.print("{s}public var {s}: {s} {{\n", .{ pad, name, swift_type });
+        try w.print("{s}    get {{ ", .{pad});
+        switch (dv.?) {
+            .bool => |v| {
+                if (v) {
+                    try w.print(" !root.{s}", .{getter});
+                } else {
+                    try w.print(" root.{s}", .{getter});
+                }
+            },
+            .float32 => |v| {
+                const bits: u32 = @bitCast(v);
+                try w.print(" Float32(bitPattern: root.readUInt32(at: {d}) ^ 0x{x})", .{ off, bits });
+            },
+            .float64 => |v| {
+                const bits: u64 = @bitCast(v);
+                try w.print(" Float64(bitPattern: root.readUInt64(at: {d}) ^ 0x{x})", .{ off, bits });
+            },
+            else => {
+                const d: i128 = switch (dv.?) {
+                    .int8 => |v| v,
+                    .int16 => |v| v,
+                    .int32 => |v| v,
+                    .int64 => |v| v,
+                    .uint8 => |v| v,
+                    .uint16 => |v| v,
+                    .uint32 => |v| v,
+                    .uint64 => |v| v,
+                    else => 0,
+                };
+                try w.print(" root.{s} ^ {d}", .{ getter, d });
+            },
+        }
+        try w.print("\n{s}    }}\n", .{pad});
+        try w.print("{s}    set {{ root.{s}", .{ pad, setter });
+        switch (dv.?) {
+            .bool => |v| {
+                if (v) {
+                    try w.print("!newValue)", .{});
+                } else {
+                    try w.print("newValue)", .{});
+                }
+            },
+            .float32 => |v| {
+                const bits: u32 = @bitCast(v);
+                try w.print("Float32(bitPattern: newValue.bitPattern ^ 0x{x}))", .{bits});
+            },
+            .float64 => |v| {
+                const bits: u64 = @bitCast(v);
+                try w.print("Float64(bitPattern: newValue.bitPattern ^ 0x{x}))", .{bits});
+            },
+            else => {
+                const d: i128 = switch (dv.?) {
+                    .int8 => |v| v,
+                    .int16 => |v| v,
+                    .int32 => |v| v,
+                    .int64 => |v| v,
+                    .uint8 => |v| v,
+                    .uint16 => |v| v,
+                    .uint32 => |v| v,
+                    .uint64 => |v| v,
+                    else => 0,
+                };
+                try w.print("newValue ^ {d})", .{d});
+            },
+        }
+        try w.print("{s}    }}\n", .{pad});
+        try w.print("{s}}}\n\n", .{pad});
     }
 
     fn buildScalar(self: *Generator, w: *std.Io.Writer, pad: []const u8, name: []const u8, swift_type: []const u8, slot: schema.FieldSlot, comptime setter_fmt: []const u8, comptime getter_fmt: []const u8) !void {

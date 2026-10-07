@@ -64,7 +64,7 @@ let package = Package(
         .executableTarget(
             name: "mvp-e2e",
             dependencies: ["CapnpRPC", "CapnpNW", "CapnpMVPGen"],
-            path: "interop/e2e-swift-client"
+            path: "interop/e2e-swift-client-mvp"
         ),
         .testTarget(
             name: "CapnpConformanceTests",
@@ -89,6 +89,24 @@ let package = Package(
             name: "CapnpTestVendor",
             dependencies: ["Capnp", "CapnpRPC"],
             path: "generated/vendor"
+        ),
+        // The M4 interop matrix bindings (interop/e2e/schemas, one module:
+        // game_types + the five scenario schemas).
+        .target(
+            name: "CapnpE2E",
+            dependencies: ["Capnp", "CapnpRPC"],
+            path: "interop/e2e/gen"
+        ),
+        // The M4 interop peers following the capnp-zig e2e CLI contract.
+        .executableTarget(
+            name: "e2e-swift-server",
+            dependencies: ["Capnp", "CapnpRPC", "CapnpNW", "CapnpE2E"],
+            path: "interop/e2e-swift-server"
+        ),
+        .executableTarget(
+            name: "e2e-swift-client",
+            dependencies: ["Capnp", "CapnpRPC", "CapnpNW", "CapnpE2E"],
+            path: "interop/e2e-swift-client"
         ),
         // The two-target import gate (plan §8 M3): app.capnp's generated
         // code imports the Lib module across the target boundary.
@@ -130,6 +148,13 @@ let package = Package(
             ),
             dependencies: ["capnpc-driver"],
             path: "Plugins/CapnpGenerate"
+        ),
+        // The M4 serialization bench (plan §8): Swift ping-pong vs
+        // capnp-zig's bench/ping_pong.zig.
+        .executableTarget(
+            name: "bench-ping-pong",
+            dependencies: ["Capnp"],
+            path: "interop/bench-ping-pong"
         ),
         // Crash-symbolication probe for scripts/check-dsym.sh: traps inside a
         // known Zig frame. Not a product; never shipped.

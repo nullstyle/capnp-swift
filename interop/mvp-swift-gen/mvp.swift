@@ -31,8 +31,8 @@ public enum Listener {
 
         public struct Builder {
             let root: StructBuilder
-            /// Handler exports collected by the interface-typed setters.
-            public var exports: [any ExportHandler] = []
+            /// Capability slots collected by the interface-typed setters.
+            public var caps: [CapSlot] = []
             public init(_ root: StructBuilder) { self.root = root }
             public func setMsg(_ v: String) { root.setText(0, v) }
 
@@ -43,11 +43,14 @@ public enum Listener {
     public struct NotifyResults {
         /// The built response bytes (a standalone message).
         public let bytes: [UInt8]
+        /// Capability slots the interface-typed setters collected.
+        public var caps: [CapSlot] = []
         public init(_ body: (inout Builder) -> Void = { _ in }) {
             let mb = MessageBuilder()
             var builder = Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&builder)
             self.bytes = mb.toBytes()
+            self.caps = builder.caps
         }
 
         public struct Reader: Sendable {
@@ -57,6 +60,8 @@ public enum Listener {
 
         public struct Builder {
             let root: StructBuilder
+            /// Capability slots collected by the interface-typed setters.
+            public var caps: [CapSlot] = []
             public init(_ root: StructBuilder) { self.root = root }
         }
 
@@ -88,15 +93,17 @@ public enum Listener {
             let mb = MessageBuilder()
             var params = Listener.NotifyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
-            let result = try await connection.call(target, interface: Listener.interfaceID, method: Method.notify.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+            let result = try await connection.call(target, interface: Listener.interfaceID, method: Method.notify.rawValue, params: mb.toBytes(), caps: params.caps)
             return try decoding { try Listener.NotifyResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct NotifyCall: Sendable {
-            public let promise: RemotePromise
+            public let question: RemotePromise
+            public private(set) var resultCaps: [CapTableEntry] = []
             public let connection: RPCConnection
-            public func value() async throws -> Listener.NotifyResults.Reader {
-                let result = try await promise.result()
+            public mutating func value() async throws -> Listener.NotifyResults.Reader {
+                let result = try await question.result()
+                resultCaps = result.caps
                 return try decoding { try Listener.NotifyResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
@@ -105,8 +112,8 @@ public enum Listener {
             let mb = MessageBuilder()
             var params = Listener.NotifyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
-            let promise = try await connection.send(target, interface: Listener.interfaceID, method: Method.notify.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return NotifyCall(promise: promise, connection: connection)
+            let promise = try await connection.send(target, interface: Listener.interfaceID, method: Method.notify.rawValue, params: mb.toBytes(), caps: params.caps)
+            return NotifyCall(question: promise, connection: connection)
         }
 
     }
@@ -124,7 +131,7 @@ public enum Listener {
                 case Listener.Method.notify.rawValue:
                     let params = try decoding { try Listener.NotifyParams.Reader(Message(bytes: call.params).rootStruct()) }
                     let results = try await server.notify(params: params, caps: call.caps, on: call.connection)
-                    return CallResponse(message: results.bytes)
+                    return CallResponse(message: results.bytes, caps: results.caps)
                 default:
                     throw RPCError.unimplemented(reason: "Listener: no such method")
                 }
@@ -169,15 +176,15 @@ public enum Greeter {
 
         public struct Builder {
             let root: StructBuilder
-            /// Handler exports collected by the interface-typed setters.
-            public var exports: [any ExportHandler] = []
+            /// Capability slots collected by the interface-typed setters.
+            public var caps: [CapSlot] = []
             public init(_ root: StructBuilder) { self.root = root }
             public func setName(_ v: String) { root.setText(0, v) }
 
-            /// Export `server` for the call and point the field at it.
+            /// Export `server` and point the field at it.
             public mutating func setListener(_ server: any Listener.Server) {
-                root.setCapability(1, capIndex: UInt32(exports.count))
-                exports.append(Listener.Export(server))
+                root.setCapability(1, capIndex: UInt32(caps.count))
+                caps.append(.export(Listener.Export(server)))
             }
 
         }
@@ -187,11 +194,14 @@ public enum Greeter {
     public struct GreetResults {
         /// The built response bytes (a standalone message).
         public let bytes: [UInt8]
+        /// Capability slots the interface-typed setters collected.
+        public var caps: [CapSlot] = []
         public init(_ body: (inout Builder) -> Void = { _ in }) {
             let mb = MessageBuilder()
             var builder = Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&builder)
             self.bytes = mb.toBytes()
+            self.caps = builder.caps
         }
 
         public struct Reader: Sendable {
@@ -205,6 +215,8 @@ public enum Greeter {
 
         public struct Builder {
             let root: StructBuilder
+            /// Capability slots collected by the interface-typed setters.
+            public var caps: [CapSlot] = []
             public init(_ root: StructBuilder) { self.root = root }
             public func setReply(_ v: String) { root.setText(0, v) }
 
@@ -238,15 +250,17 @@ public enum Greeter {
             let mb = MessageBuilder()
             var params = Greeter.GreetParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
-            let result = try await connection.call(target, interface: Greeter.interfaceID, method: Method.greet.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+            let result = try await connection.call(target, interface: Greeter.interfaceID, method: Method.greet.rawValue, params: mb.toBytes(), caps: params.caps)
             return try decoding { try Greeter.GreetResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GreetCall: Sendable {
-            public let promise: RemotePromise
+            public let question: RemotePromise
+            public private(set) var resultCaps: [CapTableEntry] = []
             public let connection: RPCConnection
-            public func value() async throws -> Greeter.GreetResults.Reader {
-                let result = try await promise.result()
+            public mutating func value() async throws -> Greeter.GreetResults.Reader {
+                let result = try await question.result()
+                resultCaps = result.caps
                 return try decoding { try Greeter.GreetResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
@@ -255,8 +269,8 @@ public enum Greeter {
             let mb = MessageBuilder()
             var params = Greeter.GreetParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
-            let promise = try await connection.send(target, interface: Greeter.interfaceID, method: Method.greet.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return GreetCall(promise: promise, connection: connection)
+            let promise = try await connection.send(target, interface: Greeter.interfaceID, method: Method.greet.rawValue, params: mb.toBytes(), caps: params.caps)
+            return GreetCall(question: promise, connection: connection)
         }
 
     }
@@ -274,7 +288,7 @@ public enum Greeter {
                 case Greeter.Method.greet.rawValue:
                     let params = try decoding { try Greeter.GreetParams.Reader(Message(bytes: call.params).rootStruct()) }
                     let results = try await server.greet(params: params, caps: call.caps, on: call.connection)
-                    return CallResponse(message: results.bytes)
+                    return CallResponse(message: results.bytes, caps: results.caps)
                 default:
                     throw RPCError.unimplemented(reason: "Greeter: no such method")
                 }
