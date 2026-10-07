@@ -231,7 +231,10 @@ public struct StructListReader: Sendable {
         guard tagPos + 8 <= seg.count else { throw CapnpError.malformed("composite tag out of its segment") }
         let tag = Pointer(word: Message.u64(message.bytes, seg.lowerBound + tagPos))
         guard tag.kind == 0 else { throw CapnpError.malformed("composite tag is not a struct pointer") }
+        // The tag's offset field (an i30) carries the element count; a
+        // negative value is malformed, never an empty range.
         let count = tag.offset
+        guard count >= 0 else { throw CapnpError.malformed("composite tag count negative") }
         let dataWords = tag.structDataWords
         let pointerWords = tag.structPointerWords
         let strideBytes = (dataWords + pointerWords) * 8

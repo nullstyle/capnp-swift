@@ -134,6 +134,7 @@ public struct Message: Sendable {
         if p.kind == 2 {
             let padSeg = p.farSegment
             let padPos = p.farWordOffset * 8
+            guard padSeg < segments.count else { throw CapnpError.malformed("far pointer segment out of range") }
             guard padPos >= 0 else { throw CapnpError.malformed("far pointer offset negative") }
             let seg = segments[padSeg]
             if p.farTwoWordPad {
@@ -145,6 +146,7 @@ public struct Message: Sendable {
                 if tag.kind == 2 { throw CapnpError.malformed("far pointer to a far pointer") }
                 let contentSeg = inner.farSegment
                 let contentPos = inner.farWordOffset * 8
+                guard contentSeg < segments.count else { throw CapnpError.malformed("far pointer segment out of range") }
                 guard contentPos >= 0 else { throw CapnpError.malformed("far pointer offset negative") }
                 // The content starts exactly at the inner far's target; the
                 // tag's own offset is ignored in this position (capnp-zig
