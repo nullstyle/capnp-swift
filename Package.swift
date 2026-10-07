@@ -57,7 +57,7 @@ let package = Package(
         // against it over TCP and prints TAP (`just mvp-e2e`).
         .executableTarget(
             name: "mvp-e2e",
-            dependencies: ["CapnpRPC", "CapnpNW", "CapnpMVP"],
+            dependencies: ["CapnpRPC", "CapnpNW", "CapnpMVPGen"],
             path: "interop/e2e-swift-client"
         ),
         .testTarget(

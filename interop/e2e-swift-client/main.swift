@@ -11,7 +11,7 @@
 // Usage: mvp-e2e --server <path to zig-peer> [--timeout <seconds>]
 // Exit status 0 only when every line is `ok`.
 
-import CapnpMVP
+import CapnpMVPGen
 import CapnpNW
 import CapnpRPC
 import Foundation
@@ -33,11 +33,13 @@ func withTimeout<T: Sendable>(_ limit: Duration, _ operation: @escaping @Sendabl
 }
 
 /// Records every notify; `first()` polls so a timeout can cancel the wait.
+/// The Server conformance is against the GENERATED bindings (M3-h).
 final class RecordingListener: Listener.Server, Sendable {
     private let messages = Mutex<[String]>([])
 
-    func notify(_ msg: String) async throws {
-        messages.withLock { $0.append(msg) }
+    func notify(params: Listener.NotifyParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> Listener.NotifyResults {
+        messages.withLock { $0.append((try? params.msg()) ?? "") }
+        return Listener.NotifyResults()
     }
 
     func first() async throws -> String {
@@ -119,7 +121,7 @@ struct MVPE2E {
 
             // 1. greet
             let listener = RecordingListener()
-            let reply = try await withTimeout(timeout) { try await greeter.greet(name: "Swift", listener: listener) }
+            let reply = try await withTimeout(timeout) { try await greeter.greet { $0.setName("Swift"); $0.setListener(listener) }.reply() }
             tap.check(reply == "Hello, Swift!", "greet", "reply was \(reply.debugDescription)")
 
             // 2. callback served by Swift
@@ -130,7 +132,7 @@ struct MVPE2E {
             var exception = "no error"
             var isExpected = false
             do {
-                _ = try await withTimeout(timeout) { try await greeter.greet(name: "", listener: listener) }
+                _ = try await withTimeout(timeout) { try await greeter.greet { $0.setListener(listener) }.reply() }
             } catch let error as RPCError {
                 exception = "\(error)"
                 if case .failed(let reason) = error, reason == "EmptyName" { isExpected = true }
