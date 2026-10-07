@@ -1363,3 +1363,58 @@ test "oom sweep: every allocation failure in a caps-both-ways session fails clea
     }
     try testing.expect(i > 100);
 }
+
+// ---------------------------------------------------------------------------
+// u32_le framing (M6, plan §2: the QUIC baseline)
+// ---------------------------------------------------------------------------
+
+test "u32_le: bootstrap round trip over length-prefixed frames, split pushes" {
+    const alloc = testing.allocator;
+    const a = try Conn.init(alloc, .{ .now_ns = 0, .framing = .u32_le });
+    defer a.deinit();
+    const b = try Conn.init(alloc, .{ .now_ns = 0, .framing = .u32_le });
+    defer b.deinit();
+    var ra = Rec.init(alloc);
+    defer ra.deinit();
+    var rb = Rec.init(alloc);
+    defer rb.deinit();
+
+    _ = try b.setBootstrap(7);
+    const q = try a.bootstrap();
+
+    // Every OUT_FRAME of a must now start with the LE u32 length of the
+    // standalone message that follows; b must accept the bytes split into
+    // arbitrary chunks (a QUIC stream delivers partial reads).
+    const eff = (try a.nextEffect()) orelse return error.TestNoOutFrame;
+    try testing.expect(@as(std.meta.Tag(effects.Effect), .out_frame) == eff.*);
+    const frame = try alloc.dupe(u8, eff.out_frame);
+    defer alloc.free(frame);
+    a.commitEffect();
+    try testing.expect(frame.len > 4);
+    const len = std.mem.readInt(u32, frame[0..4], .little);
+    try testing.expectEqual(frame.len - 4, len);
+    // Deliver one byte at a time: the codec must reassemble; b then
+    // answers with a RETURN effect on its own queue.
+    for (frame) |byte| try b.pushBytes(&.{byte});
+    // b answers on the wire; pump delivers b's frame back into a (through
+    // the same codec), and the RETURN effect lands on a, the asker.
+    try pump(a, &ra, b, &rb);
+    const ret = ra.returnFor(q) orelse return error.TestNoReturn;
+    try testing.expectEqual(effects.ReturnKind.results, ret.kind);
+}
+
+test "u32_le: a zero or oversized length prefix fails framing" {
+    const alloc = testing.allocator;
+    {
+        const a = try Conn.init(alloc, .{ .now_ns = 0, .framing = .u32_le });
+        defer a.deinit();
+        try testing.expectError(error.Protocol, a.pushBytes(&.{ 0, 0, 0, 0 }));
+    }
+    {
+        const a = try Conn.init(alloc, .{ .now_ns = 0, .framing = .u32_le, .max_frame_bytes = 128 });
+        defer a.deinit();
+        var prefix: [4]u8 = undefined;
+        std.mem.writeInt(u32, &prefix, 1_000_000, .little);
+        try testing.expectError(error.Protocol, a.pushBytes(&prefix));
+    }
+}

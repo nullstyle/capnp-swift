@@ -1065,3 +1065,33 @@ test "set_deadline: a per-question deadline fires on a tick" {
     try testing.expectEqual(@as(u8, c.CAPNP_RETURN_EXCEPTION), r.kind);
     try testing.expectEqual(@as(u16, 1), r.exception_type);
 }
+
+// ---------------------------------------------------------------------------
+// u32_le framing through the C ABI (M6, plan §2)
+// ---------------------------------------------------------------------------
+
+test "u32_le: accepted, wire frames carry the prefix, alpn exported" {
+    var opts = defaultOpts();
+    opts.framing = c.CAPNP_FRAMING_U32_LE;
+    var raw: ?*c.capnp_conn = null;
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_conn_new(&opts, 0, &raw));
+    const conn = raw.?;
+    defer _ = c.capnp_conn_free(conn);
+
+    var qid: u32 = 0;
+    try testing.expectEqual(@as(i32, c.CAPNP_OK), c.capnp_bootstrap(conn, &qid));
+
+    var eff: c.capnp_effect = undefined;
+    eff.struct_size = @sizeOf(c.capnp_effect);
+    try testing.expectEqual(@as(i32, 1), c.capnp_conn_next_effect(conn, &eff));
+    defer _ = c.capnp_conn_commit_effect(conn);
+    try testing.expectEqual(@as(u8, 0), eff.kind); // OUT_FRAME
+    try testing.expect(eff.msg_len > 4);
+    const len = std.mem.readInt(u32, eff.msg[0..4], .little);
+    try testing.expectEqual(eff.msg_len - 4, @as(usize, len));
+
+    // The frozen QUIC baseline ALPN from the pinned package.
+    const alpn = std.mem.span(c.capnp_core_quic_alpn());
+    try testing.expectEqualStrings("capnp-rpc/1", alpn);
+    try testing.expectEqual(c.CAPNP_FRAMING_U32_LE, @as(u8, 1));
+}

@@ -49,10 +49,81 @@ pub const Options = struct {
     now_ns: i64,
     limits: rpc.peer.PeerLimits = .{},
     timeouts: ?rpc.peer.PeerTimeouts = null,
-    /// Framer buffer cap (bytes of one in-progress inbound frame).
+    /// Framer buffer cap (bytes of one in-progress inbound frame). In
+    /// `.u32_le` mode this caps one length-prefixed payload.
     max_frame_bytes: usize = Framer.default_max_buffered_bytes,
     /// Queue an EVENT effect for every Peer observer event.
     observer: bool = false,
+    /// Inbound byte-stream framing (plan §2: TCP/Unix/TLS segment table,
+    /// QUIC baseline u32 LE). Outgoing frames always carry a standalone
+    /// segment-table message; in `.u32_le` each is prefixed with its
+    /// little-endian u32 length on the way out and de-prefixed on the way
+    /// in, matching capnp-zig's QUIC baseline `LengthDelimitedFramer`.
+    framing: Framing = .segment_table,
+};
+
+/// The byte-stream framing of one connection (Options.framing).
+pub const Framing = enum { segment_table, u32_le };
+
+/// Inbound codec for `.u32_le`: bytes arrive as 4-byte LE length prefixes,
+/// each naming one standalone (segment-table) message. A zero length is a
+/// framing error; the payload cap is `max_frame_bytes` (QUIC's
+/// `max_message_bytes` role).
+const LengthCodec = struct {
+    pending: std.ArrayList(u8) = .empty,
+    /// Total payload length once the prefix is complete.
+    expected: ?usize = null,
+    /// Payload cap (from Conn opts).
+    max_bytes: usize = 0,
+
+    fn deinit(self: *LengthCodec, allocator: std.mem.Allocator) void {
+        self.pending.deinit(allocator);
+    }
+
+    /// Feed bytes; `deliver` runs for every complete payload.
+    fn push(
+        self: *LengthCodec,
+        allocator: std.mem.Allocator,
+        bytes: []const u8,
+        ctx: anytype,
+        comptime deliver: fn (@TypeOf(ctx), []const u8) anyerror!void,
+    ) !void {
+        var rest = bytes;
+        while (true) {
+            const have = self.pending.items.len;
+            if (self.expected == null) {
+                const need = 4 - have;
+                if (rest.len < need) {
+                    try self.pending.appendSlice(allocator, rest);
+                    return;
+                }
+                var prefix: [4]u8 = undefined;
+                @memcpy(prefix[0..have], self.pending.items);
+                @memcpy(prefix[have..], rest[0..need]);
+                rest = rest[need..];
+                self.pending.clearRetainingCapacity();
+                const len = std.mem.readInt(u32, &prefix, .little);
+                if (len == 0) return error.InvalidLengthPrefix;
+                if (len > self.max_bytes) return error.FrameTooLarge;
+                self.expected = len;
+                continue;
+            }
+            const want = self.expected.? - have;
+            if (rest.len < want) {
+                try self.pending.appendSlice(allocator, rest);
+                return;
+            }
+            const payload_end = have + want;
+            try self.pending.appendSlice(allocator, rest[0..want]);
+            rest = rest[want..];
+            const payload = try allocator.dupe(u8, self.pending.items[0..payload_end]);
+            defer allocator.free(payload);
+            self.pending.clearRetainingCapacity();
+            self.expected = null;
+            try deliver(ctx, payload);
+            if (rest.len == 0) return;
+        }
+    }
 };
 
 /// Diagnostic counters. They saturate: a long-lived connection must never
@@ -95,6 +166,8 @@ pub const Conn = struct {
     allocator: std.mem.Allocator,
     peer: Peer,
     framer: Framer,
+    framing: Framing,
+    length_codec: LengthCodec,
     queue: effects.Queue = .{},
     /// Monotonic time of the last `tick`; the Peer's clock reads it.
     now_ns: i64 = 0,
@@ -153,6 +226,8 @@ pub const Conn = struct {
             .allocator = allocator,
             .peer = Peer.initDetachedWithLimits(allocator, opts.limits),
             .framer = Framer.initWithOptions(allocator, .{ .max_buffered_bytes = opts.max_frame_bytes }),
+            .framing = opts.framing,
+            .length_codec = .{ .max_bytes = opts.max_frame_bytes },
             .pending_answers = std.AutoHashMap(u32, void).init(allocator),
             .questions = std.AutoHashMap(u32, *QuestionCtx).init(allocator),
             .close_node = close_node,
@@ -194,6 +269,7 @@ pub const Conn = struct {
         self.pending_answers.deinit();
         self.questions.deinit();
         self.framer.deinit();
+        self.length_codec.deinit(a);
         a.destroy(self);
     }
 
@@ -214,18 +290,34 @@ pub const Conn = struct {
     /// once the host reports the transport closed.
     pub fn pushBytes(self: *Conn, bytes: []const u8) !void {
         if (self.isClosed()) return error.Closed;
-        self.framer.push(bytes) catch |err| return self.failFraming(err);
-        while (true) {
-            const frame = (self.framer.popFrame() catch |err| return self.failFraming(err)) orelse break;
-            defer self.allocator.free(frame);
-            const mark = self.queue.tail;
-            self.peer.handleFrame(frame) catch |err| {
-                if (err == error.RemoteAbort) return self.closeByRemoteAbort();
-                if (!self.abortQueuedSince(mark)) self.sendAbort(err);
-                return self.failProtocol(err);
-            };
-            if (self.isClosed()) break;
+        switch (self.framing) {
+            .segment_table => {
+                self.framer.push(bytes) catch |err| return self.failFraming(err);
+                while (true) {
+                    const frame = (self.framer.popFrame() catch |err| return self.failFraming(err)) orelse break;
+                    defer self.allocator.free(frame);
+                    try self.handleOneFrame(frame);
+                }
+            },
+            .u32_le => {
+                // The codec owns reassembly; each complete payload is exactly
+                // one standalone message.
+                self.length_codec.push(self.allocator, bytes, self, deliverLengthDelimited) catch |err| return self.failFraming(err);
+            },
         }
+    }
+
+    fn handleOneFrame(self: *Conn, frame: []const u8) !void {
+        const mark = self.queue.tail;
+        self.peer.handleFrame(frame) catch |err| {
+            if (err == error.RemoteAbort) return self.closeByRemoteAbort();
+            if (!self.abortQueuedSince(mark)) self.sendAbort(err);
+            return self.failProtocol(err);
+        };
+    }
+
+    fn deliverLengthDelimited(self: *Conn, payload: []const u8) anyerror!void {
+        try self.handleOneFrame(payload);
     }
 
     /// Advance the Peer's clock and run its maintenance (deadlines, Finish
@@ -733,9 +825,17 @@ fn bindingSend(ctx: *anyopaque, frame: []const u8) anyerror!void {
     if (self.transport_closed) return error.TransportClosed;
     const node = try effects.Node.create(self.allocator);
     errdefer node.destroy(self.allocator);
-    const bytes = try self.allocator.dupe(u8, frame);
-    node.owned_bytes = bytes;
-    node.effect = .{ .out_frame = bytes };
+    if (self.framing == .u32_le) {
+        const bytes = try self.allocator.alloc(u8, 4 + frame.len);
+        std.mem.writeInt(u32, bytes[0..4], @intCast(frame.len), .little);
+        @memcpy(bytes[4..], frame);
+        node.owned_bytes = bytes;
+        node.effect = .{ .out_frame = bytes };
+    } else {
+        const bytes = try self.allocator.dupe(u8, frame);
+        node.owned_bytes = bytes;
+        node.effect = .{ .out_frame = bytes };
+    }
     self.pushNode(node);
 }
 

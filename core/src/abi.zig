@@ -76,6 +76,13 @@ pub export fn capnp_core_version() callconv(.c) [*:0]const u8 {
     return version_string.ptr;
 }
 
+/// The QUIC baseline ALPN capnp-zig freezes ("capnp-rpc/1"), read from the
+/// pinned package's QUIC module (exported even with QUIC compiled out; plan
+/// §4, H3). Static, NUL-terminated; never freed.
+pub export fn capnp_core_quic_alpn() callconv(.c) [*:0]const u8 {
+    return rpc.transport.quic.alpn.ptr;
+}
+
 // ---------------------------------------------------------------------------
 // Panic hook
 // ---------------------------------------------------------------------------
@@ -139,6 +146,7 @@ pub const CAPNP_E_NOMEM: i32 = -7;
 pub const CAPNP_E_INTERNAL: i32 = -8;
 
 pub const CAPNP_FRAMING_SEGMENT_TABLE: u8 = 0;
+pub const CAPNP_FRAMING_U32_LE: u8 = 1;
 
 /// Opaque to C. Points at a `Handle`.
 pub const capnp_conn = opaque {};
@@ -339,7 +347,11 @@ pub export fn capnp_conn_new(opts: ?*const capnp_conn_opts, now_uptime_ns: i64, 
     if (given.struct_size < @sizeOf(u32)) return CAPNP_E_INVAL;
     const n = @min(given.struct_size, @sizeOf(capnp_conn_opts));
     @memcpy(std.mem.asBytes(&o)[0..n], @as([*]const u8, @ptrCast(given))[0..n]);
-    if (o.framing != CAPNP_FRAMING_SEGMENT_TABLE) return CAPNP_E_INVAL;
+    const framing: @import("conn.zig").Framing = switch (o.framing) {
+        CAPNP_FRAMING_SEGMENT_TABLE => .segment_table,
+        CAPNP_FRAMING_U32_LE => .u32_le,
+        else => return CAPNP_E_INVAL,
+    };
 
     var limits: rpc.peer.PeerLimits = .{};
     if (o.max_outbound_questions != 0) limits.max_outbound_questions = o.max_outbound_questions;
@@ -363,6 +375,7 @@ pub export fn capnp_conn_new(opts: ?*const capnp_conn_opts, now_uptime_ns: i64, 
         .timeouts = timeouts,
         .max_frame_bytes = if (o.max_frame_bytes != 0) o.max_frame_bytes else rpc.wire.framing.Framer.default_max_buffered_bytes,
         .observer = o.observer != 0,
+        .framing = framing,
     }) catch |err| {
         gpa.destroy(h);
         return codeFor(err);

@@ -34,6 +34,9 @@ uint64_t capnp_core_features(void);
 /* "core <version> / capnp-zig <pinned version> / <pinned package hash>".
  * Static, NUL-terminated, never freed. */
 const char *capnp_core_version(void);
+const char *capnp_core_quic_alpn(void);             /* the QUIC baseline ALPN
+                                                       capnp-zig freezes
+                                                       ("capnp-rpc/1", plan §4) */
 
 /* The name of a Peer observer event tag (capnp_effect.event_tag): "connection",
  * "frame", "backpressure", "resource_rejection", "protocol_error", "close",
@@ -107,7 +110,10 @@ typedef struct capnp_conn capnp_conn;
 
 /* Framing of the byte stream the host pushes in. */
 #define CAPNP_FRAMING_SEGMENT_TABLE 0   /* standard stream framing (TCP, Unix,
-                                           TLS); QUIC's U32_LE lands in M6 */
+                                           TLS) */
+#define CAPNP_FRAMING_U32_LE        1   /* QUIC baseline: every message one
+                                           u32 little-endian length prefix +
+                                           its standalone segment-table bytes */
 
 /* Options for capnp_conn_new. Zero every field you do not set; 0 means "the
  * core's default". Set struct_size to sizeof(capnp_conn_opts): a core newer
