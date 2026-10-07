@@ -2,7 +2,7 @@
     .name = .capnp_swift_core,
     // Reported by capnp_core_version() as
     // "core <version> / capnp-zig <pin version> / <pin hash>".
-    .version = "0.0.1",
+    .version = "0.1.0",
     .fingerprint = 0x18c63ec05a84c2a2,
     .minimum_zig_version = "0.17.0",
     .dependencies = .{

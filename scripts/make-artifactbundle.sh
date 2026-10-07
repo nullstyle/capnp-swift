@@ -27,6 +27,9 @@ mise exec -- zig build -Dtarget=aarch64-macos -Doptimize=ReleaseSafe
 cp zig-out/bin/capnpc-swift ../../"$TRIPLE_DIR/capnpc-swift.arm64"
 mise exec -- zig build -Dtarget=x86_64-macos -Doptimize=ReleaseSafe
 cp zig-out/bin/capnpc-swift ../../"$TRIPLE_DIR/capnpc-swift.x86_64"
+# Leave the dev-tree plugin native again: generate-check runs it directly,
+# and an x86_64 leftover dies with EBADEXEC on hosts without Rosetta.
+mise exec -- zig build -Dtarget=aarch64-macos -Doptimize=ReleaseSafe
 cd ../..
 lipo -create "$TRIPLE_DIR/capnpc-swift.arm64" "$TRIPLE_DIR/capnpc-swift.x86_64" -output "$TRIPLE_DIR/capnpc-swift"
 rm "$TRIPLE_DIR/capnpc-swift.arm64" "$TRIPLE_DIR/capnpc-swift.x86_64"
