@@ -9,12 +9,23 @@
 //! except the process-wide panic hook below; the core never calls into Swift
 //! except through that hook.
 //!
-//! M0 surface: version/feature queries, the panic hook, and two test hooks
-//! (`capnp_core_debug_trap`, `capnp_core_debug_selftest`).
+//! Surface: version/feature queries, the panic hook, two test hooks
+//! (`capnp_core_debug_trap`, `capnp_core_debug_selftest`) and the connection
+//! API (C ABI v1, M1 subset: `capnp_conn_*`, `capnp_bootstrap`, `capnp_call`,
+//! `capnp_finish`, `capnp_release`, `capnp_export`, `capnp_set_bootstrap`,
+//! `capnp_return_results`, `capnp_return_exception`). The logic lives in
+//! `conn.zig` (Zig API, tested by `conn_test.zig`); this file is the C-type
+//! adapter, tested through the header by `abi_test.zig` (`zig build test-abi`).
 
 const std = @import("std");
 const build_info = @import("build_info");
+const capnp = @import("capnpc-zig");
 const selftest = @import("selftest.zig");
+const conn_mod = @import("conn.zig");
+const effects = @import("effects.zig");
+
+const rpc = capnp.rpc;
+const Conn = conn_mod.Conn;
 
 /// Must equal `CAPNP_CORE_ABI_VERSION` in `capnp_core.h` (checked by a test).
 pub const abi_version: u32 = 1;
@@ -105,31 +116,437 @@ pub export fn capnp_core_debug_selftest(failure: ?*?[*:0]const u8) callconv(.c) 
 }
 
 // ---------------------------------------------------------------------------
-// Connection exports (capnp_conn_*, capnp_bootstrap, capnp_call, ...): M1.
-//
-// Add them here, following plan §4 (C ABI v1) and §4.1 (core rules):
-//   - declare each as `pub export fn capnp_...(...) callconv(.c)` and add the
-//     prototype to `core/include/capnp_core.h` (the drift test below fails
-//     otherwise);
-//   - keep the logic in `conn.zig` (Zig API, tested by `conn_test.zig` in
-//     `zig build test`); this file stays a thin C-type adapter;
-//   - conn.zig takes an allocator; exports pass `std.heap.c_allocator`
-//     (apple_root.zig's `allocator`), tests pass `std.testing.allocator`;
-//   - `capnp_conn_new` takes `int64_t now_uptime_ns` (the tick clock, now)
-//     and passes it as `Conn.Options.now_ns`;
-//   - `capnp_conn_take_error` reports `Conn.last_error`, and for
-//     `error.RemoteAbort` the remote's reason (`Conn.remote_abort_reason`);
-//   - keep the ordinals effects.zig already uses: CapKind none/import/
-//     export/promised = 0..3; ReturnKind results/exception/canceled/
-//     disconnected = 0..3; effect Kind out_frame/close_requested/return/
-//     inbound_call/export_dropped/event = 0..5;
-//   - map Zig errors to CAPNP_E_*: Busy -> BUSY; Closed -> CLOSED; BadId,
-//     BadCapId, CapIndexOutOfRange -> BAD_ID; Protocol -> PROTOCOL;
-//     Unsupported, UnsupportedCapKind, Invalid -> INVAL; OutOfMemory -> NOMEM;
-//   - import capnp-zig as "capnpc-zig" (its core module; see build.zig);
-//   - every new undefined libSystem symbol must be reviewed into
-//     `scripts/symbols-allowlist.txt` (`scripts/check-symbols.sh`).
+// Connection API (C ABI v1): C types
 // ---------------------------------------------------------------------------
+//
+// Every type and constant here mirrors `capnp_core.h`; the header-drift test
+// at the bottom checks the function shapes and struct layouts, and the
+// error-code test checks the `CAPNP_*` constants.
+
+pub const CAPNP_OK: i32 = 0;
+pub const CAPNP_E_INVAL: i32 = -1;
+pub const CAPNP_E_BAD_ID: i32 = -2;
+pub const CAPNP_E_BUSY: i32 = -3;
+pub const CAPNP_E_CLOSED: i32 = -4;
+pub const CAPNP_E_LIMIT: i32 = -5;
+pub const CAPNP_E_PROTOCOL: i32 = -6;
+pub const CAPNP_E_NOMEM: i32 = -7;
+pub const CAPNP_E_INTERNAL: i32 = -8;
+
+pub const CAPNP_FRAMING_SEGMENT_TABLE: u8 = 0;
+
+/// Opaque to C. Points at a `Handle`.
+pub const capnp_conn = opaque {};
+
+pub const capnp_conn_opts = extern struct {
+    struct_size: u32,
+    framing: u8,
+    observer: u8,
+    max_frame_bytes: u32,
+    default_call_timeout_ms: u32,
+    shutdown_drain_timeout_ms: u32,
+    max_outbound_questions: u32,
+    max_retained_questions: u32,
+    max_active_inbound_questions: u32,
+};
+
+/// `capnp_cap` is `effects.Cap` itself (an extern struct), so host `caps[]`
+/// arrays and effect cap tables cross the ABI without a copy.
+pub const capnp_cap = effects.Cap;
+
+pub const capnp_effect = extern struct {
+    struct_size: u32,
+    id: u32,
+    export_id: u32,
+    kind: u8,
+    return_kind: u8,
+    event_tag: u8,
+    exception_type: u16,
+    method_id: u16,
+    host_tag: u64,
+    interface_id: u64,
+    msg: ?[*]const u8,
+    msg_len: usize,
+    caps: ?[*]const capnp_cap,
+    ncaps: usize,
+    reason: ?[*]const u8,
+    reason_len: usize,
+};
+
+/// Default shutdown drain (plan §4: `drain default 5000`).
+const default_shutdown_drain_ms: u64 = 5000;
+
+/// The allocator behind every connection the C ABI creates (plan §4.1:
+/// `apple_root.zig`'s `allocator`; the same allocator by value).
+const gpa = std.heap.c_allocator;
+
+/// One C-visible connection: the `Conn` plus the re-entrancy guard (plan
+/// §4.1: "a debug-only atomic in-call flag traps on re-entry"). Safe builds
+/// (Debug, ReleaseSafe: the shipped slices) check it; fast builds skip it.
+const Handle = struct {
+    conn: *Conn,
+    in_call: std.atomic.Value(bool) = .init(false),
+
+    fn enter(h: *Handle) void {
+        if (comptime std.debug.runtime_safety) {
+            if (h.in_call.swap(true, .acquire))
+                @panic("capnp_conn: concurrent or re-entrant call on one connection");
+        }
+    }
+
+    fn leave(h: *Handle) void {
+        if (comptime std.debug.runtime_safety) h.in_call.store(false, .release);
+    }
+};
+
+fn handleOf(c: ?*capnp_conn) ?*Handle {
+    return @ptrCast(@alignCast(c orelse return null));
+}
+
+/// Zig error -> `CAPNP_E_*` (plan §4.1's map, plus the Peer's retained-question
+/// and limit errors).
+fn codeFor(err: anyerror) i32 {
+    return switch (err) {
+        error.Busy,
+        error.RetainedQuestionFinishInProgress,
+        error.RetainedQuestionTransferInProgress,
+        => CAPNP_E_BUSY,
+        error.Closed,
+        error.TransportClosed,
+        error.ConnectionClosing,
+        error.RemoteAbort,
+        => CAPNP_E_CLOSED,
+        error.BadId,
+        error.BadCapId,
+        error.CapIndexOutOfRange,
+        error.UnknownRetainedQuestion,
+        error.RetainedQuestionAlreadyReturned,
+        error.RetainedQuestionAlreadyTransferred,
+        error.RetainedQuestionNoFinishNeeded,
+        error.RetainedQuestionNotTransferred,
+        => CAPNP_E_BAD_ID,
+        error.Protocol => CAPNP_E_PROTOCOL,
+        error.Unsupported,
+        error.UnsupportedCapKind,
+        error.Invalid,
+        error.RetainedQuestionPending,
+        error.RetainedLoopbackQuestion,
+        => CAPNP_E_INVAL,
+        error.OutOfMemory => CAPNP_E_NOMEM,
+        error.PeerLimitExceeded,
+        error.ReleaseCountExceeded,
+        error.ValidationBudgetExceeded,
+        => CAPNP_E_LIMIT,
+        else => if (std.mem.endsWith(u8, @errorName(err), "Exceeded")) CAPNP_E_LIMIT else CAPNP_E_INTERNAL,
+    };
+}
+
+fn ptrOrNull(comptime T: type, slice: []const T) ?[*]const T {
+    return if (slice.len == 0) null else slice.ptr;
+}
+
+/// `bytes[0..len]`, or null when the C caller passed NULL with a nonzero
+/// length (an empty slice for NULL + 0).
+fn sliceArg(comptime T: type, ptr: ?[*]const T, len: usize) ?[]const T {
+    if (ptr) |p| return p[0..len];
+    return if (len == 0) &.{} else null;
+}
+
+// ---------------------------------------------------------------------------
+// Connection API (C ABI v1): functions
+// ---------------------------------------------------------------------------
+
+pub export fn capnp_conn_new(opts: ?*const capnp_conn_opts, now_uptime_ns: i64, out: ?*?*capnp_conn) callconv(.c) i32 {
+    const out_ptr = out orelse return CAPNP_E_INVAL;
+    out_ptr.* = null;
+    const given = opts orelse return CAPNP_E_INVAL;
+
+    // struct_size versioning: read only the prefix the caller has.
+    var o: capnp_conn_opts = std.mem.zeroes(capnp_conn_opts);
+    if (given.struct_size < @sizeOf(u32)) return CAPNP_E_INVAL;
+    const n = @min(given.struct_size, @sizeOf(capnp_conn_opts));
+    @memcpy(std.mem.asBytes(&o)[0..n], @as([*]const u8, @ptrCast(given))[0..n]);
+    if (o.framing != CAPNP_FRAMING_SEGMENT_TABLE) return CAPNP_E_INVAL;
+
+    var limits: rpc.peer.PeerLimits = .{};
+    if (o.max_outbound_questions != 0) limits.max_outbound_questions = o.max_outbound_questions;
+    if (o.max_retained_questions != 0) limits.max_retained_questions = o.max_retained_questions;
+    if (o.max_active_inbound_questions != 0) limits.max_active_inbound_questions = o.max_active_inbound_questions;
+    const timeouts: rpc.peer.PeerTimeouts = .{
+        .default_call_timeout_ms = if (o.default_call_timeout_ms != 0) o.default_call_timeout_ms else null,
+        .shutdown_drain_timeout_ms = if (o.shutdown_drain_timeout_ms != 0) o.shutdown_drain_timeout_ms else default_shutdown_drain_ms,
+    };
+
+    const h = gpa.create(Handle) catch return CAPNP_E_NOMEM;
+    const conn = Conn.init(gpa, .{
+        .now_ns = now_uptime_ns,
+        .limits = limits,
+        .timeouts = timeouts,
+        .max_frame_bytes = if (o.max_frame_bytes != 0) o.max_frame_bytes else rpc.wire.framing.Framer.default_max_buffered_bytes,
+        .observer = o.observer != 0,
+    }) catch |err| {
+        gpa.destroy(h);
+        return codeFor(err);
+    };
+    h.* = .{ .conn = conn };
+    out_ptr.* = @ptrCast(h);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_conn_free(c: ?*capnp_conn) callconv(.c) void {
+    const h = handleOf(c) orelse return;
+    h.enter();
+    h.conn.deinit();
+    // No `leave`: the handle is gone. A concurrent caller would have tripped
+    // `enter` first.
+    gpa.destroy(h);
+}
+
+pub export fn capnp_conn_push_bytes(c: ?*capnp_conn, bytes: ?[*]const u8, len: usize) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    const data = sliceArg(u8, bytes, len) orelse return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    h.conn.pushBytes(data) catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_conn_tick(c: ?*capnp_conn, now_uptime_ns: i64) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    const ended = h.conn.tick(now_uptime_ns);
+    return @intCast(@min(ended, std.math.maxInt(i32)));
+}
+
+pub export fn capnp_conn_transport_closed(c: ?*capnp_conn) callconv(.c) void {
+    const h = handleOf(c) orelse return;
+    h.enter();
+    defer h.leave();
+    h.conn.transportClosed();
+}
+
+pub export fn capnp_conn_take_error(
+    c: ?*capnp_conn,
+    code: ?*i32,
+    name: ?*?[*]const u8,
+    name_len: ?*usize,
+    detail: ?*?[*]const u8,
+    detail_len: ?*usize,
+) callconv(.c) i32 {
+    if (code) |p| p.* = CAPNP_OK;
+    if (name) |p| p.* = null;
+    if (name_len) |p| p.* = 0;
+    if (detail) |p| p.* = null;
+    if (detail_len) |p| p.* = 0;
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    const err = h.conn.last_error orelse return 0;
+    h.conn.last_error = null;
+    const err_name = @errorName(err);
+    // The code names the failure class; the name is the exact cause. A
+    // protocol failure stores its cause (e.g. `InvalidFrame`), so the class
+    // comes from the connection state, not from the error value.
+    const class: i32 = if (err == error.RemoteAbort)
+        CAPNP_E_CLOSED
+    else if (h.conn.failed)
+        CAPNP_E_PROTOCOL
+    else
+        codeFor(err);
+    if (code) |p| p.* = class;
+    if (name) |p| p.* = err_name.ptr;
+    if (name_len) |p| p.* = err_name.len;
+    if (err == error.RemoteAbort) {
+        if (h.conn.remote_abort_reason) |reason| {
+            if (detail) |p| p.* = ptrOrNull(u8, reason);
+            if (detail_len) |p| p.* = reason.len;
+        }
+    }
+    return 1;
+}
+
+pub export fn capnp_conn_next_effect(c: ?*capnp_conn, out: ?*capnp_effect) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    const o = out orelse return CAPNP_E_INVAL;
+    if (o.struct_size < @sizeOf(u32)) return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    const eff = (h.conn.nextEffect() catch return CAPNP_E_BUSY) orelse return 0;
+
+    var e: capnp_effect = std.mem.zeroes(capnp_effect);
+    switch (eff.*) {
+        .out_frame => |bytes| {
+            e.kind = @backingInt(effects.Kind.out_frame);
+            e.msg = ptrOrNull(u8, bytes);
+            e.msg_len = bytes.len;
+        },
+        .close_requested => e.kind = @backingInt(effects.Kind.close_requested),
+        .@"return" => |r| {
+            e.kind = @backingInt(effects.Kind.@"return");
+            e.id = r.qid;
+            e.return_kind = @backingInt(r.kind);
+            e.exception_type = r.exception_type;
+            e.msg = ptrOrNull(u8, r.msg);
+            e.msg_len = r.msg.len;
+            e.caps = ptrOrNull(capnp_cap, r.caps);
+            e.ncaps = r.caps.len;
+            e.reason = ptrOrNull(u8, r.reason);
+            e.reason_len = r.reason.len;
+        },
+        .inbound_call => |ic| {
+            e.kind = @backingInt(effects.Kind.inbound_call);
+            e.id = ic.answer_id;
+            e.export_id = ic.export_id;
+            e.host_tag = ic.host_tag;
+            e.interface_id = ic.interface_id;
+            e.method_id = ic.method_id;
+            e.msg = ptrOrNull(u8, ic.msg);
+            e.msg_len = ic.msg.len;
+            e.caps = ptrOrNull(capnp_cap, ic.caps);
+            e.ncaps = ic.caps.len;
+        },
+        .export_dropped => |d| {
+            e.kind = @backingInt(effects.Kind.export_dropped);
+            e.id = d.export_id;
+            e.export_id = d.export_id;
+            e.host_tag = d.host_tag;
+        },
+        .event => |ev| {
+            e.kind = @backingInt(effects.Kind.event);
+            e.event_tag = ev.tag;
+            e.reason = ptrOrNull(u8, ev.err_name);
+            e.reason_len = ev.err_name.len;
+        },
+    }
+    // struct_size versioning: fill only what the caller has room for, and
+    // tell it how much that was.
+    const n: u32 = @intCast(@min(o.struct_size, @sizeOf(capnp_effect)));
+    e.struct_size = n;
+    @memcpy(@as([*]u8, @ptrCast(o))[0..n], std.mem.asBytes(&e)[0..n]);
+    return 1;
+}
+
+pub export fn capnp_conn_commit_effect(c: ?*capnp_conn) callconv(.c) void {
+    const h = handleOf(c) orelse return;
+    h.enter();
+    defer h.leave();
+    h.conn.commitEffect();
+}
+
+pub export fn capnp_bootstrap(c: ?*capnp_conn, out_qid: ?*u32) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    const out = out_qid orelse return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    out.* = h.conn.bootstrap() catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_call(
+    c: ?*capnp_conn,
+    target: capnp_cap,
+    interface_id: u64,
+    method_id: u16,
+    msg: ?[*]const u8,
+    msg_len: usize,
+    caps: ?[*]const capnp_cap,
+    ncaps: usize,
+    flags: u32,
+    out_qid: ?*u32,
+) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    const out = out_qid orelse return CAPNP_E_INVAL;
+    const params = sliceArg(u8, msg, msg_len) orelse return CAPNP_E_INVAL;
+    if (params.len == 0) return CAPNP_E_INVAL; // a params message is required
+    const cap_table = sliceArg(capnp_cap, caps, ncaps) orelse return CAPNP_E_INVAL;
+    if (!validCapKinds(cap_table)) return CAPNP_E_INVAL;
+    if (target.kind != .import) return CAPNP_E_INVAL; // PROMISED targets land in M2
+    h.enter();
+    defer h.leave();
+    out.* = h.conn.call(target, interface_id, method_id, params, cap_table, flags) catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_finish(c: ?*capnp_conn, qid: u32, release_result_caps: i32) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    h.conn.finish(qid, release_result_caps != 0) catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_release(c: ?*capnp_conn, import_id: u32, count: u32) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    h.conn.release(import_id, count) catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_export(c: ?*capnp_conn, host_tag: u64, out_export_id: ?*u32) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    const out = out_export_id orelse return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    out.* = h.conn.exportCap(host_tag) catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_set_bootstrap(c: ?*capnp_conn, host_tag: u64, out_export_id: ?*u32) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    const out = out_export_id orelse return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    out.* = h.conn.setBootstrap(host_tag) catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_return_results(
+    c: ?*capnp_conn,
+    answer_id: u32,
+    msg: ?[*]const u8,
+    msg_len: usize,
+    caps: ?[*]const capnp_cap,
+    ncaps: usize,
+) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    const results = sliceArg(u8, msg, msg_len) orelse return CAPNP_E_INVAL;
+    if (results.len == 0) return CAPNP_E_INVAL;
+    const cap_table = sliceArg(capnp_cap, caps, ncaps) orelse return CAPNP_E_INVAL;
+    if (!validCapKinds(cap_table)) return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    h.conn.returnResults(answer_id, results, cap_table) catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+pub export fn capnp_return_exception(
+    c: ?*capnp_conn,
+    answer_id: u32,
+    exception_type: u16,
+    reason: ?[*]const u8,
+    reason_len: usize,
+) callconv(.c) i32 {
+    const h = handleOf(c) orelse return CAPNP_E_INVAL;
+    const text = sliceArg(u8, reason, reason_len) orelse return CAPNP_E_INVAL;
+    // rpc.capnp Exception.Type has four values; `ExceptionType` is exhaustive.
+    if (exception_type > @backingInt(rpc.wire.protocol.ExceptionType.unimplemented)) return CAPNP_E_INVAL;
+    h.enter();
+    defer h.leave();
+    h.conn.returnException(answer_id, exception_type, text) catch |err| return codeFor(err);
+    return CAPNP_OK;
+}
+
+/// The host's `caps[]` may only hold the four known kinds (a stray byte from
+/// C would otherwise reach a Zig `enum(u8)` switch).
+fn validCapKinds(caps: []const capnp_cap) bool {
+    for (caps) |cap| {
+        const raw: u8 = @backingInt(cap.kind);
+        if (raw > @backingInt(effects.CapKind.promised)) return false;
+    }
+    return true;
+}
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -147,6 +564,58 @@ test "debug selftest export: 0 and no failure name" {
     try testing.expectEqual(@as(i32, 0), capnp_core_debug_selftest(&failure));
     try testing.expect(failure == null);
     try testing.expectEqual(@as(i32, 0), capnp_core_debug_selftest(null));
+}
+
+test "capnp_core.h constants match the Zig values" {
+    const c = @import("capnp_core_h");
+    try testing.expectEqual(CAPNP_OK, @as(i32, c.CAPNP_OK));
+    try testing.expectEqual(CAPNP_E_INVAL, @as(i32, c.CAPNP_E_INVAL));
+    try testing.expectEqual(CAPNP_E_BAD_ID, @as(i32, c.CAPNP_E_BAD_ID));
+    try testing.expectEqual(CAPNP_E_BUSY, @as(i32, c.CAPNP_E_BUSY));
+    try testing.expectEqual(CAPNP_E_CLOSED, @as(i32, c.CAPNP_E_CLOSED));
+    try testing.expectEqual(CAPNP_E_LIMIT, @as(i32, c.CAPNP_E_LIMIT));
+    try testing.expectEqual(CAPNP_E_PROTOCOL, @as(i32, c.CAPNP_E_PROTOCOL));
+    try testing.expectEqual(CAPNP_E_NOMEM, @as(i32, c.CAPNP_E_NOMEM));
+    try testing.expectEqual(CAPNP_E_INTERNAL, @as(i32, c.CAPNP_E_INTERNAL));
+    try testing.expectEqual(CAPNP_FRAMING_SEGMENT_TABLE, @as(u8, c.CAPNP_FRAMING_SEGMENT_TABLE));
+    // Cap kinds, effect kinds and return kinds are the ordinals effects.zig uses.
+    try testing.expectEqual(@backingInt(effects.CapKind.none), @as(u8, c.CAPNP_CAP_NONE));
+    try testing.expectEqual(@backingInt(effects.CapKind.import), @as(u8, c.CAPNP_CAP_IMPORT));
+    try testing.expectEqual(@backingInt(effects.CapKind.@"export"), @as(u8, c.CAPNP_CAP_EXPORT));
+    try testing.expectEqual(@backingInt(effects.CapKind.promised), @as(u8, c.CAPNP_CAP_PROMISED));
+    try testing.expectEqual(@backingInt(effects.Kind.out_frame), @as(u8, c.CAPNP_EFFECT_OUT_FRAME));
+    try testing.expectEqual(@backingInt(effects.Kind.close_requested), @as(u8, c.CAPNP_EFFECT_CLOSE_REQUESTED));
+    try testing.expectEqual(@backingInt(effects.Kind.@"return"), @as(u8, c.CAPNP_EFFECT_RETURN));
+    try testing.expectEqual(@backingInt(effects.Kind.inbound_call), @as(u8, c.CAPNP_EFFECT_INBOUND_CALL));
+    try testing.expectEqual(@backingInt(effects.Kind.export_dropped), @as(u8, c.CAPNP_EFFECT_EXPORT_DROPPED));
+    try testing.expectEqual(@backingInt(effects.Kind.event), @as(u8, c.CAPNP_EFFECT_EVENT));
+    try testing.expectEqual(@backingInt(effects.ReturnKind.results), @as(u8, c.CAPNP_RETURN_RESULTS));
+    try testing.expectEqual(@backingInt(effects.ReturnKind.exception), @as(u8, c.CAPNP_RETURN_EXCEPTION));
+    try testing.expectEqual(@backingInt(effects.ReturnKind.canceled), @as(u8, c.CAPNP_RETURN_CANCELED));
+    try testing.expectEqual(@backingInt(effects.ReturnKind.disconnected), @as(u8, c.CAPNP_RETURN_DISCONNECTED));
+    // The two shared structs have the header's layout (the drift test below
+    // checks them again through every prototype that names them).
+    try testing.expectEqual(@sizeOf(c.capnp_cap), @sizeOf(capnp_cap));
+    try testing.expectEqual(@sizeOf(c.capnp_effect), @sizeOf(capnp_effect));
+    try testing.expectEqual(@sizeOf(c.capnp_conn_opts), @sizeOf(capnp_conn_opts));
+}
+
+test "codeFor: the plan's error map" {
+    try testing.expectEqual(CAPNP_E_BUSY, codeFor(error.Busy));
+    try testing.expectEqual(CAPNP_E_CLOSED, codeFor(error.Closed));
+    try testing.expectEqual(CAPNP_E_CLOSED, codeFor(error.RemoteAbort));
+    try testing.expectEqual(CAPNP_E_BAD_ID, codeFor(error.BadId));
+    try testing.expectEqual(CAPNP_E_BAD_ID, codeFor(error.BadCapId));
+    try testing.expectEqual(CAPNP_E_BAD_ID, codeFor(error.CapIndexOutOfRange));
+    try testing.expectEqual(CAPNP_E_BAD_ID, codeFor(error.UnknownRetainedQuestion));
+    try testing.expectEqual(CAPNP_E_PROTOCOL, codeFor(error.Protocol));
+    try testing.expectEqual(CAPNP_E_INVAL, codeFor(error.Unsupported));
+    try testing.expectEqual(CAPNP_E_INVAL, codeFor(error.UnsupportedCapKind));
+    try testing.expectEqual(CAPNP_E_INVAL, codeFor(error.Invalid));
+    try testing.expectEqual(CAPNP_E_NOMEM, codeFor(error.OutOfMemory));
+    try testing.expectEqual(CAPNP_E_LIMIT, codeFor(error.PeerLimitExceeded));
+    try testing.expectEqual(CAPNP_E_LIMIT, codeFor(error.SomethingElseExceeded));
+    try testing.expectEqual(CAPNP_E_INTERNAL, codeFor(error.Unexpected));
 }
 
 test "abi version, features and version string" {

@@ -29,7 +29,9 @@ pub const CapKind = enum(u8) {
     promised = 3,
 };
 
-pub const Cap = struct {
+/// `extern`: this is also the C ABI's `capnp_cap` (abi.zig passes host
+/// `caps[]` arrays and effect cap tables through without copying).
+pub const Cap = extern struct {
     kind: CapKind,
     id: u32 = 0,
 };

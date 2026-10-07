@@ -5,7 +5,10 @@
 //!   zig build test          unit tests (host target, -Doptimize): the C ABI
 //!                           (abi.zig, selftest.zig) and the connection core
 //!                           (conn_test.zig: conn, effects, cap_remap), plus a
-//!                           compile of the Apple root for the host
+//!                           compile of the Apple root for the host, plus
+//!                           test-abi
+//!   zig build test-abi      the C ABI through capnp_core.h (abi_test.zig),
+//!                           linked against the host libcapnp_core.a
 //!   zig build xcframework   macOS arm64 + x86_64 slices (-Dcore-optimize,
 //!                           default ReleaseSafe), lipo, then
 //!                           `xcodebuild -create-xcframework` into
@@ -77,6 +80,27 @@ pub fn build(b: *std.Build) void {
         const host_lib = appleLibrary(b, build_info, target, optimize);
         test_step.dependOn(&host_lib.step);
     }
+
+    // ---- test-abi -----------------------------------------------------------
+    // The C ABI through the header: `src/abi_test.zig` calls the `capnp_*`
+    // functions as translate-c declares them, linked from the host build of
+    // `libcapnp_core.a` (`apple_root.zig`'s root). It never imports abi.zig,
+    // so a prototype, layout or linkage mistake fails here. `zig build test`
+    // runs it too.
+    const test_abi_step = b.step("test-abi", "Run the C ABI tests (capnp_core.h against the host static library)");
+    {
+        const mod = coreModule(b, build_info, "src/abi_test.zig", target, optimize, .{});
+        const header_c = b.addTranslateC(.{
+            .root_source_file = b.path("include/capnp_core.h"),
+            .target = target,
+            .optimize = optimize,
+        });
+        mod.addImport("capnp_core_h", header_c.createModule());
+        const tests = b.addTest(.{ .name = "core-abi-c", .root_module = mod });
+        mod.linkLibrary(appleLibrary(b, build_info, target, optimize));
+        test_abi_step.dependOn(&b.addRunArtifact(tests).step);
+    }
+    test_step.dependOn(test_abi_step);
 
     // ---- xcframework ------------------------------------------------------
     const xc_step = b.step("xcframework", "Build <repo>/CapnpCore.xcframework (macOS; iOS with -Dios=true)");

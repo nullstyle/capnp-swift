@@ -18,12 +18,15 @@ let package = Package(
         .macOS(.v15),
     ],
     products: [
-        // Pure-Swift message reader/builder (no Zig). Placeholder until M3.
+        // Pure-Swift message reader/builder (no Zig). M1 ships the subset the
+        // MVP needs; M3 completes it.
         .library(name: "Capnp", targets: ["Capnp"]),
         // RPC runtime over the C ABI in CapnpCore.
         .library(name: "CapnpRPC", targets: ["CapnpRPC"]),
-        // Network.framework transports. Placeholder until M1.
+        // Network.framework transports (TCP in M1).
         .library(name: "CapnpNW", targets: ["CapnpNW"]),
+        // M1 interop: the Swift side of `just mvp-e2e` (prints TAP).
+        .executable(name: "mvp-e2e", targets: ["mvp-e2e"]),
     ],
     targets: [
         // Local path for development. Releases switch to
@@ -37,16 +40,30 @@ let package = Package(
         ),
         .target(
             name: "CapnpRPC",
-            dependencies: ["CapnpCore"]
+            dependencies: ["CapnpCore", "Capnp"]
         ),
         .target(
             name: "CapnpNW",
             dependencies: ["CapnpRPC"]
         ),
+        // Hand-written bindings for interop/schemas/mvp.capnp (plan §8, M1).
+        // M3's capnpc-swift replaces them with generated code.
+        .target(
+            name: "CapnpMVP",
+            dependencies: ["Capnp", "CapnpRPC"],
+            path: "interop/mvp-swift"
+        ),
+        // The M1 e2e client: starts interop/zig-peer, runs the MVP checks
+        // against it over TCP and prints TAP (`just mvp-e2e`).
+        .executableTarget(
+            name: "mvp-e2e",
+            dependencies: ["CapnpRPC", "CapnpNW", "CapnpMVP"],
+            path: "interop/e2e-swift-client"
+        ),
         .testTarget(
             name: "CapnpRPCTests",
             // CapnpCore directly too: CoreSelftestTests calls a core test hook.
-            dependencies: ["CapnpRPC", "CapnpCore"]
+            dependencies: ["Capnp", "CapnpRPC", "CapnpMVP", "CapnpCore"]
         ),
         // Crash-symbolication probe for scripts/check-dsym.sh: traps inside a
         // known Zig frame. Not a product; never shipped.
