@@ -79,8 +79,8 @@ public struct Widget {
         }
 
         public var color: Color {
-            if !root.covers(byteOffset: 3, 2) { return Color(rawValue: 1) }
-            return Color(rawValue: root.readUInt16(at: 3))
+            if !root.covers(byteOffset: 6, 2) { return Color(rawValue: 1) }
+            return Color(rawValue: root.readUInt16(at: 6))
         }
 
     }
@@ -109,14 +109,14 @@ public struct Widget {
         }
 
         public var color: Color {
-            get { Color(rawValue: root.readUInt16(at: 3)) }
-            set { root.setEnum16(at: 3, newValue.rawValue) }
+            get { Color(rawValue: root.readUInt16(at: 6)) }
+            set { root.setEnum16(at: 6, newValue.rawValue) }
         }
 
         private func defaults() {
         root.setUInt32(at: 0, 123)
         root.setBool(at: 32, true)
-        root.setEnum16(at: 3, 1)
+        root.setEnum16(at: 6, 1)
         }
     }
 

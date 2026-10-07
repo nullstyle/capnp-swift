@@ -84,11 +84,13 @@ public struct FixedSizeListReader<Element: FixedWidthInteger & Sendable>: Sendab
     public subscript(index: Int) -> Element {
         precondition(index >= 0 && index < count, "list index out of range")
         let p = base + index * byteStride
-        var value: Element = 0
+        // Assemble little-endian and truncate: a raw byte above 127 is a
+        // negative signed element, not a trap.
+        var raw: UInt64 = 0
         for k in 0..<byteStride {
-            value |= Element(message.bytes[p + k]) &<< (8 * Element(k))
+            raw |= UInt64(message.bytes[p + k]) &<< (8 * UInt64(k))
         }
-        return value
+        return Element(truncatingIfNeeded: raw)
     }
 
     public func elements() -> [Element] {
@@ -308,11 +310,11 @@ public struct FixedSizeListBuilder<Element: FixedWidthInteger> {
     public subscript(index: Int) -> Element {
         get {
             precondition(index >= 0 && index < count, "list index out of range")
-            var value: Element = 0
+            var raw: UInt64 = 0
             for k in 0..<byteStride {
-                value |= Element(message.byte(at: base + index * byteStride + k)) &<< (8 * Element(k))
+                raw |= UInt64(message.byte(at: base + index * byteStride + k)) &<< (8 * UInt64(k))
             }
-            return value
+            return Element(truncatingIfNeeded: raw)
         }
         nonmutating set {
             precondition(index >= 0 && index < count, "list index out of range")

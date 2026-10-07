@@ -335,7 +335,7 @@ pub const Generator = struct {
         try w.print("{s}    let root: StructReader\n", .{pad});
         try w.print("{s}    public init(_ root: StructReader) {{ self.root = root }}\n", .{pad});
         if (struct_node.discriminant_count > 0) {
-            try w.print("{s}    public var which: Which {{ Which(discriminant: root.readUInt16(at: {d})) }}\n\n", .{ pad, struct_node.discriminant_offset });
+            try w.print("{s}    public var which: Which {{ Which(discriminant: root.readUInt16(at: {d})) }}\n\n", .{ pad, struct_node.discriminant_offset * 2 });
         }
         try self.emitReaderDefaultStatics(w, node, indent + 1);
         for (struct_node.fields) |field| {
@@ -355,7 +355,7 @@ pub const Generator = struct {
         }
         try w.print("{s}    init(_ root: StructBuilder) {{ self.root = root; defaults() }}\n", .{pad});
         if (struct_node.discriminant_count > 0) {
-            try w.print("{s}    public var which: Which {{ Which(discriminant: root.readUInt16(at: {d})) }}\n\n", .{ pad, struct_node.discriminant_offset });
+            try w.print("{s}    public var which: Which {{ Which(discriminant: root.readUInt16(at: {d})) }}\n\n", .{ pad, struct_node.discriminant_offset * 2 });
         }
         for (struct_node.fields) |field| {
             try self.emitFieldBuilder(w, node, field, indent + 1);
@@ -377,27 +377,28 @@ pub const Generator = struct {
         for (struct_node.fields) |field| {
             const slot = field.slot orelse continue;
             const dv = slot.default_value orelse continue;
+            const off = dataByteOffset(slot);
             switch (slot.type) {
                 .bool => if (dv.bool) try b.print("{s}    root.setBool(at: {d}, true)\n", .{ pad, slot.offset }),
-                .int8 => if (dv.int8 != 0) try b.print("{s}    root.setInt8(at: {d}, {d})\n", .{ pad, slot.offset, dv.int8 }),
-                .int16 => if (dv.int16 != 0) try b.print("{s}    root.setInt16(at: {d}, {d})\n", .{ pad, slot.offset, dv.int16 }),
-                .int32 => if (dv.int32 != 0) try b.print("{s}    root.setInt32(at: {d}, {d})\n", .{ pad, slot.offset, dv.int32 }),
-                .int64 => if (dv.int64 != 0) try b.print("{s}    root.setInt64(at: {d}, {d})\n", .{ pad, slot.offset, dv.int64 }),
+                .int8 => if (dv.int8 != 0) try b.print("{s}    root.setInt8(at: {d}, {d})\n", .{ pad, off, dv.int8 }),
+                .int16 => if (dv.int16 != 0) try b.print("{s}    root.setInt16(at: {d}, {d})\n", .{ pad, off, dv.int16 }),
+                .int32 => if (dv.int32 != 0) try b.print("{s}    root.setInt32(at: {d}, {d})\n", .{ pad, off, dv.int32 }),
+                .int64 => if (dv.int64 != 0) try b.print("{s}    root.setInt64(at: {d}, {d})\n", .{ pad, off, dv.int64 }),
                 .uint8 => if (dv.uint8 != 0) try b.print("{s}    root.setUInt8(at: {d}, {d})\n", .{ pad, slot.offset, dv.uint8 }),
                 .uint16 => if (dv.uint16 != 0) try b.print("{s}    root.setUInt16(at: {d}, {d})\n", .{ pad, slot.offset, dv.uint16 }),
                 .uint32 => if (dv.uint32 != 0) try b.print("{s}    root.setUInt32(at: {d}, {d})\n", .{ pad, slot.offset, dv.uint32 }),
                 .uint64 => if (dv.uint64 != 0) try b.print("{s}    root.setUInt64(at: {d}, {d})\n", .{ pad, slot.offset, dv.uint64 }),
                 .float32 => {
                     const bits: u32 = @bitCast(dv.float32);
-                    if (bits != 0) try b.print("{s}    root.setUInt32(at: {d}, 0x{x})\n", .{ pad, slot.offset, bits });
+                    if (bits != 0) try b.print("{s}    root.setUInt32(at: {d}, 0x{x})\n", .{ pad, off, bits });
                 },
                 .float64 => {
                     const bits: u64 = @bitCast(dv.float64);
-                    if (bits != 0) try b.print("{s}    root.setUInt64(at: {d}, 0x{x})\n", .{ pad, slot.offset, bits });
+                    if (bits != 0) try b.print("{s}    root.setUInt64(at: {d}, 0x{x})\n", .{ pad, off, bits });
                 },
                 .@"enum" => {
                     const raw = dv.@"enum";
-                    if (raw != 0) try b.print("{s}    root.setEnum16(at: {d}, {d})\n", .{ pad, slot.offset, raw });
+                    if (raw != 0) try b.print("{s}    root.setEnum16(at: {d}, {d})\n", .{ pad, off, raw });
                 },
                 else => {},
             }
@@ -596,26 +597,27 @@ pub const Generator = struct {
         }
         const slot = field.slot orelse return; // void fields carry nothing
         const dv = slot.default_value;
+        const off = dataByteOffset(slot);
         switch (slot.type) {
             .void => {},
-            .bool => try self.readScalar(w, pad, name, "Bool", slot, dv, try self.fmtAt("readBool(at: {d})", slot.offset), "false", 1),
-            .int8 => try self.readScalar(w, pad, name, "Int8", slot, dv, try self.fmtAt("readInt8(at: {d})", slot.offset), "0", 1),
-            .int16 => try self.readScalar(w, pad, name, "Int16", slot, dv, try self.fmtAt("readInt16(at: {d})", slot.offset), "0", 2),
-            .int32 => try self.readScalar(w, pad, name, "Int32", slot, dv, try self.fmtAt("readInt32(at: {d})", slot.offset), "0", 4),
-            .int64 => try self.readScalar(w, pad, name, "Int64", slot, dv, try self.fmtAt("readInt64(at: {d})", slot.offset), "0", 8),
-            .uint8 => try self.readScalar(w, pad, name, "UInt8", slot, dv, try self.fmtAt("readUInt8(at: {d})", slot.offset), "0", 1),
-            .uint16 => try self.readScalar(w, pad, name, "UInt16", slot, dv, try self.fmtAt("readUInt16(at: {d})", slot.offset), "0", 2),
-            .uint32 => try self.readScalar(w, pad, name, "UInt32", slot, dv, try self.fmtAt("readUInt32(at: {d})", slot.offset), "0", 4),
-            .uint64 => try self.readScalar(w, pad, name, "UInt64", slot, dv, try self.fmtAt("readUInt64(at: {d})", slot.offset), "0", 8),
+            .bool => try self.readScalar(w, pad, name, "Bool", slot, dv, try self.fmtAt("readBool(at: {d})", off), "false", 1),
+            .int8 => try self.readScalar(w, pad, name, "Int8", slot, dv, try self.fmtAt("readInt8(at: {d})", off), "0", 1),
+            .int16 => try self.readScalar(w, pad, name, "Int16", slot, dv, try self.fmtAt("readInt16(at: {d})", off), "0", 2),
+            .int32 => try self.readScalar(w, pad, name, "Int32", slot, dv, try self.fmtAt("readInt32(at: {d})", off), "0", 4),
+            .int64 => try self.readScalar(w, pad, name, "Int64", slot, dv, try self.fmtAt("readInt64(at: {d})", off), "0", 8),
+            .uint8 => try self.readScalar(w, pad, name, "UInt8", slot, dv, try self.fmtAt("readUInt8(at: {d})", off), "0", 1),
+            .uint16 => try self.readScalar(w, pad, name, "UInt16", slot, dv, try self.fmtAt("readUInt16(at: {d})", off), "0", 2),
+            .uint32 => try self.readScalar(w, pad, name, "UInt32", slot, dv, try self.fmtAt("readUInt32(at: {d})", off), "0", 4),
+            .uint64 => try self.readScalar(w, pad, name, "UInt64", slot, dv, try self.fmtAt("readUInt64(at: {d})", off), "0", 8),
             .float32 => {
                 const bits: u32 = if (dv) |v| @bitCast(v.float32) else 0;
                 const fallback = try std.fmt.allocPrint(self.scratch(), "Float32(bitPattern: 0x{x})", .{bits});
-                try self.readScalar(w, pad, name, "Float32", slot, dv, try self.fmtAt("readFloat32(at: {d})", slot.offset), fallback, 4);
+                try self.readScalar(w, pad, name, "Float32", slot, dv, try self.fmtAt("readFloat32(at: {d})", off), fallback, 4);
             },
             .float64 => {
                 const bits: u64 = if (dv) |v| @bitCast(v.float64) else 0;
                 const fallback = try std.fmt.allocPrint(self.scratch(), "Float64(bitPattern: 0x{x})", .{bits});
-                try self.readScalar(w, pad, name, "Float64", slot, dv, try self.fmtAt("readFloat64(at: {d})", slot.offset), fallback, 8);
+                try self.readScalar(w, pad, name, "Float64", slot, dv, try self.fmtAt("readFloat64(at: {d})", off), fallback, 8);
             },
             .@"enum" => |e| {
                 const enum_node = self.getNode(e.type_id) orelse return error.MissingEnumNode;
@@ -624,11 +626,11 @@ pub const Generator = struct {
                 const has_default = raw != 0;
                 if (has_default) {
                     try w.print("{s}public var {s}: {s} {{\n", .{ pad, name, type_name });
-                    try w.print("{s}    if !root.covers(byteOffset: {d}, 2) {{ return {s}(rawValue: {d}) }}\n", .{ pad, slot.offset, type_name, raw });
-                    try w.print("{s}    return {s}(rawValue: root.readUInt16(at: {d}))\n", .{ pad, type_name, slot.offset });
+                    try w.print("{s}    if !root.covers(byteOffset: {d}, 2) {{ return {s}(rawValue: {d}) }}\n", .{ pad, off, type_name, raw });
+                    try w.print("{s}    return {s}(rawValue: root.readUInt16(at: {d}))\n", .{ pad, type_name, off });
                     try w.print("{s}}}\n\n", .{pad});
                 } else {
-                    try w.print("{s}public var {s}: {s} {{ {s}(rawValue: root.readUInt16(at: {d})) }}\n\n", .{ pad, name, type_name, type_name, slot.offset });
+                    try w.print("{s}public var {s}: {s} {{ {s}(rawValue: root.readUInt16(at: {d})) }}\n\n", .{ pad, name, type_name, type_name, off });
                 }
             },
             .text => {
@@ -710,6 +712,19 @@ pub const Generator = struct {
         }
     }
 
+    /// A data field's byte offset: capnp measures non-bool data offsets in
+    /// units of the field's size (schema.capnp Field.slot.offset; capnpc-zig
+    /// scales the same way). Bool offsets are bit offsets; pointer offsets
+    /// are pointer-section indices (unscaled).
+    fn dataByteOffset(slot: schema.FieldSlot) u32 {
+        return switch (slot.type) {
+            .int16, .uint16, .@"enum" => slot.offset * 2,
+            .int32, .uint32, .float32 => slot.offset * 4,
+            .int64, .uint64, .float64 => slot.offset * 8,
+            else => slot.offset,
+        };
+    }
+
     fn fmtAt(self: *Generator, comptime fmt: []const u8, offset: u32) ![]const u8 {
         return std.fmt.allocPrint(self.scratch(), fmt, .{offset});
     }
@@ -727,6 +742,7 @@ pub const Generator = struct {
         width: usize,
     ) !void {
         _ = self;
+        const off = dataByteOffset(slot);
         const getter = getter_fmt;
         const has_default = switch (dv orelse schema.Value{ .void = {} }) {
             .void => false,
@@ -746,7 +762,7 @@ pub const Generator = struct {
         };
         if (has_default) {
             try w.print("{s}public var {s}: {s} {{\n", .{ pad, name, swift_type });
-            try w.print("{s}    if !root.covers(byteOffset: {d}, {d}) {{ return {s} }}\n", .{ pad, slot.offset, width, fallback });
+            try w.print("{s}    if !root.covers(byteOffset: {d}, {d}) {{ return {s} }}\n", .{ pad, off, width, fallback });
             try w.print("{s}    return root.{s}\n", .{ pad, getter });
             try w.print("{s}}}\n\n", .{pad});
         } else {
@@ -810,6 +826,7 @@ pub const Generator = struct {
             return;
         }
         const slot = field.slot orelse return;
+        const off = dataByteOffset(slot);
         switch (slot.type) {
             .void => {},
             .bool => try self.buildScalar(w, pad, name, "Bool", slot, "setBool(at: {d}, newValue)", "readBool(at: {d})"),
@@ -827,8 +844,8 @@ pub const Generator = struct {
                 const enum_node = self.getNode(e.type_id) orelse return error.MissingEnumNode;
                 const type_name = self.swiftRef(enum_node);
                 try w.print("{s}public var {s}: {s} {{\n", .{ pad, name, type_name });
-                try w.print("{s}    get {{ {s}(rawValue: root.readUInt16(at: {d})) }}\n", .{ pad, type_name, slot.offset });
-                try w.print("{s}    set {{ root.setEnum16(at: {d}, newValue.rawValue) }}\n", .{ pad, slot.offset });
+                try w.print("{s}    get {{ {s}(rawValue: root.readUInt16(at: {d})) }}\n", .{ pad, type_name, off });
+                try w.print("{s}    set {{ root.setEnum16(at: {d}, newValue.rawValue) }}\n", .{ pad, off });
                 try w.print("{s}}}\n\n", .{pad});
             },
             .text => try w.print("{s}public func set{s}(_ v: String) {{ root.setText({d}, v) }}\n\n", .{ pad, try self.capitalized(name), slot.offset }),
@@ -863,8 +880,9 @@ pub const Generator = struct {
     }
 
     fn buildScalar(self: *Generator, w: *std.Io.Writer, pad: []const u8, name: []const u8, swift_type: []const u8, slot: schema.FieldSlot, comptime setter_fmt: []const u8, comptime getter_fmt: []const u8) !void {
-        const setter = try std.fmt.allocPrint(self.scratch(), setter_fmt, .{slot.offset});
-        const getter = try std.fmt.allocPrint(self.scratch(), getter_fmt, .{slot.offset});
+        const off = dataByteOffset(slot);
+        const setter = try std.fmt.allocPrint(self.scratch(), setter_fmt, .{off});
+        const getter = try std.fmt.allocPrint(self.scratch(), getter_fmt, .{off});
         try w.print("{s}public var {s}: {s} {{\n", .{ pad, name, swift_type });
         try w.print("{s}    get {{ root.{s} }}\n", .{ pad, getter });
         try w.print("{s}    set {{ root.{s} }}\n", .{ pad, setter });
