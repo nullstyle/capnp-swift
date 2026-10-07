@@ -37,6 +37,12 @@ public actor RPCConnection: TransportDelegate {
         /// Outbound backpressure: `send` suspends while this many bytes sit
         /// between `transport.send` and its completion.
         public var outboundHighWaterBytes = 8 << 20
+        /// The byte-stream framing the core expects in `pushBytes` and emits
+        /// in OUT_FRAMEs (plan §2): `.segmentTable` for TCP/Unix/TLS,
+        /// `.u32LE` for the QUIC baseline (every message one u32
+        /// little-endian length prefix plus its standalone bytes).
+        public var framing: RPCFraming = .segmentTable
+
         /// Streaming-input window (plan §5): a caller with `-> stream`
         /// methods suspends above this many streaming calls in flight, or
         /// this many bytes of their params (the StreamResult return frees
@@ -127,7 +133,9 @@ public actor RPCConnection: TransportDelegate {
 
         var opts = capnp_conn_opts()
         opts.struct_size = UInt32(MemoryLayout<capnp_conn_opts>.size)
-        opts.framing = UInt8(CAPNP_FRAMING_SEGMENT_TABLE)
+        opts.framing = options.framing == .segmentTable
+            ? UInt8(CAPNP_FRAMING_SEGMENT_TABLE)
+            : UInt8(CAPNP_FRAMING_U32_LE)
         opts.observer = options.observeEvents ? 1 : 0
         if let timeout = options.callTimeout {
             opts.default_call_timeout_ms = UInt32(clamping: Self.milliseconds(timeout))
