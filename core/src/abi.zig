@@ -625,7 +625,7 @@ test "abi version, features and version string" {
     // The exact pin (core/build.zig.zon). Bumping the pin updates this line,
     // CapnpCoreInfoTests.swift and the zon together.
     try testing.expectEqualStrings(
-        "core 0.0.1 / capnp-zig 0.20.0 / capnpc_zig-0.20.0-nUduFXM1RwDO9CsVGFgZowhDNaDZ5V5-10qgILp63pqV",
+        "core 0.0.1 / capnp-zig 0.21.0 / capnpc_zig-0.21.0-nUduFa7PRwBrWc9CyzM8u052LMqBhHzvA52R1s407iCg",
         v,
     );
     try testing.expect(std.mem.endsWith(u8, v, " / " ++ build_info.capnp_zig_hash));

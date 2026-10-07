@@ -5,15 +5,18 @@
 #
 # Adding an entry is a review decision: say in the commit which core code
 # needs it. Never add ___ulock_*, ___getdirentries64, _posix_spawn* or
-# _pthread_create here; the script fails on them regardless. The KNOWN SPI
-# section at the bottom is the only exception, and `--strict` ignores it.
+# _pthread_create here; the script fails on them regardless (a KNOWN SPI
+# section between "# BEGIN KNOWN SPI" / "# END KNOWN SPI" markers would let
+# the default run pass them with a banner, but `--strict` never does; none is
+# needed any more).
 #
-# Origins were traced from relocations in the arm64 slice (capnp-zig v0.20.0,
-# M0 core = abi.zig + selftest.zig -> conn.zig -> rpc.peer.Peer), and checked
-# by rebuilding the slices with fd passing compiled out (a scratch copy of
-# capnp-zig with the three `supported` gates set to Linux only, which is what
-# handoff H1's `-Dfd-passing=false` does): that build imports exactly the 13
-# "needed by the connection core" symbols below and nothing else.
+# Origins were traced from relocations in the arm64 slice (M0, capnp-zig
+# v0.20.0: abi.zig + selftest.zig -> conn.zig -> rpc.peer.Peer). Since the
+# v0.21.0 pin the slices are built with `-Dfd-passing=false` (handoff H1), so
+# capnp-zig's fd closer, fd budget and AF_UNIX transport are compiled out:
+# the core imports exactly these 13 symbols and nothing else, and the former
+# KNOWN SPI section (___ulock_wait2, ___ulock_wake, _pthread_create) is gone.
+# `scripts/check-symbols.sh --strict` passes (plan D7 closed).
 
 # ---- Needed by the connection core (conn.zig + the capnp-zig Peer) --------
 # C allocator (apple_root.zig `allocator`, std.heap.c_allocator).
@@ -37,42 +40,3 @@ ___udivti3
 # Peer thread-affinity checks (state.zig; conn.zig turns them off at runtime,
 # the code is still compiled in).
 _pthread_threadid_np
-
-# ---- Pulled only by capnp-zig's fd closer (remove when H1 lands) ----------
-# capnp-zig compiles fd passing in on every Darwin target at v0.20.0
-# (`isDarwin()` gates in fd_passing.zig:15, fd_closer.zig:146,
-# fd_budget.zig:68; no root option turns it off). Peer.deinit ->
-# PeerFds.deinit and PeerFds.importReleased reach fd_closer.handOffCounted /
-# trim / reserve and fd_budget.limit. The core never receives fds (Swift owns
-# every socket), so none of this runs, but it is linked. Handoff H1
-# (`-Dfd-passing=false`) removes every symbol in this group and the KNOWN SPI
-# section below.
-___error
-__tlv_bootstrap
-_close$NOCANCEL
-_getrlimit
-_mmap
-_munmap
-_pthread_attr_destroy
-_pthread_attr_init
-_pthread_attr_setguardsize
-_pthread_attr_setstacksize
-_pthread_detach
-_shutdown
-
-# BEGIN KNOWN SPI (tracked: plan §11 risk, owner decision needed before 0.1)
-# Denied symbols the M0 core still imports. They cannot be removed inside
-# capnp-swift at v0.20.0: every one is reached only through capnp-zig's fd
-# closer (Peer.deinit -> PeerFds(Peer).deinit -> fd_closer.handOffCounted /
-# trim), which is compiled in on Darwin with no root override.
-#   ___ulock_wait2  std.Thread spawn entryFn + Io.Threaded futexWaitInner
-#   ___ulock_wake   std.Thread spawn entryFn + Io.Threaded futexWake
-#   _pthread_create fd_closer.handOffCounted (spawns the closer threads)
-# Retire: land handoff H1 (capnp-zig `-Dfd-passing=false`), pass the option
-# from core/build.zig, delete this section, and make release lanes run
-# `scripts/check-symbols.sh --strict`. Until then the owner decides whether
-# 0.1 may ship with them (App Store review risk, plan §11).
-___ulock_wait2
-___ulock_wake
-_pthread_create
-# END KNOWN SPI

@@ -31,7 +31,7 @@ The plan, milestones and owner decisions: `docs/plan-2026-10-06.md`. Read it fir
 - `cd core && mise exec -- zig build xcframework`, then `swift build`, `swift build -c release`, `swift test`.
 - `swift test --sanitize=thread` must stay clean (the `Loopback` suite is the 64 conns x 1k calls gate).
 - `just mvp-e2e`: the Swift client against the capnp-zig TCP peer; every TAP line must be `ok`.
-- `scripts/check-symbols.sh` (the 0.1 release gate is `--strict`), `scripts/check-dsym.sh [debug|release]`.
+- `scripts/check-symbols.sh --strict` (the 0.1 release gate; it passes since the v0.21.0 pin and must stay green), `scripts/check-dsym.sh [debug|release]`.
 - `scripts/ablate.py <file> <old> <new>` breaks one line, runs the core tests, restores the file, and exits 0 only if the tests failed.
 - Never run `zig fetch <url>` against `.zig-global-cache` (Zig 0.17.0 defect, `docs/handoffs/handoff-zig-fork-fetch-cache-strip.md`); `zig build` fetches by itself.
 - Regenerating `interop/zig-peer/gen/*.zig` needs capnp-zig's schema toolchain (`mise run bootstrap:capnp` in a capnp-zig checkout, then `mise exec -- uv run ... tools/capnp_tool.py generate`) and a `capnpc-zig` plugin built from a scratch `git archive` of the pinned tag; see `interop/zig-peer/gen/README.md`. Never build inside the package cache.

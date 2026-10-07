@@ -126,17 +126,11 @@ pub fn build(b: *std.Build) void {
         addSlice(xcodebuild, rm, b, macos);
 
         if (ios) {
-            // TODO(H1): these slices FAIL to compile since M0 links conn.zig
-            // (capnp_core_debug_selftest). capnp-zig's Peer fd passing is
-            // gated on `isDarwin()` (which includes iOS) and reaches
-            // `std.Io.Threaded` through fd_closer.zig:285 `syncIo()` (from
-            // peer_fds.zig:452 in Peer.deinit); at Zig 0.17.0 that fails for
-            // every iOS triple with `Io/Threaded.zig:15486: no field named
-            // 'fd' in struct NullFile` (reproduced 2026-10-06). Needs
-            // capnp-zig handoff H1 (`.macos` gates + `-Dfd-passing=false`),
-            // then pass that option to the dependency here. The same option
-            // removes fd_closer's ___ulock_* / _pthread_create from the macOS
-            // slice (the KNOWN SPI section of scripts/symbols-allowlist.txt).
+            // M5 ships these. H1 landed in capnp-zig v0.21.0 (the fd gates
+            // are macOS-only and `-Dfd-passing=false` is passed above), so
+            // the compile blocker from M0 (`Io/Threaded.zig:15486` through the
+            // fd closer) is gone; what remains for M5 is the iOS root work,
+            // the simulator test lane and `Package.swift` platforms.
             const device = fatLibrary(b, build_info, core_optimize, &.{
                 "aarch64-ios." ++ ios_min,
             });
@@ -169,7 +163,16 @@ fn coreModule(
     optimize: std.builtin.Optimize,
     extras: ModuleExtras,
 ) *std.Build.Module {
-    const dep = b.dependency("capnpc_zig", .{ .target = target, .optimize = optimize });
+    // `-Dfd-passing=false` (capnp-zig >= v0.21.0, handoff H1): Swift owns
+    // every socket, so the core compiles fd passing, the fd closer threads
+    // and the AF_UNIX transport out. That removes the fd closer's
+    // `___ulock_*` / `_pthread_create` / `_getrlimit` imports from the slices
+    // (plan D7) and lets the core compile for iOS (M5).
+    const dep = b.dependency("capnpc_zig", .{
+        .target = target,
+        .optimize = optimize,
+        .@"fd-passing" = false,
+    });
     const capnp_core = dep.module("capnpc-zig-core");
     const mod = b.createModule(.{
         .root_source_file = b.path(root),
