@@ -32,6 +32,25 @@ mvp-e2e: xcframework zig-peer
     swift build --product mvp-e2e
     "$(swift build --show-bin-path)/mvp-e2e" --server interop/zig-peer/zig-out/bin/zig-peer
 
+# ---- M6 QUIC lanes (Experimental; plan §8 M6) --------------------------------
+
+# Swift client -> capnp-zig QUIC server, incl. the three wire gates
+# (second-stream reset, clean close -> peer_close, server kill).
+quic-e2e-swift-zig: xcframework zig-peer
+    swift build --product mvp-e2e
+    "$(swift build --show-bin-path)/mvp-e2e" --server interop/zig-peer/zig-out/bin/zig-peer --transport quic
+
+# capnp-zig QUIC client -> Swift QUIC server (scripts/quic-pair-zig-swift.sh
+# prints the Zig side's TAP; exit 0 only if every line is ok).
+quic-e2e-zig-swift: xcframework zig-peer
+    swift build --product mvp-e2e
+    scripts/quic-pair-zig-swift.sh
+
+# The 90 s idle gate: slow on purpose (~2 min); part of the M6 sign-off run.
+quic-idle-gate: xcframework zig-peer
+    swift build --product mvp-e2e
+    "$(swift build --show-bin-path)/mvp-e2e" --server interop/zig-peer/zig-out/bin/zig-peer --transport quic --idle-seconds 90
+
 # The TSan gate (M1/M2): the whole Swift suite, incl. 64 connections x 10k
 # calls over LoopbackTransport, must run with 0 ThreadSanitizer warnings.
 tsan: xcframework

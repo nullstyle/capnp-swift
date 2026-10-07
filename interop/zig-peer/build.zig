@@ -14,7 +14,10 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const dep = b.dependency("capnpc_zig", .{ .target = target, .optimize = optimize });
+    // -Dquic=true: the module root becomes src/lib_quic.zig, so
+    // rpc.transport.quic is the real (quic-zig-backed) transport — the
+    // M6 interop lanes need it (plan §8 M6; Experimental upstream too).
+    const dep = b.dependency("capnpc_zig", .{ .target = target, .optimize = optimize, .quic = true });
     // The full module (RPC + the TCP transport), as an application uses it.
     const capnp = dep.module("capnpc-zig");
 

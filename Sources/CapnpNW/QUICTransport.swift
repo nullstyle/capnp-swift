@@ -56,6 +56,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     private let port: UInt16
     private let trust: TLSTrust
     private let connectTimeout: Duration
+    private let idleTimeout: Duration
     private var connection: NetworkConnection<QUIC>?
     private var stream: QUIC.Stream<QUICStream>?
     private var queue: DispatchSerialQueue?
@@ -64,15 +65,25 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     private var closed = false
     private var paused = false
     private var receiving = false
+    private var receiveTask: Task<Void, Never>?
     private var buffered: [([UInt8], @Sendable () -> Void)] = []
     private var opening: CheckedContinuation<Void, any Error>?
     private var timeoutWork: DispatchWorkItem?
 
-    public init(host: String, port: UInt16, trust: TLSTrust, connectTimeout: Duration = .seconds(10)) {
+    /// `idleTimeout` must exceed any planned quiet period (the 90 s idle
+    /// gate uses 120 s); the default matches the core's 30 s.
+    public init(
+        host: String,
+        port: UInt16,
+        trust: TLSTrust,
+        connectTimeout: Duration = .seconds(10),
+        idleTimeout: Duration = .seconds(30)
+    ) {
         self.host = host
         self.port = port
         self.trust = trust
         self.connectTimeout = connectTimeout
+        self.idleTimeout = idleTimeout
     }
 
     private func makeConnection() -> NetworkConnection<QUIC> {
@@ -80,7 +91,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
             to: .hostPort(host: NWEndpoint.Host(host), port: NWEndpoint.Port(rawValue: port)!),
             using: .init {
                 var quic = QUIC(alpn: [capnpQUICALPN])
-                quic = quic.idleTimeout(30_000)
+                quic = quic.idleTimeout(Int(idleTimeout.components.seconds) * 1000)
                 switch self.trust {
                 case .pinnedCertificates, .testOnlyTrustThisCertificate:
                     let verify = self.trust.verifyBlock()
@@ -221,7 +232,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     private func receiveLoop() {
         guard ready, !closed, !paused, !receiving, let stream else { return }
         receiving = true
-        Task { [weak self] in
+        receiveTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let message = try await stream.receive(atLeast: 1, atMost: 65536)
@@ -239,7 +250,9 @@ public final class QUICTransport: Transport, @unchecked Sendable {
                 self.queue?.async { [weak self] in
                     guard let self else { return }
                     self.receiving = false
-                    self.fail(TCPTransport.ConnectError.failed("\(error)"))
+                    if !self.closed {
+                        self.fail(TCPTransport.ConnectError.failed("\(error)"))
+                    }
                 }
             }
         }
@@ -249,15 +262,102 @@ public final class QUICTransport: Transport, @unchecked Sendable {
         guard !closed else { return }
         closed = true
         cancelTimeout()
-        // Deferred: the core delivers CLOSE_REQUESTED mid-drain, and a
-        // synchronous transportDidClose would re-enter drain() on the same
-        // thread (CAPNP_E_BUSY). NWConnection-based transports get this
-        // deferral for free through the async .cancelled state.
+        // The modern channels expose no public cancel(); the close is real
+        // anyway: FIN on stream 0 (the baseline's RPC stream) tells the
+        // peer the session is over, the pending receive is cancelled so it
+        // stops holding the stream alive, and dropping our references lets
+        // the channel deinit tear the QUIC connection down.
+        let stream = self.stream
+        let receiveTask = self.receiveTask
         if let queue {
-            queue.async { [weak self] in self?.delegate?.transportDidClose(error: nil) }
+            queue.async { [weak self] in
+                if let stream {
+                    Task {
+                        try? await stream.send(Data(), endOfStream: true)
+                        qtrace("client cancel(): FIN sent on stream 0")
+                    }
+                }
+                receiveTask?.cancel()
+                self?.connection = nil
+                self?.stream = nil
+                self?.delegate?.transportDidClose(error: nil)
+            }
         } else {
             delegate?.transportDidClose(error: nil)
         }
+    }
+
+    private struct SecondaryStreamError: Error {
+        let message: String
+        static func receiveFailed(_ message: String) -> SecondaryStreamError {
+            SecondaryStreamError(message: message)
+        }
+    }
+
+    /// What `probeSecondaryStream()` observed on the extra stream.
+    public struct SecondaryStreamProbe: Sendable {
+        public let openThrew: Bool
+        public let sendThrew: Bool
+        public let receiveError: String?
+        /// The stream's application error code after the reset, when this
+        /// SDK surfaces it (capnp-zig resets unexpected streams with
+        /// 0x434e5002 and keeps the connection up).
+        public let applicationErrorCode: UInt64?
+    }
+
+    /// M6 gate: open a second bidirectional stream the baseline does not
+    /// define, write a stray frame, and report how the peer refused it.
+    /// Diagnostic only — never touches the RPC stream.
+    public func probeSecondaryStream() async -> SecondaryStreamProbe {
+        guard let connection else {
+            return SecondaryStreamProbe(openThrew: true, sendThrew: false, receiveError: "no connection", applicationErrorCode: nil)
+        }
+        let stream: QUIC.Stream<QUICStream>
+        do {
+            stream = try await connection.openStream()
+        } catch {
+            return SecondaryStreamProbe(openThrew: true, sendThrew: false, receiveError: "\(error)", applicationErrorCode: nil)
+        }
+        var sendThrew = false
+        do {
+            try await stream.send(Data([0, 0, 0, 1]))
+        } catch {
+            sendThrew = true
+        }
+        // Race the receive against a timer: a silent peer (no reset, no
+        // data) would otherwise suspend forever, and structured cancellation
+        // cannot interrupt a Network.framework await.
+        var receiveError: String?
+        do {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    do {
+                        _ = try await stream.receive(atLeast: 1, atMost: 65536)
+                    } catch is CancellationError {
+                    } catch {
+                        qtrace("secondary stream receive error: \(error)")
+                        throw SecondaryStreamError.receiveFailed("\(error)")
+                    }
+                }
+                group.addTask {
+                    try await Task.sleep(for: .seconds(10))
+                }
+                do {
+                    _ = try await group.next()
+                } catch let error as SecondaryStreamError {
+                    receiveError = error.message
+                } catch {
+                    // The timer won: the peer stayed silent on the stream.
+                }
+                group.cancelAll()
+            }
+        }
+        return SecondaryStreamProbe(
+            openThrew: false,
+            sendThrew: sendThrew,
+            receiveError: receiveError,
+            applicationErrorCode: stream.streamApplicationErrorCode
+        )
     }
 }
 

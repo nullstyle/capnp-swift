@@ -16,4 +16,6 @@ pin (TLSTrust.testOnlyTrustThisCertificate). test-key.der (PKCS#1) plus
 test-cert.der build the keychain-free identity the QUIC tests use
 (TLSIdentity(certificateDER:keyDER:)): a SecPKCS12Import identity used by
 the modern QUIC TLS stack stalls on a keychain-authorization prompt,
-which never resolves under a headless test runner.
+which never resolves under a headless test runner. test-cert.pem and
+test-key.pem (same pair) are the capnp-zig QUIC peer's server identity
+(zig-peer --transport quic --cert-pem/--key-pem).
