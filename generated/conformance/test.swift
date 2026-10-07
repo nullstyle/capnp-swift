@@ -3048,6 +3048,128 @@ public struct TestGenerics {
 
     public struct TestGenerics_Inner2 {
         public struct TestGenerics_Inner2_DeepNest {
+            public enum TestGenerics_Inner2_DeepNest_DeepNestInterface {
+                public static let interfaceID: UInt64 = 0x8839ed86c9794287
+
+                public enum Method: UInt16 {
+                    case call = 0
+                }
+
+                fileprivate static func decoding<T>(_ body: () throws -> T) throws -> T {
+                    do { return try body() } catch let error as CapnpError { throw RPCError.malformed("\(error)") }
+                }
+
+                public struct CallParams {
+                    public struct Reader: Sendable {
+                        let root: StructReader
+                        public init(_ root: StructReader) { self.root = root }
+                    }
+
+                    public struct Builder {
+                        let root: StructBuilder
+                        /// Handler exports collected by the interface-typed setters.
+                        public var exports: [any ExportHandler] = []
+                        public init(_ root: StructBuilder) { self.root = root; defaults() }
+                        private func defaults() {
+                        }
+                    }
+
+                }
+
+                public struct CallResults {
+                    /// The built response bytes (a standalone message).
+                    public let bytes: [UInt8]
+                    public init(_ body: (inout Builder) -> Void = { _ in }) {
+                        let mb = MessageBuilder()
+                        var builder = Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                        body(&builder)
+                        self.bytes = mb.toBytes()
+                    }
+
+                    public struct Reader: Sendable {
+                        let root: StructReader
+                        public init(_ root: StructReader) { self.root = root }
+                    }
+
+                    public struct Builder {
+                        let root: StructBuilder
+                        public init(_ root: StructBuilder) { self.root = root; defaults() }
+                        private func defaults() {
+                        }
+                    }
+
+                }
+
+                public protocol Server: Sendable {
+                    func call(params: TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults
+                }
+
+                public struct Client: Sendable {
+                    public let target: CallTarget
+                    public let connection: RPCConnection
+                    public init(cap: CapRef, connection: RPCConnection) {
+                        self.target = .cap(cap)
+                        self.connection = connection
+                    }
+
+                    public init(pipelined: PipelinedCap, connection: RPCConnection) {
+                        self.target = .pipelined(pipelined)
+                        self.connection = connection
+                    }
+
+                    init(target: CallTarget, connection: RPCConnection) {
+                        self.target = target
+                        self.connection = connection
+                    }
+
+                    public func call(_ body: (inout TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Builder) -> Void = { _ in }) async throws -> TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults.Reader {
+                        let mb = MessageBuilder()
+                        var params = TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                        body(&params)
+                        let result = try await connection.call(target, interface: TestGenerics_Inner2_DeepNest_DeepNestInterface.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+                        return try decoding { try TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+                    }
+
+                    public struct CallCall: Sendable {
+                        public let promise: RemotePromise
+                        public let connection: RPCConnection
+                        public func value() async throws -> TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults.Reader {
+                            let result = try await promise.result()
+                            return try decoding { try TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+                        }
+                    }
+
+                    public func sendCall(_ body: (inout TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Builder) -> Void = { _ in }) async throws -> CallCall {
+                        let mb = MessageBuilder()
+                        var params = TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                        body(&params)
+                        let promise = try await connection.send(target, interface: TestGenerics_Inner2_DeepNest_DeepNestInterface.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+                        return CallCall(promise: promise, connection: connection)
+                    }
+
+                }
+
+                /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+                /// Inherited interfaces dispatch here too (the Server protocol inherits
+                /// their requirements; E-order holds for the whole closure).
+                public struct Export: ExportHandler {
+                    public let server: any Server
+                    public init(_ server: any Server) { self.server = server }
+                    public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
+                        guard call.interfaceID == TestGenerics_Inner2_DeepNest_DeepNestInterface.interfaceID else { throw RPCError.unimplemented(reason: "TestGenerics_Inner2_DeepNest_DeepNestInterface: wrong interface") }
+                        switch call.methodID {
+                        case Method.call.rawValue:
+                            let params = try decoding { try TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Reader(Message(bytes: call.params).rootStruct()) }
+                            let results = try await server.call(params: params, caps: call.caps, on: call.connection)
+                            return CallResponse(message: results.bytes)
+                        default:
+                            throw RPCError.unimplemented(reason: "TestGenerics_Inner2_DeepNest_DeepNestInterface: no such method")
+                        }
+                    }
+                }
+
+            }
+
             public struct Reader: Sendable {
                 let root: StructReader
                 public init(_ root: StructReader) { self.root = root }
@@ -3099,6 +3221,307 @@ public struct TestGenerics {
             }
 
             private func defaults() {
+            }
+        }
+
+    }
+
+    public enum TestGenerics_Interface {
+        public static let interfaceID: UInt64 = 0xc9e749e8dd54da5c
+
+        public enum Method: UInt16 {
+            case call = 0
+        }
+
+        fileprivate static func decoding<T>(_ body: () throws -> T) throws -> T {
+            do { return try body() } catch let error as CapnpError { throw RPCError.malformed("\(error)") }
+        }
+
+        public struct CallParams {
+            public struct TestGenerics_Inner2_DeepNest {
+                public enum TestGenerics_Inner2_DeepNest_DeepNestInterface {
+                    public static let interfaceID: UInt64 = 0x8839ed86c9794287
+
+                    public enum Method: UInt16 {
+                        case call = 0
+                    }
+
+                    fileprivate static func decoding<T>(_ body: () throws -> T) throws -> T {
+                        do { return try body() } catch let error as CapnpError { throw RPCError.malformed("\(error)") }
+                    }
+
+                    public struct CallParams {
+                        public struct Reader: Sendable {
+                            let root: StructReader
+                            public init(_ root: StructReader) { self.root = root }
+                        }
+
+                        public struct Builder {
+                            let root: StructBuilder
+                            /// Handler exports collected by the interface-typed setters.
+                            public var exports: [any ExportHandler] = []
+                            public init(_ root: StructBuilder) { self.root = root; defaults() }
+                            private func defaults() {
+                            }
+                        }
+
+                    }
+
+                    public struct CallResults {
+                        /// The built response bytes (a standalone message).
+                        public let bytes: [UInt8]
+                        public init(_ body: (inout Builder) -> Void = { _ in }) {
+                            let mb = MessageBuilder()
+                            var builder = Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                            body(&builder)
+                            self.bytes = mb.toBytes()
+                        }
+
+                        public struct Reader: Sendable {
+                            let root: StructReader
+                            public init(_ root: StructReader) { self.root = root }
+                        }
+
+                        public struct Builder {
+                            let root: StructBuilder
+                            /// Handler exports collected by the interface-typed setters.
+                            public var exports: [any ExportHandler] = []
+                            public init(_ root: StructBuilder) { self.root = root; defaults() }
+                            private func defaults() {
+                            }
+                        }
+
+                    }
+
+                    public protocol Server: Sendable {
+                        func call(params: TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults
+                    }
+
+                    public struct Client: Sendable {
+                        public let target: CallTarget
+                        public let connection: RPCConnection
+                        public init(cap: CapRef, connection: RPCConnection) {
+                            self.target = .cap(cap)
+                            self.connection = connection
+                        }
+
+                        public init(pipelined: PipelinedCap, connection: RPCConnection) {
+                            self.target = .pipelined(pipelined)
+                            self.connection = connection
+                        }
+
+                        init(target: CallTarget, connection: RPCConnection) {
+                            self.target = target
+                            self.connection = connection
+                        }
+
+                        public func call(_ body: (inout TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Builder) -> Void = { _ in }) async throws -> TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults.Reader {
+                            let mb = MessageBuilder()
+                            var params = TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                            body(&params)
+                            let result = try await connection.call(target, interface: TestGenerics_Inner2_DeepNest_DeepNestInterface.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+                            return try decoding { try TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+                        }
+
+                        public struct CallCall: Sendable {
+                            public let promise: RemotePromise
+                            public let connection: RPCConnection
+                            public func value() async throws -> TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults.Reader {
+                                let result = try await promise.result()
+                                return try decoding { try TestGenerics_Inner2_DeepNest_DeepNestInterface.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+                            }
+                        }
+
+                        public func sendCall(_ body: (inout TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Builder) -> Void = { _ in }) async throws -> CallCall {
+                            let mb = MessageBuilder()
+                            var params = TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                            body(&params)
+                            let promise = try await connection.send(target, interface: TestGenerics_Inner2_DeepNest_DeepNestInterface.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+                            return CallCall(promise: promise, connection: connection)
+                        }
+
+                    }
+
+                    /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+                    /// Inherited interfaces dispatch here too (the Server protocol inherits
+                    /// their requirements; E-order holds for the whole closure).
+                    public struct Export: ExportHandler {
+                        public let server: any Server
+                        public init(_ server: any Server) { self.server = server }
+                        public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
+                            guard call.interfaceID == TestGenerics_Inner2_DeepNest_DeepNestInterface.interfaceID else { throw RPCError.unimplemented(reason: "TestGenerics_Inner2_DeepNest_DeepNestInterface: wrong interface") }
+                            switch call.methodID {
+                            case Method.call.rawValue:
+                                let params = try decoding { try TestGenerics_Inner2_DeepNest_DeepNestInterface.CallParams.Reader(Message(bytes: call.params).rootStruct()) }
+                                let results = try await server.call(params: params, caps: call.caps, on: call.connection)
+                                return CallResponse(message: results.bytes)
+                            default:
+                                throw RPCError.unimplemented(reason: "TestGenerics_Inner2_DeepNest_DeepNestInterface: no such method")
+                            }
+                        }
+                    }
+
+                }
+
+                public struct Reader: Sendable {
+                    let root: StructReader
+                    public init(_ root: StructReader) { self.root = root }
+                    public var fooIsNull: Bool { root.isPointerNull(0) }
+
+                    public var barIsNull: Bool { root.isPointerNull(1) }
+
+                    public var bazIsNull: Bool { root.isPointerNull(2) }
+
+                    public var quxIsNull: Bool { root.isPointerNull(3) }
+
+                }
+
+                public struct Builder {
+                    let root: StructBuilder
+                    /// Handler exports collected by the interface-typed setters.
+                    public var exports: [any ExportHandler] = []
+                    public init(_ root: StructBuilder) { self.root = root; defaults() }
+                    private func defaults() {
+                    }
+                }
+
+            }
+
+            public struct Reader: Sendable {
+                let root: StructReader
+                public init(_ root: StructReader) { self.root = root }
+                public var barIsNull: Bool { root.isPointerNull(0) }
+
+                public var bazIsNull: Bool { root.isPointerNull(1) }
+
+                public var innerBound: TestGenerics.TestGenerics_Inner.Reader {
+                    return TestGenerics.TestGenerics_Inner.Reader(root.readStructOrDefault(2))
+                }
+
+                public var innerUnbound: TestGenerics.TestGenerics_Inner.Reader {
+                    return TestGenerics.TestGenerics_Inner.Reader(root.readStructOrDefault(3))
+                }
+
+            }
+
+            public struct Builder {
+                let root: StructBuilder
+                /// Handler exports collected by the interface-typed setters.
+                public var exports: [any ExportHandler] = []
+                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public func initInnerBound() -> TestGenerics.TestGenerics_Inner.Builder {
+                    TestGenerics.TestGenerics_Inner.Builder(root.initStruct(2, dataWords: 0, pointerWords: 2))
+                }
+
+                public func initInnerUnbound() -> TestGenerics.TestGenerics_Inner.Builder {
+                    TestGenerics.TestGenerics_Inner.Builder(root.initStruct(3, dataWords: 0, pointerWords: 2))
+                }
+
+                private func defaults() {
+                }
+            }
+
+        }
+
+        public struct CallResults {
+            /// The built response bytes (a standalone message).
+            public let bytes: [UInt8]
+            public init(_ body: (inout Builder) -> Void = { _ in }) {
+                let mb = MessageBuilder()
+                var builder = Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+                body(&builder)
+                self.bytes = mb.toBytes()
+            }
+
+            public struct Reader: Sendable {
+                let root: StructReader
+                public init(_ root: StructReader) { self.root = root }
+                public var quxIsNull: Bool { root.isPointerNull(0) }
+
+                public var gen: TestGenerics.Reader {
+                    return TestGenerics.Reader(root.readStructOrDefault(1))
+                }
+
+            }
+
+            public struct Builder {
+                let root: StructBuilder
+                public init(_ root: StructBuilder) { self.root = root; defaults() }
+                public func initGen() -> TestGenerics.Builder {
+                    TestGenerics.Builder(root.initStruct(1, dataWords: 1, pointerWords: 3))
+                }
+
+                private func defaults() {
+                }
+            }
+
+        }
+
+        public protocol Server: Sendable {
+            func call(params: TestGenerics_Interface.CallParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestGenerics_Interface.CallResults
+        }
+
+        public struct Client: Sendable {
+            public let target: CallTarget
+            public let connection: RPCConnection
+            public init(cap: CapRef, connection: RPCConnection) {
+                self.target = .cap(cap)
+                self.connection = connection
+            }
+
+            public init(pipelined: PipelinedCap, connection: RPCConnection) {
+                self.target = .pipelined(pipelined)
+                self.connection = connection
+            }
+
+            init(target: CallTarget, connection: RPCConnection) {
+                self.target = target
+                self.connection = connection
+            }
+
+            public func call(_ body: (inout TestGenerics_Interface.CallParams.Builder) -> Void = { _ in }) async throws -> TestGenerics_Interface.CallResults.Reader {
+                let mb = MessageBuilder()
+                var params = TestGenerics_Interface.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 4))
+                body(&params)
+                let result = try await connection.call(target, interface: TestGenerics_Interface.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+                return try decoding { try TestGenerics_Interface.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+            }
+
+            public struct CallCall: Sendable {
+                public let promise: RemotePromise
+                public let connection: RPCConnection
+                public func value() async throws -> TestGenerics_Interface.CallResults.Reader {
+                    let result = try await promise.result()
+                    return try decoding { try TestGenerics_Interface.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+                }
+            }
+
+            public func sendCall(_ body: (inout TestGenerics_Interface.CallParams.Builder) -> Void = { _ in }) async throws -> CallCall {
+                let mb = MessageBuilder()
+                var params = TestGenerics_Interface.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 4))
+                body(&params)
+                let promise = try await connection.send(target, interface: TestGenerics_Interface.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+                return CallCall(promise: promise, connection: connection)
+            }
+
+        }
+
+        /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+        /// Inherited interfaces dispatch here too (the Server protocol inherits
+        /// their requirements; E-order holds for the whole closure).
+        public struct Export: ExportHandler {
+            public let server: any Server
+            public init(_ server: any Server) { self.server = server }
+            public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
+                guard call.interfaceID == TestGenerics_Interface.interfaceID else { throw RPCError.unimplemented(reason: "TestGenerics_Interface: wrong interface") }
+                switch call.methodID {
+                case Method.call.rawValue:
+                    let params = try decoding { try TestGenerics_Interface.CallParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.call(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestGenerics_Interface: no such method")
+                }
             }
         }
 
@@ -3425,7 +3848,7 @@ public enum TestImplicitMethodParams {
     }
 
     public protocol Server: Sendable {
-        func call(params: CallParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CallResults
+        func call(params: TestImplicitMethodParams.CallParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestImplicitMethodParams.CallResults
     }
 
     public struct Client: Sendable {
@@ -3441,26 +3864,31 @@ public enum TestImplicitMethodParams {
             self.connection = connection
         }
 
-        public func call(_ body: (inout CallParams.Builder) -> Void = { _ in }) async throws -> CallResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func call(_ body: (inout TestImplicitMethodParams.CallParams.Builder) -> Void = { _ in }) async throws -> TestImplicitMethodParams.CallResults.Reader {
             let mb = MessageBuilder()
-            var params = CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+            var params = TestImplicitMethodParams.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
             let result = try await connection.call(target, interface: TestImplicitMethodParams.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestImplicitMethodParams.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct CallCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> CallResults.Reader {
+            public func value() async throws -> TestImplicitMethodParams.CallResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestImplicitMethodParams.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendCall(_ body: (inout CallParams.Builder) -> Void = { _ in }) async throws -> CallCall {
+        public func sendCall(_ body: (inout TestImplicitMethodParams.CallParams.Builder) -> Void = { _ in }) async throws -> CallCall {
             let mb = MessageBuilder()
-            var params = CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+            var params = TestImplicitMethodParams.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
             let promise = try await connection.send(target, interface: TestImplicitMethodParams.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return CallCall(promise: promise, connection: connection)
@@ -3469,18 +3897,24 @@ public enum TestImplicitMethodParams {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestImplicitMethodParams.interfaceID else { throw RPCError.unimplemented(reason: "TestImplicitMethodParams: wrong interface") }
-            switch call.methodID {
-            case Method.call.rawValue:
-                let params = try decoding { try CallParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.call(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestImplicitMethodParams.interfaceID:
+                switch call.methodID {
+                case TestImplicitMethodParams.Method.call.rawValue:
+                    let params = try decoding { try TestImplicitMethodParams.CallParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.call(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestImplicitMethodParams: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestImplicitMethodParams: no such method")
+                throw RPCError.unimplemented(reason: "TestImplicitMethodParams: wrong interface")
             }
         }
     }
@@ -3610,7 +4044,7 @@ public enum TestImplicitMethodParamsInGeneric {
     }
 
     public protocol Server: Sendable {
-        func call(params: CallParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CallResults
+        func call(params: TestImplicitMethodParamsInGeneric.CallParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestImplicitMethodParamsInGeneric.CallResults
     }
 
     public struct Client: Sendable {
@@ -3626,26 +4060,31 @@ public enum TestImplicitMethodParamsInGeneric {
             self.connection = connection
         }
 
-        public func call(_ body: (inout CallParams.Builder) -> Void = { _ in }) async throws -> CallResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func call(_ body: (inout TestImplicitMethodParamsInGeneric.CallParams.Builder) -> Void = { _ in }) async throws -> TestImplicitMethodParamsInGeneric.CallResults.Reader {
             let mb = MessageBuilder()
-            var params = CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+            var params = TestImplicitMethodParamsInGeneric.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
             let result = try await connection.call(target, interface: TestImplicitMethodParamsInGeneric.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestImplicitMethodParamsInGeneric.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct CallCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> CallResults.Reader {
+            public func value() async throws -> TestImplicitMethodParamsInGeneric.CallResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try CallResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestImplicitMethodParamsInGeneric.CallResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendCall(_ body: (inout CallParams.Builder) -> Void = { _ in }) async throws -> CallCall {
+        public func sendCall(_ body: (inout TestImplicitMethodParamsInGeneric.CallParams.Builder) -> Void = { _ in }) async throws -> CallCall {
             let mb = MessageBuilder()
-            var params = CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+            var params = TestImplicitMethodParamsInGeneric.CallParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
             let promise = try await connection.send(target, interface: TestImplicitMethodParamsInGeneric.interfaceID, method: Method.call.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return CallCall(promise: promise, connection: connection)
@@ -3654,6 +4093,8 @@ public enum TestImplicitMethodParamsInGeneric {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
@@ -3661,7 +4102,7 @@ public enum TestImplicitMethodParamsInGeneric {
             guard call.interfaceID == TestImplicitMethodParamsInGeneric.interfaceID else { throw RPCError.unimplemented(reason: "TestImplicitMethodParamsInGeneric: wrong interface") }
             switch call.methodID {
             case Method.call.rawValue:
-                let params = try decoding { try CallParams.Reader(Message(bytes: call.params).rootStruct()) }
+                let params = try decoding { try TestImplicitMethodParamsInGeneric.CallParams.Reader(Message(bytes: call.params).rootStruct()) }
                 let results = try await server.call(params: params, caps: call.caps, on: call.connection)
                 return CallResponse(message: results.bytes)
             default:
@@ -4356,13 +4797,13 @@ public enum TestInterface {
     }
 
     public protocol Server: Sendable {
-        func foo(params: FooParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> FooResults
-        func bar(params: BarParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> BarResults
-        func baz(params: BazParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> BazResults
-        func getTestPipeline(params: GetTestPipelineParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetTestPipelineResults
-        func getTestTailCallee(params: GetTestTailCalleeParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetTestTailCalleeResults
-        func getTestTailCaller(params: GetTestTailCallerParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetTestTailCallerResults
-        func getTestMoreStuff(params: GetTestMoreStuffParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetTestMoreStuffResults
+        func foo(params: TestInterface.FooParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestInterface.FooResults
+        func bar(params: TestInterface.BarParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestInterface.BarResults
+        func baz(params: TestInterface.BazParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestInterface.BazResults
+        func getTestPipeline(params: TestInterface.GetTestPipelineParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestInterface.GetTestPipelineResults
+        func getTestTailCallee(params: TestInterface.GetTestTailCalleeParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestInterface.GetTestTailCalleeResults
+        func getTestTailCaller(params: TestInterface.GetTestTailCallerParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestInterface.GetTestTailCallerResults
+        func getTestMoreStuff(params: TestInterface.GetTestMoreStuffParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestInterface.GetTestMoreStuffResults
     }
 
     public struct Client: Sendable {
@@ -4378,184 +4819,189 @@ public enum TestInterface {
             self.connection = connection
         }
 
-        public func foo(_ body: (inout FooParams.Builder) -> Void = { _ in }) async throws -> FooResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func foo(_ body: (inout TestInterface.FooParams.Builder) -> Void = { _ in }) async throws -> TestInterface.FooResults.Reader {
             let mb = MessageBuilder()
-            var params = FooParams.Builder(mb.initRoot(dataWords: 2, pointerWords: 0))
+            var params = TestInterface.FooParams.Builder(mb.initRoot(dataWords: 2, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestInterface.interfaceID, method: Method.foo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try FooResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestInterface.FooResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct FooCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> FooResults.Reader {
+            public func value() async throws -> TestInterface.FooResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try FooResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestInterface.FooResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendFoo(_ body: (inout FooParams.Builder) -> Void = { _ in }) async throws -> FooCall {
+        public func sendFoo(_ body: (inout TestInterface.FooParams.Builder) -> Void = { _ in }) async throws -> FooCall {
             let mb = MessageBuilder()
-            var params = FooParams.Builder(mb.initRoot(dataWords: 2, pointerWords: 0))
+            var params = TestInterface.FooParams.Builder(mb.initRoot(dataWords: 2, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestInterface.interfaceID, method: Method.foo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return FooCall(promise: promise, connection: connection)
         }
 
-        public func bar(_ body: (inout BarParams.Builder) -> Void = { _ in }) async throws -> BarResults.Reader {
+        public func bar(_ body: (inout TestInterface.BarParams.Builder) -> Void = { _ in }) async throws -> TestInterface.BarResults.Reader {
             let mb = MessageBuilder()
-            var params = BarParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.BarParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestInterface.interfaceID, method: Method.bar.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try BarResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestInterface.BarResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct BarCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> BarResults.Reader {
+            public func value() async throws -> TestInterface.BarResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try BarResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestInterface.BarResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendBar(_ body: (inout BarParams.Builder) -> Void = { _ in }) async throws -> BarCall {
+        public func sendBar(_ body: (inout TestInterface.BarParams.Builder) -> Void = { _ in }) async throws -> BarCall {
             let mb = MessageBuilder()
-            var params = BarParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.BarParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestInterface.interfaceID, method: Method.bar.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return BarCall(promise: promise, connection: connection)
         }
 
-        public func baz(_ body: (inout BazParams.Builder) -> Void = { _ in }) async throws -> BazResults.Reader {
+        public func baz(_ body: (inout TestInterface.BazParams.Builder) -> Void = { _ in }) async throws -> TestInterface.BazResults.Reader {
             let mb = MessageBuilder()
-            var params = BazParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestInterface.BazParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestInterface.interfaceID, method: Method.baz.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try BazResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestInterface.BazResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct BazCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> BazResults.Reader {
+            public func value() async throws -> TestInterface.BazResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try BazResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestInterface.BazResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendBaz(_ body: (inout BazParams.Builder) -> Void = { _ in }) async throws -> BazCall {
+        public func sendBaz(_ body: (inout TestInterface.BazParams.Builder) -> Void = { _ in }) async throws -> BazCall {
             let mb = MessageBuilder()
-            var params = BazParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestInterface.BazParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestInterface.interfaceID, method: Method.baz.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return BazCall(promise: promise, connection: connection)
         }
 
-        public func getTestPipeline(_ body: (inout GetTestPipelineParams.Builder) -> Void = { _ in }) async throws -> GetTestPipelineResults.Reader {
+        public func getTestPipeline(_ body: (inout TestInterface.GetTestPipelineParams.Builder) -> Void = { _ in }) async throws -> TestInterface.GetTestPipelineResults.Reader {
             let mb = MessageBuilder()
-            var params = GetTestPipelineParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.GetTestPipelineParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestInterface.interfaceID, method: Method.getTestPipeline.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetTestPipelineResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestInterface.GetTestPipelineResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetTestPipelineCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetTestPipelineResults.Reader {
+            public func value() async throws -> TestInterface.GetTestPipelineResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetTestPipelineResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestInterface.GetTestPipelineResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `cap`: callable before the RETURN.
             public var cap: TestPipeline.Client { TestPipeline.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendGetTestPipeline(_ body: (inout GetTestPipelineParams.Builder) -> Void = { _ in }) async throws -> GetTestPipelineCall {
+        public func sendGetTestPipeline(_ body: (inout TestInterface.GetTestPipelineParams.Builder) -> Void = { _ in }) async throws -> GetTestPipelineCall {
             let mb = MessageBuilder()
-            var params = GetTestPipelineParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.GetTestPipelineParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestInterface.interfaceID, method: Method.getTestPipeline.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetTestPipelineCall(promise: promise, connection: connection)
         }
 
-        public func getTestTailCallee(_ body: (inout GetTestTailCalleeParams.Builder) -> Void = { _ in }) async throws -> GetTestTailCalleeResults.Reader {
+        public func getTestTailCallee(_ body: (inout TestInterface.GetTestTailCalleeParams.Builder) -> Void = { _ in }) async throws -> TestInterface.GetTestTailCalleeResults.Reader {
             let mb = MessageBuilder()
-            var params = GetTestTailCalleeParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.GetTestTailCalleeParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestInterface.interfaceID, method: Method.getTestTailCallee.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetTestTailCalleeResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestInterface.GetTestTailCalleeResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetTestTailCalleeCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetTestTailCalleeResults.Reader {
+            public func value() async throws -> TestInterface.GetTestTailCalleeResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetTestTailCalleeResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestInterface.GetTestTailCalleeResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `cap`: callable before the RETURN.
             public var cap: TestTailCallee.Client { TestTailCallee.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendGetTestTailCallee(_ body: (inout GetTestTailCalleeParams.Builder) -> Void = { _ in }) async throws -> GetTestTailCalleeCall {
+        public func sendGetTestTailCallee(_ body: (inout TestInterface.GetTestTailCalleeParams.Builder) -> Void = { _ in }) async throws -> GetTestTailCalleeCall {
             let mb = MessageBuilder()
-            var params = GetTestTailCalleeParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.GetTestTailCalleeParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestInterface.interfaceID, method: Method.getTestTailCallee.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetTestTailCalleeCall(promise: promise, connection: connection)
         }
 
-        public func getTestTailCaller(_ body: (inout GetTestTailCallerParams.Builder) -> Void = { _ in }) async throws -> GetTestTailCallerResults.Reader {
+        public func getTestTailCaller(_ body: (inout TestInterface.GetTestTailCallerParams.Builder) -> Void = { _ in }) async throws -> TestInterface.GetTestTailCallerResults.Reader {
             let mb = MessageBuilder()
-            var params = GetTestTailCallerParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.GetTestTailCallerParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestInterface.interfaceID, method: Method.getTestTailCaller.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetTestTailCallerResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestInterface.GetTestTailCallerResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetTestTailCallerCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetTestTailCallerResults.Reader {
+            public func value() async throws -> TestInterface.GetTestTailCallerResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetTestTailCallerResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestInterface.GetTestTailCallerResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `cap`: callable before the RETURN.
             public var cap: TestTailCaller.Client { TestTailCaller.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendGetTestTailCaller(_ body: (inout GetTestTailCallerParams.Builder) -> Void = { _ in }) async throws -> GetTestTailCallerCall {
+        public func sendGetTestTailCaller(_ body: (inout TestInterface.GetTestTailCallerParams.Builder) -> Void = { _ in }) async throws -> GetTestTailCallerCall {
             let mb = MessageBuilder()
-            var params = GetTestTailCallerParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.GetTestTailCallerParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestInterface.interfaceID, method: Method.getTestTailCaller.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetTestTailCallerCall(promise: promise, connection: connection)
         }
 
-        public func getTestMoreStuff(_ body: (inout GetTestMoreStuffParams.Builder) -> Void = { _ in }) async throws -> GetTestMoreStuffResults.Reader {
+        public func getTestMoreStuff(_ body: (inout TestInterface.GetTestMoreStuffParams.Builder) -> Void = { _ in }) async throws -> TestInterface.GetTestMoreStuffResults.Reader {
             let mb = MessageBuilder()
-            var params = GetTestMoreStuffParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.GetTestMoreStuffParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestInterface.interfaceID, method: Method.getTestMoreStuff.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetTestMoreStuffResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestInterface.GetTestMoreStuffResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetTestMoreStuffCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetTestMoreStuffResults.Reader {
+            public func value() async throws -> TestInterface.GetTestMoreStuffResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetTestMoreStuffResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestInterface.GetTestMoreStuffResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `cap`: callable before the RETURN.
             public var cap: TestMoreStuff.Client { TestMoreStuff.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendGetTestMoreStuff(_ body: (inout GetTestMoreStuffParams.Builder) -> Void = { _ in }) async throws -> GetTestMoreStuffCall {
+        public func sendGetTestMoreStuff(_ body: (inout TestInterface.GetTestMoreStuffParams.Builder) -> Void = { _ in }) async throws -> GetTestMoreStuffCall {
             let mb = MessageBuilder()
-            var params = GetTestMoreStuffParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestInterface.GetTestMoreStuffParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestInterface.interfaceID, method: Method.getTestMoreStuff.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetTestMoreStuffCall(promise: promise, connection: connection)
@@ -4564,42 +5010,48 @@ public enum TestInterface {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestInterface.interfaceID else { throw RPCError.unimplemented(reason: "TestInterface: wrong interface") }
-            switch call.methodID {
-            case Method.foo.rawValue:
-                let params = try decoding { try FooParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.foo(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.bar.rawValue:
-                let params = try decoding { try BarParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.bar(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.baz.rawValue:
-                let params = try decoding { try BazParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.baz(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getTestPipeline.rawValue:
-                let params = try decoding { try GetTestPipelineParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getTestPipeline(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getTestTailCallee.rawValue:
-                let params = try decoding { try GetTestTailCalleeParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getTestTailCallee(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getTestTailCaller.rawValue:
-                let params = try decoding { try GetTestTailCallerParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getTestTailCaller(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getTestMoreStuff.rawValue:
-                let params = try decoding { try GetTestMoreStuffParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getTestMoreStuff(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestInterface.interfaceID:
+                switch call.methodID {
+                case TestInterface.Method.foo.rawValue:
+                    let params = try decoding { try TestInterface.FooParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.foo(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.bar.rawValue:
+                    let params = try decoding { try TestInterface.BarParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.bar(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.baz.rawValue:
+                    let params = try decoding { try TestInterface.BazParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.baz(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestPipeline.rawValue:
+                    let params = try decoding { try TestInterface.GetTestPipelineParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestPipeline(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestTailCallee.rawValue:
+                    let params = try decoding { try TestInterface.GetTestTailCalleeParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestTailCallee(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestTailCaller.rawValue:
+                    let params = try decoding { try TestInterface.GetTestTailCallerParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestTailCaller(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestMoreStuff.rawValue:
+                    let params = try decoding { try TestInterface.GetTestMoreStuffParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestMoreStuff(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestInterface: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestInterface: no such method")
+                throw RPCError.unimplemented(reason: "TestInterface: wrong interface")
             }
         }
     }
@@ -5120,10 +5572,10 @@ public enum TestExtends {
 
     }
 
-    public protocol Server: Sendable {
-        func qux(params: QuxParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> QuxResults
-        func corge(params: CorgeParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CorgeResults
-        func grault(params: GraultParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GraultResults
+    public protocol Server: Sendable, TestInterface.Server {
+        func qux(params: TestExtends.QuxParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestExtends.QuxResults
+        func corge(params: TestExtends.CorgeParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestExtends.CorgeResults
+        func grault(params: TestExtends.GraultParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestExtends.GraultResults
     }
 
     public struct Client: Sendable {
@@ -5139,76 +5591,84 @@ public enum TestExtends {
             self.connection = connection
         }
 
-        public func qux(_ body: (inout QuxParams.Builder) -> Void = { _ in }) async throws -> QuxResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        /// Calls on `TestInterface` through this capability.
+        public var testInterface: TestInterface.Client { TestInterface.Client(target: target, connection: connection) }
+
+        public func qux(_ body: (inout TestExtends.QuxParams.Builder) -> Void = { _ in }) async throws -> TestExtends.QuxResults.Reader {
             let mb = MessageBuilder()
-            var params = QuxParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestExtends.QuxParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestExtends.interfaceID, method: Method.qux.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try QuxResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestExtends.QuxResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct QuxCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> QuxResults.Reader {
+            public func value() async throws -> TestExtends.QuxResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try QuxResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestExtends.QuxResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendQux(_ body: (inout QuxParams.Builder) -> Void = { _ in }) async throws -> QuxCall {
+        public func sendQux(_ body: (inout TestExtends.QuxParams.Builder) -> Void = { _ in }) async throws -> QuxCall {
             let mb = MessageBuilder()
-            var params = QuxParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestExtends.QuxParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestExtends.interfaceID, method: Method.qux.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return QuxCall(promise: promise, connection: connection)
         }
 
-        public func corge(_ body: (inout CorgeParams.Builder) -> Void = { _ in }) async throws -> CorgeResults.Reader {
+        public func corge(_ body: (inout TestExtends.CorgeParams.Builder) -> Void = { _ in }) async throws -> TestExtends.CorgeResults.Reader {
             let mb = MessageBuilder()
-            var params = CorgeParams.Builder(mb.initRoot(dataWords: 6, pointerWords: 20))
+            var params = TestExtends.CorgeParams.Builder(mb.initRoot(dataWords: 6, pointerWords: 20))
             body(&params)
             let result = try await connection.call(target, interface: TestExtends.interfaceID, method: Method.corge.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try CorgeResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestExtends.CorgeResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct CorgeCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> CorgeResults.Reader {
+            public func value() async throws -> TestExtends.CorgeResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try CorgeResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestExtends.CorgeResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendCorge(_ body: (inout CorgeParams.Builder) -> Void = { _ in }) async throws -> CorgeCall {
+        public func sendCorge(_ body: (inout TestExtends.CorgeParams.Builder) -> Void = { _ in }) async throws -> CorgeCall {
             let mb = MessageBuilder()
-            var params = CorgeParams.Builder(mb.initRoot(dataWords: 6, pointerWords: 20))
+            var params = TestExtends.CorgeParams.Builder(mb.initRoot(dataWords: 6, pointerWords: 20))
             body(&params)
             let promise = try await connection.send(target, interface: TestExtends.interfaceID, method: Method.corge.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return CorgeCall(promise: promise, connection: connection)
         }
 
-        public func grault(_ body: (inout GraultParams.Builder) -> Void = { _ in }) async throws -> GraultResults.Reader {
+        public func grault(_ body: (inout TestExtends.GraultParams.Builder) -> Void = { _ in }) async throws -> TestExtends.GraultResults.Reader {
             let mb = MessageBuilder()
-            var params = GraultParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestExtends.GraultParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestExtends.interfaceID, method: Method.grault.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GraultResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestExtends.GraultResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GraultCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GraultResults.Reader {
+            public func value() async throws -> TestExtends.GraultResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GraultResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestExtends.GraultResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendGrault(_ body: (inout GraultParams.Builder) -> Void = { _ in }) async throws -> GraultCall {
+        public func sendGrault(_ body: (inout TestExtends.GraultParams.Builder) -> Void = { _ in }) async throws -> GraultCall {
             let mb = MessageBuilder()
-            var params = GraultParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestExtends.GraultParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestExtends.interfaceID, method: Method.grault.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GraultCall(promise: promise, connection: connection)
@@ -5217,26 +5677,65 @@ public enum TestExtends {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestExtends.interfaceID else { throw RPCError.unimplemented(reason: "TestExtends: wrong interface") }
-            switch call.methodID {
-            case Method.qux.rawValue:
-                let params = try decoding { try QuxParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.qux(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.corge.rawValue:
-                let params = try decoding { try CorgeParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.corge(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.grault.rawValue:
-                let params = try decoding { try GraultParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.grault(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestExtends.interfaceID:
+                switch call.methodID {
+                case TestExtends.Method.qux.rawValue:
+                    let params = try decoding { try TestExtends.QuxParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.qux(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestExtends.Method.corge.rawValue:
+                    let params = try decoding { try TestExtends.CorgeParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.corge(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestExtends.Method.grault.rawValue:
+                    let params = try decoding { try TestExtends.GraultParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.grault(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestExtends: no such method")
+                }
+            case TestInterface.interfaceID:
+                switch call.methodID {
+                case TestInterface.Method.foo.rawValue:
+                    let params = try decoding { try TestInterface.FooParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.foo(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.bar.rawValue:
+                    let params = try decoding { try TestInterface.BarParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.bar(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.baz.rawValue:
+                    let params = try decoding { try TestInterface.BazParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.baz(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestPipeline.rawValue:
+                    let params = try decoding { try TestInterface.GetTestPipelineParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestPipeline(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestTailCallee.rawValue:
+                    let params = try decoding { try TestInterface.GetTestTailCalleeParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestTailCallee(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestTailCaller.rawValue:
+                    let params = try decoding { try TestInterface.GetTestTailCallerParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestTailCaller(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestMoreStuff.rawValue:
+                    let params = try decoding { try TestInterface.GetTestMoreStuffParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestMoreStuff(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestInterface: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestExtends: no such method")
+                throw RPCError.unimplemented(reason: "TestExtends: wrong interface")
             }
         }
     }
@@ -5250,7 +5749,7 @@ public enum TestExtends2 {
         do { return try body() } catch let error as CapnpError { throw RPCError.malformed("\(error)") }
     }
 
-    public protocol Server: Sendable {
+    public protocol Server: Sendable, TestExtends.Server {
     }
 
     public struct Client: Sendable {
@@ -5266,17 +5765,81 @@ public enum TestExtends2 {
             self.connection = connection
         }
 
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        /// Calls on `TestExtends` through this capability.
+        public var testExtends: TestExtends.Client { TestExtends.Client(target: target, connection: connection) }
+
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestExtends2.interfaceID else { throw RPCError.unimplemented(reason: "TestExtends2: wrong interface") }
-            switch call.methodID {
+            switch call.interfaceID {
+            case TestExtends2.interfaceID:
+                switch call.methodID {
+                default:
+                    throw RPCError.unimplemented(reason: "TestExtends2: no such method")
+                }
+            case TestExtends.interfaceID:
+                switch call.methodID {
+                case TestExtends.Method.qux.rawValue:
+                    let params = try decoding { try TestExtends.QuxParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.qux(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestExtends.Method.corge.rawValue:
+                    let params = try decoding { try TestExtends.CorgeParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.corge(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestExtends.Method.grault.rawValue:
+                    let params = try decoding { try TestExtends.GraultParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.grault(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestExtends: no such method")
+                }
+            case TestInterface.interfaceID:
+                switch call.methodID {
+                case TestInterface.Method.foo.rawValue:
+                    let params = try decoding { try TestInterface.FooParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.foo(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.bar.rawValue:
+                    let params = try decoding { try TestInterface.BarParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.bar(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.baz.rawValue:
+                    let params = try decoding { try TestInterface.BazParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.baz(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestPipeline.rawValue:
+                    let params = try decoding { try TestInterface.GetTestPipelineParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestPipeline(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestTailCallee.rawValue:
+                    let params = try decoding { try TestInterface.GetTestTailCalleeParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestTailCallee(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestTailCaller.rawValue:
+                    let params = try decoding { try TestInterface.GetTestTailCallerParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestTailCaller(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestInterface.Method.getTestMoreStuff.rawValue:
+                    let params = try decoding { try TestInterface.GetTestMoreStuffParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getTestMoreStuff(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestInterface: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestExtends2: no such method")
+                throw RPCError.unimplemented(reason: "TestExtends2: wrong interface")
             }
         }
     }
@@ -5589,10 +6152,10 @@ public enum TestPipeline {
     }
 
     public protocol Server: Sendable {
-        func getCap(params: GetCapParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetCapResults
-        func testPointers(params: TestPointersParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestPointersResults
-        func getAnyCap(params: GetAnyCapParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetAnyCapResults
-        func getCapPipelineOnly(params: GetCapPipelineOnlyParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetCapPipelineOnlyResults
+        func getCap(params: TestPipeline.GetCapParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestPipeline.GetCapResults
+        func testPointers(params: TestPipeline.TestPointersParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestPipeline.TestPointersResults
+        func getAnyCap(params: TestPipeline.GetAnyCapParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestPipeline.GetAnyCapResults
+        func getCapPipelineOnly(params: TestPipeline.GetCapPipelineOnlyParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestPipeline.GetCapPipelineOnlyResults
     }
 
     public struct Client: Sendable {
@@ -5608,101 +6171,106 @@ public enum TestPipeline {
             self.connection = connection
         }
 
-        public func getCap(_ body: (inout GetCapParams.Builder) -> Void = { _ in }) async throws -> GetCapResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func getCap(_ body: (inout TestPipeline.GetCapParams.Builder) -> Void = { _ in }) async throws -> TestPipeline.GetCapResults.Reader {
             let mb = MessageBuilder()
-            var params = GetCapParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestPipeline.GetCapParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestPipeline.interfaceID, method: Method.getCap.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetCapResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestPipeline.GetCapResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetCapCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetCapResults.Reader {
+            public func value() async throws -> TestPipeline.GetCapResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetCapResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestPipeline.GetCapResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendGetCap(_ body: (inout GetCapParams.Builder) -> Void = { _ in }) async throws -> GetCapCall {
+        public func sendGetCap(_ body: (inout TestPipeline.GetCapParams.Builder) -> Void = { _ in }) async throws -> GetCapCall {
             let mb = MessageBuilder()
-            var params = GetCapParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestPipeline.GetCapParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestPipeline.interfaceID, method: Method.getCap.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetCapCall(promise: promise, connection: connection)
         }
 
-        public func testPointers(_ body: (inout TestPointersParams.Builder) -> Void = { _ in }) async throws -> TestPointersResults.Reader {
+        public func testPointers(_ body: (inout TestPipeline.TestPointersParams.Builder) -> Void = { _ in }) async throws -> TestPipeline.TestPointersResults.Reader {
             let mb = MessageBuilder()
-            var params = TestPointersParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 3))
+            var params = TestPipeline.TestPointersParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 3))
             body(&params)
             let result = try await connection.call(target, interface: TestPipeline.interfaceID, method: Method.testPointers.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try TestPointersResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestPipeline.TestPointersResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct TestPointersCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> TestPointersResults.Reader {
+            public func value() async throws -> TestPipeline.TestPointersResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try TestPointersResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestPipeline.TestPointersResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendTestPointers(_ body: (inout TestPointersParams.Builder) -> Void = { _ in }) async throws -> TestPointersCall {
+        public func sendTestPointers(_ body: (inout TestPipeline.TestPointersParams.Builder) -> Void = { _ in }) async throws -> TestPointersCall {
             let mb = MessageBuilder()
-            var params = TestPointersParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 3))
+            var params = TestPipeline.TestPointersParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 3))
             body(&params)
             let promise = try await connection.send(target, interface: TestPipeline.interfaceID, method: Method.testPointers.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return TestPointersCall(promise: promise, connection: connection)
         }
 
-        public func getAnyCap(_ body: (inout GetAnyCapParams.Builder) -> Void = { _ in }) async throws -> GetAnyCapResults.Reader {
+        public func getAnyCap(_ body: (inout TestPipeline.GetAnyCapParams.Builder) -> Void = { _ in }) async throws -> TestPipeline.GetAnyCapResults.Reader {
             let mb = MessageBuilder()
-            var params = GetAnyCapParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestPipeline.GetAnyCapParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestPipeline.interfaceID, method: Method.getAnyCap.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetAnyCapResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestPipeline.GetAnyCapResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetAnyCapCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetAnyCapResults.Reader {
+            public func value() async throws -> TestPipeline.GetAnyCapResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetAnyCapResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestPipeline.GetAnyCapResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendGetAnyCap(_ body: (inout GetAnyCapParams.Builder) -> Void = { _ in }) async throws -> GetAnyCapCall {
+        public func sendGetAnyCap(_ body: (inout TestPipeline.GetAnyCapParams.Builder) -> Void = { _ in }) async throws -> GetAnyCapCall {
             let mb = MessageBuilder()
-            var params = GetAnyCapParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestPipeline.GetAnyCapParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestPipeline.interfaceID, method: Method.getAnyCap.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetAnyCapCall(promise: promise, connection: connection)
         }
 
-        public func getCapPipelineOnly(_ body: (inout GetCapPipelineOnlyParams.Builder) -> Void = { _ in }) async throws -> GetCapPipelineOnlyResults.Reader {
+        public func getCapPipelineOnly(_ body: (inout TestPipeline.GetCapPipelineOnlyParams.Builder) -> Void = { _ in }) async throws -> TestPipeline.GetCapPipelineOnlyResults.Reader {
             let mb = MessageBuilder()
-            var params = GetCapPipelineOnlyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestPipeline.GetCapPipelineOnlyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestPipeline.interfaceID, method: Method.getCapPipelineOnly.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetCapPipelineOnlyResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestPipeline.GetCapPipelineOnlyResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetCapPipelineOnlyCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetCapPipelineOnlyResults.Reader {
+            public func value() async throws -> TestPipeline.GetCapPipelineOnlyResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetCapPipelineOnlyResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestPipeline.GetCapPipelineOnlyResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendGetCapPipelineOnly(_ body: (inout GetCapPipelineOnlyParams.Builder) -> Void = { _ in }) async throws -> GetCapPipelineOnlyCall {
+        public func sendGetCapPipelineOnly(_ body: (inout TestPipeline.GetCapPipelineOnlyParams.Builder) -> Void = { _ in }) async throws -> GetCapPipelineOnlyCall {
             let mb = MessageBuilder()
-            var params = GetCapPipelineOnlyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestPipeline.GetCapPipelineOnlyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestPipeline.interfaceID, method: Method.getCapPipelineOnly.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetCapPipelineOnlyCall(promise: promise, connection: connection)
@@ -5711,30 +6279,36 @@ public enum TestPipeline {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestPipeline.interfaceID else { throw RPCError.unimplemented(reason: "TestPipeline: wrong interface") }
-            switch call.methodID {
-            case Method.getCap.rawValue:
-                let params = try decoding { try GetCapParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getCap(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.testPointers.rawValue:
-                let params = try decoding { try TestPointersParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.testPointers(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getAnyCap.rawValue:
-                let params = try decoding { try GetAnyCapParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getAnyCap(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getCapPipelineOnly.rawValue:
-                let params = try decoding { try GetCapPipelineOnlyParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getCapPipelineOnly(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestPipeline.interfaceID:
+                switch call.methodID {
+                case TestPipeline.Method.getCap.rawValue:
+                    let params = try decoding { try TestPipeline.GetCapParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getCap(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestPipeline.Method.testPointers.rawValue:
+                    let params = try decoding { try TestPipeline.TestPointersParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.testPointers(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestPipeline.Method.getAnyCap.rawValue:
+                    let params = try decoding { try TestPipeline.GetAnyCapParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getAnyCap(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestPipeline.Method.getCapPipelineOnly.rawValue:
+                    let params = try decoding { try TestPipeline.GetCapPipelineOnlyParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getCapPipelineOnly(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestPipeline: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestPipeline: no such method")
+                throw RPCError.unimplemented(reason: "TestPipeline: wrong interface")
             }
         }
     }
@@ -5808,7 +6382,7 @@ public enum TestCallOrder {
     }
 
     public protocol Server: Sendable {
-        func getCallSequence(params: GetCallSequenceParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetCallSequenceResults
+        func getCallSequence(params: TestCallOrder.GetCallSequenceParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestCallOrder.GetCallSequenceResults
     }
 
     public struct Client: Sendable {
@@ -5824,26 +6398,31 @@ public enum TestCallOrder {
             self.connection = connection
         }
 
-        public func getCallSequence(_ body: (inout GetCallSequenceParams.Builder) -> Void = { _ in }) async throws -> GetCallSequenceResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func getCallSequence(_ body: (inout TestCallOrder.GetCallSequenceParams.Builder) -> Void = { _ in }) async throws -> TestCallOrder.GetCallSequenceResults.Reader {
             let mb = MessageBuilder()
-            var params = GetCallSequenceParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
+            var params = TestCallOrder.GetCallSequenceParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestCallOrder.interfaceID, method: Method.getCallSequence.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetCallSequenceResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestCallOrder.GetCallSequenceResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetCallSequenceCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetCallSequenceResults.Reader {
+            public func value() async throws -> TestCallOrder.GetCallSequenceResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetCallSequenceResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestCallOrder.GetCallSequenceResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendGetCallSequence(_ body: (inout GetCallSequenceParams.Builder) -> Void = { _ in }) async throws -> GetCallSequenceCall {
+        public func sendGetCallSequence(_ body: (inout TestCallOrder.GetCallSequenceParams.Builder) -> Void = { _ in }) async throws -> GetCallSequenceCall {
             let mb = MessageBuilder()
-            var params = GetCallSequenceParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
+            var params = TestCallOrder.GetCallSequenceParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestCallOrder.interfaceID, method: Method.getCallSequence.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetCallSequenceCall(promise: promise, connection: connection)
@@ -5852,18 +6431,24 @@ public enum TestCallOrder {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestCallOrder.interfaceID else { throw RPCError.unimplemented(reason: "TestCallOrder: wrong interface") }
-            switch call.methodID {
-            case Method.getCallSequence.rawValue:
-                let params = try decoding { try GetCallSequenceParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getCallSequence(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestCallOrder.interfaceID:
+                switch call.methodID {
+                case TestCallOrder.Method.getCallSequence.rawValue:
+                    let params = try decoding { try TestCallOrder.GetCallSequenceParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getCallSequence(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestCallOrder: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestCallOrder: no such method")
+                throw RPCError.unimplemented(reason: "TestCallOrder: wrong interface")
             }
         }
     }
@@ -5987,7 +6572,7 @@ public enum TestTailCallee {
     }
 
     public protocol Server: Sendable {
-        func foo(params: FooParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> FooResults
+        func foo(params: TestTailCallee.FooParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestTailCallee.FooResults
     }
 
     public struct Client: Sendable {
@@ -6003,28 +6588,33 @@ public enum TestTailCallee {
             self.connection = connection
         }
 
-        public func foo(_ body: (inout FooParams.Builder) -> Void = { _ in }) async throws -> FooResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func foo(_ body: (inout TestTailCallee.FooParams.Builder) -> Void = { _ in }) async throws -> TestTailCallee.FooResults.Reader {
             let mb = MessageBuilder()
-            var params = FooParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestTailCallee.FooParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestTailCallee.interfaceID, method: Method.foo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try FooResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestTailCallee.FooResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct FooCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> FooResults.Reader {
+            public func value() async throws -> TestTailCallee.FooResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try FooResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestTailCallee.FooResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `c`: callable before the RETURN.
             public var c: TestCallOrder.Client { TestCallOrder.Client(pipelined: promise.pipeline([1]), connection: connection) }
         }
 
-        public func sendFoo(_ body: (inout FooParams.Builder) -> Void = { _ in }) async throws -> FooCall {
+        public func sendFoo(_ body: (inout TestTailCallee.FooParams.Builder) -> Void = { _ in }) async throws -> FooCall {
             let mb = MessageBuilder()
-            var params = FooParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestTailCallee.FooParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestTailCallee.interfaceID, method: Method.foo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return FooCall(promise: promise, connection: connection)
@@ -6033,18 +6623,24 @@ public enum TestTailCallee {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestTailCallee.interfaceID else { throw RPCError.unimplemented(reason: "TestTailCallee: wrong interface") }
-            switch call.methodID {
-            case Method.foo.rawValue:
-                let params = try decoding { try FooParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.foo(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestTailCallee.interfaceID:
+                switch call.methodID {
+                case TestTailCallee.Method.foo.rawValue:
+                    let params = try decoding { try TestTailCallee.FooParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.foo(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestTailCallee: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestTailCallee: no such method")
+                throw RPCError.unimplemented(reason: "TestTailCallee: wrong interface")
             }
         }
     }
@@ -6145,7 +6741,7 @@ public enum TestTailCaller {
     }
 
     public protocol Server: Sendable {
-        func foo(params: FooParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> FooResults
+        func foo(params: TestTailCaller.FooParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestTailCaller.FooResults
     }
 
     public struct Client: Sendable {
@@ -6161,28 +6757,33 @@ public enum TestTailCaller {
             self.connection = connection
         }
 
-        public func foo(_ body: (inout FooParams.Builder) -> Void = { _ in }) async throws -> FooResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func foo(_ body: (inout TestTailCaller.FooParams.Builder) -> Void = { _ in }) async throws -> TestTailCaller.FooResults.Reader {
             let mb = MessageBuilder()
-            var params = FooParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestTailCaller.FooParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestTailCaller.interfaceID, method: Method.foo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try FooResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestTailCaller.FooResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct FooCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> FooResults.Reader {
+            public func value() async throws -> TestTailCaller.FooResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try FooResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestTailCaller.FooResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `c`: callable before the RETURN.
             public var c: TestCallOrder.Client { TestCallOrder.Client(pipelined: promise.pipeline([1]), connection: connection) }
         }
 
-        public func sendFoo(_ body: (inout FooParams.Builder) -> Void = { _ in }) async throws -> FooCall {
+        public func sendFoo(_ body: (inout TestTailCaller.FooParams.Builder) -> Void = { _ in }) async throws -> FooCall {
             let mb = MessageBuilder()
-            var params = FooParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestTailCaller.FooParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestTailCaller.interfaceID, method: Method.foo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return FooCall(promise: promise, connection: connection)
@@ -6191,18 +6792,24 @@ public enum TestTailCaller {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestTailCaller.interfaceID else { throw RPCError.unimplemented(reason: "TestTailCaller: wrong interface") }
-            switch call.methodID {
-            case Method.foo.rawValue:
-                let params = try decoding { try FooParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.foo(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestTailCaller.interfaceID:
+                switch call.methodID {
+                case TestTailCaller.Method.foo.rawValue:
+                    let params = try decoding { try TestTailCaller.FooParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.foo(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestTailCaller: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestTailCaller: no such method")
+                throw RPCError.unimplemented(reason: "TestTailCaller: wrong interface")
             }
         }
     }
@@ -6326,7 +6933,9 @@ public enum TestStreaming {
     }
 
     public protocol Server: Sendable {
-        func finishStream(params: FinishStreamParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> FinishStreamResults
+        func doStreamI(params: TestStreaming.DoStreamIParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws
+        func doStreamJ(params: TestStreaming.DoStreamJParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws
+        func finishStream(params: TestStreaming.FinishStreamParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestStreaming.FinishStreamResults
     }
 
     public struct Client: Sendable {
@@ -6342,30 +6951,55 @@ public enum TestStreaming {
             self.connection = connection
         }
 
-        // `doStreamI` streams; the Swift-side window wrapper is not emitted yet (M3 follow-up).
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
 
-        // `doStreamJ` streams; the Swift-side window wrapper is not emitted yet (M3 follow-up).
-
-        public func finishStream(_ body: (inout FinishStreamParams.Builder) -> Void = { _ in }) async throws -> FinishStreamResults.Reader {
+        /// One streamed call. The connection's stream window suspends the
+        /// sender above `Options.streamWindowMaxCalls`/`Bytes` in flight (plan S5).
+        public func doStreamI(_ body: (inout TestStreaming.DoStreamIParams.Builder) -> Void = { _ in }) async throws {
             let mb = MessageBuilder()
-            var params = FinishStreamParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestStreaming.DoStreamIParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
+            body(&params)
+            let bytes = mb.toBytes().count
+            try await connection.streamWindow.acquire(bytes: bytes)
+            defer { connection.streamWindow.release(bytes: bytes) }
+            _ = try await connection.call(target, interface: TestStreaming.interfaceID, method: Method.doStreamI.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+        }
+
+        /// One streamed call. The connection's stream window suspends the
+        /// sender above `Options.streamWindowMaxCalls`/`Bytes` in flight (plan S5).
+        public func doStreamJ(_ body: (inout TestStreaming.DoStreamJParams.Builder) -> Void = { _ in }) async throws {
+            let mb = MessageBuilder()
+            var params = TestStreaming.DoStreamJParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
+            body(&params)
+            let bytes = mb.toBytes().count
+            try await connection.streamWindow.acquire(bytes: bytes)
+            defer { connection.streamWindow.release(bytes: bytes) }
+            _ = try await connection.call(target, interface: TestStreaming.interfaceID, method: Method.doStreamJ.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
+        }
+
+        public func finishStream(_ body: (inout TestStreaming.FinishStreamParams.Builder) -> Void = { _ in }) async throws -> TestStreaming.FinishStreamResults.Reader {
+            let mb = MessageBuilder()
+            var params = TestStreaming.FinishStreamParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestStreaming.interfaceID, method: Method.finishStream.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try FinishStreamResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestStreaming.FinishStreamResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct FinishStreamCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> FinishStreamResults.Reader {
+            public func value() async throws -> TestStreaming.FinishStreamResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try FinishStreamResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestStreaming.FinishStreamResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendFinishStream(_ body: (inout FinishStreamParams.Builder) -> Void = { _ in }) async throws -> FinishStreamCall {
+        public func sendFinishStream(_ body: (inout TestStreaming.FinishStreamParams.Builder) -> Void = { _ in }) async throws -> FinishStreamCall {
             let mb = MessageBuilder()
-            var params = FinishStreamParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestStreaming.FinishStreamParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestStreaming.interfaceID, method: Method.finishStream.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return FinishStreamCall(promise: promise, connection: connection)
@@ -6374,18 +7008,32 @@ public enum TestStreaming {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestStreaming.interfaceID else { throw RPCError.unimplemented(reason: "TestStreaming: wrong interface") }
-            switch call.methodID {
-            case Method.finishStream.rawValue:
-                let params = try decoding { try FinishStreamParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.finishStream(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestStreaming.interfaceID:
+                switch call.methodID {
+                case TestStreaming.Method.doStreamI.rawValue:
+                    let params = try decoding { try TestStreaming.DoStreamIParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    try await server.doStreamI(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: MessageBuilder.emptyStruct())
+                case TestStreaming.Method.doStreamJ.rawValue:
+                    let params = try decoding { try TestStreaming.DoStreamJParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    try await server.doStreamJ(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: MessageBuilder.emptyStruct())
+                case TestStreaming.Method.finishStream.rawValue:
+                    let params = try decoding { try TestStreaming.FinishStreamParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.finishStream(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestStreaming: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestStreaming: no such method")
+                throw RPCError.unimplemented(reason: "TestStreaming: wrong interface")
             }
         }
     }
@@ -6415,17 +7063,28 @@ public enum TestHandle {
             self.connection = connection
         }
 
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestHandle.interfaceID else { throw RPCError.unimplemented(reason: "TestHandle: wrong interface") }
-            switch call.methodID {
+            switch call.interfaceID {
+            case TestHandle.interfaceID:
+                switch call.methodID {
+                default:
+                    throw RPCError.unimplemented(reason: "TestHandle: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestHandle: no such method")
+                throw RPCError.unimplemented(reason: "TestHandle: wrong interface")
             }
         }
     }
@@ -7419,24 +8078,24 @@ public enum TestMoreStuff {
 
     }
 
-    public protocol Server: Sendable {
-        func callFoo(params: CallFooParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CallFooResults
-        func callFooWhenResolved(params: CallFooWhenResolvedParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CallFooWhenResolvedResults
-        func neverReturn(params: NeverReturnParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> NeverReturnResults
-        func hold(params: HoldParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> HoldResults
-        func callHeld(params: CallHeldParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CallHeldResults
-        func getHeld(params: GetHeldParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetHeldResults
-        func echo(params: EchoParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> EchoResults
-        func expectCancel(params: ExpectCancelParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> ExpectCancelResults
-        func methodWithDefaults(params: MethodWithDefaultsParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> MethodWithDefaultsResults
-        func getHandle(params: GetHandleParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetHandleResults
-        func getNull(params: GetNullParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetNullResults
-        func getEnormousString(params: GetEnormousStringParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetEnormousStringResults
-        func methodWithNullDefault(params: MethodWithNullDefaultParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> MethodWithNullDefaultResults
-        func writeToFd(params: WriteToFdParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> WriteToFdResults
-        func throwException(params: ThrowExceptionParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> ThrowExceptionResults
-        func throwRemoteException(params: ThrowRemoteExceptionParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> ThrowRemoteExceptionResults
-        func throwExceptionWithDetail(params: ThrowExceptionWithDetailParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> ThrowExceptionWithDetailResults
+    public protocol Server: Sendable, TestCallOrder.Server {
+        func callFoo(params: TestMoreStuff.CallFooParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.CallFooResults
+        func callFooWhenResolved(params: TestMoreStuff.CallFooWhenResolvedParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.CallFooWhenResolvedResults
+        func neverReturn(params: TestMoreStuff.NeverReturnParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.NeverReturnResults
+        func hold(params: TestMoreStuff.HoldParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.HoldResults
+        func callHeld(params: TestMoreStuff.CallHeldParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.CallHeldResults
+        func getHeld(params: TestMoreStuff.GetHeldParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.GetHeldResults
+        func echo(params: TestMoreStuff.EchoParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.EchoResults
+        func expectCancel(params: TestMoreStuff.ExpectCancelParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.ExpectCancelResults
+        func methodWithDefaults(params: TestMoreStuff.MethodWithDefaultsParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.MethodWithDefaultsResults
+        func getHandle(params: TestMoreStuff.GetHandleParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.GetHandleResults
+        func getNull(params: TestMoreStuff.GetNullParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.GetNullResults
+        func getEnormousString(params: TestMoreStuff.GetEnormousStringParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.GetEnormousStringResults
+        func methodWithNullDefault(params: TestMoreStuff.MethodWithNullDefaultParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.MethodWithNullDefaultResults
+        func writeToFd(params: TestMoreStuff.WriteToFdParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.WriteToFdResults
+        func throwException(params: TestMoreStuff.ThrowExceptionParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.ThrowExceptionResults
+        func throwRemoteException(params: TestMoreStuff.ThrowRemoteExceptionParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.ThrowRemoteExceptionResults
+        func throwExceptionWithDetail(params: TestMoreStuff.ThrowExceptionWithDetailParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMoreStuff.ThrowExceptionWithDetailResults
     }
 
     public struct Client: Sendable {
@@ -7452,438 +8111,446 @@ public enum TestMoreStuff {
             self.connection = connection
         }
 
-        public func callFoo(_ body: (inout CallFooParams.Builder) -> Void = { _ in }) async throws -> CallFooResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        /// Calls on `TestCallOrder` through this capability.
+        public var testCallOrder: TestCallOrder.Client { TestCallOrder.Client(target: target, connection: connection) }
+
+        public func callFoo(_ body: (inout TestMoreStuff.CallFooParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.CallFooResults.Reader {
             let mb = MessageBuilder()
-            var params = CallFooParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.CallFooParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.callFoo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try CallFooResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.CallFooResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct CallFooCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> CallFooResults.Reader {
+            public func value() async throws -> TestMoreStuff.CallFooResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try CallFooResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.CallFooResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendCallFoo(_ body: (inout CallFooParams.Builder) -> Void = { _ in }) async throws -> CallFooCall {
+        public func sendCallFoo(_ body: (inout TestMoreStuff.CallFooParams.Builder) -> Void = { _ in }) async throws -> CallFooCall {
             let mb = MessageBuilder()
-            var params = CallFooParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.CallFooParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.callFoo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return CallFooCall(promise: promise, connection: connection)
         }
 
-        public func callFooWhenResolved(_ body: (inout CallFooWhenResolvedParams.Builder) -> Void = { _ in }) async throws -> CallFooWhenResolvedResults.Reader {
+        public func callFooWhenResolved(_ body: (inout TestMoreStuff.CallFooWhenResolvedParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.CallFooWhenResolvedResults.Reader {
             let mb = MessageBuilder()
-            var params = CallFooWhenResolvedParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.CallFooWhenResolvedParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.callFooWhenResolved.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try CallFooWhenResolvedResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.CallFooWhenResolvedResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct CallFooWhenResolvedCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> CallFooWhenResolvedResults.Reader {
+            public func value() async throws -> TestMoreStuff.CallFooWhenResolvedResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try CallFooWhenResolvedResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.CallFooWhenResolvedResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendCallFooWhenResolved(_ body: (inout CallFooWhenResolvedParams.Builder) -> Void = { _ in }) async throws -> CallFooWhenResolvedCall {
+        public func sendCallFooWhenResolved(_ body: (inout TestMoreStuff.CallFooWhenResolvedParams.Builder) -> Void = { _ in }) async throws -> CallFooWhenResolvedCall {
             let mb = MessageBuilder()
-            var params = CallFooWhenResolvedParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.CallFooWhenResolvedParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.callFooWhenResolved.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return CallFooWhenResolvedCall(promise: promise, connection: connection)
         }
 
-        public func neverReturn(_ body: (inout NeverReturnParams.Builder) -> Void = { _ in }) async throws -> NeverReturnResults.Reader {
+        public func neverReturn(_ body: (inout TestMoreStuff.NeverReturnParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.NeverReturnResults.Reader {
             let mb = MessageBuilder()
-            var params = NeverReturnParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.NeverReturnParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.neverReturn.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try NeverReturnResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.NeverReturnResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct NeverReturnCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> NeverReturnResults.Reader {
+            public func value() async throws -> TestMoreStuff.NeverReturnResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try NeverReturnResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.NeverReturnResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `capCopy`: callable before the RETURN.
             public var capCopy: TestInterface.Client { TestInterface.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendNeverReturn(_ body: (inout NeverReturnParams.Builder) -> Void = { _ in }) async throws -> NeverReturnCall {
+        public func sendNeverReturn(_ body: (inout TestMoreStuff.NeverReturnParams.Builder) -> Void = { _ in }) async throws -> NeverReturnCall {
             let mb = MessageBuilder()
-            var params = NeverReturnParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.NeverReturnParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.neverReturn.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return NeverReturnCall(promise: promise, connection: connection)
         }
 
-        public func hold(_ body: (inout HoldParams.Builder) -> Void = { _ in }) async throws -> HoldResults.Reader {
+        public func hold(_ body: (inout TestMoreStuff.HoldParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.HoldResults.Reader {
             let mb = MessageBuilder()
-            var params = HoldParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.HoldParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.hold.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try HoldResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.HoldResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct HoldCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> HoldResults.Reader {
+            public func value() async throws -> TestMoreStuff.HoldResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try HoldResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.HoldResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendHold(_ body: (inout HoldParams.Builder) -> Void = { _ in }) async throws -> HoldCall {
+        public func sendHold(_ body: (inout TestMoreStuff.HoldParams.Builder) -> Void = { _ in }) async throws -> HoldCall {
             let mb = MessageBuilder()
-            var params = HoldParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.HoldParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.hold.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return HoldCall(promise: promise, connection: connection)
         }
 
-        public func callHeld(_ body: (inout CallHeldParams.Builder) -> Void = { _ in }) async throws -> CallHeldResults.Reader {
+        public func callHeld(_ body: (inout TestMoreStuff.CallHeldParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.CallHeldResults.Reader {
             let mb = MessageBuilder()
-            var params = CallHeldParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
+            var params = TestMoreStuff.CallHeldParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.callHeld.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try CallHeldResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.CallHeldResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct CallHeldCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> CallHeldResults.Reader {
+            public func value() async throws -> TestMoreStuff.CallHeldResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try CallHeldResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.CallHeldResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendCallHeld(_ body: (inout CallHeldParams.Builder) -> Void = { _ in }) async throws -> CallHeldCall {
+        public func sendCallHeld(_ body: (inout TestMoreStuff.CallHeldParams.Builder) -> Void = { _ in }) async throws -> CallHeldCall {
             let mb = MessageBuilder()
-            var params = CallHeldParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
+            var params = TestMoreStuff.CallHeldParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.callHeld.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return CallHeldCall(promise: promise, connection: connection)
         }
 
-        public func getHeld(_ body: (inout GetHeldParams.Builder) -> Void = { _ in }) async throws -> GetHeldResults.Reader {
+        public func getHeld(_ body: (inout TestMoreStuff.GetHeldParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.GetHeldResults.Reader {
             let mb = MessageBuilder()
-            var params = GetHeldParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.GetHeldParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.getHeld.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetHeldResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.GetHeldResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetHeldCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetHeldResults.Reader {
+            public func value() async throws -> TestMoreStuff.GetHeldResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetHeldResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.GetHeldResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `cap`: callable before the RETURN.
             public var cap: TestInterface.Client { TestInterface.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendGetHeld(_ body: (inout GetHeldParams.Builder) -> Void = { _ in }) async throws -> GetHeldCall {
+        public func sendGetHeld(_ body: (inout TestMoreStuff.GetHeldParams.Builder) -> Void = { _ in }) async throws -> GetHeldCall {
             let mb = MessageBuilder()
-            var params = GetHeldParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.GetHeldParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.getHeld.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetHeldCall(promise: promise, connection: connection)
         }
 
-        public func echo(_ body: (inout EchoParams.Builder) -> Void = { _ in }) async throws -> EchoResults.Reader {
+        public func echo(_ body: (inout TestMoreStuff.EchoParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.EchoResults.Reader {
             let mb = MessageBuilder()
-            var params = EchoParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.EchoParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.echo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try EchoResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.EchoResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct EchoCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> EchoResults.Reader {
+            public func value() async throws -> TestMoreStuff.EchoResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try EchoResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.EchoResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `cap`: callable before the RETURN.
             public var cap: TestCallOrder.Client { TestCallOrder.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendEcho(_ body: (inout EchoParams.Builder) -> Void = { _ in }) async throws -> EchoCall {
+        public func sendEcho(_ body: (inout TestMoreStuff.EchoParams.Builder) -> Void = { _ in }) async throws -> EchoCall {
             let mb = MessageBuilder()
-            var params = EchoParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.EchoParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.echo.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return EchoCall(promise: promise, connection: connection)
         }
 
-        public func expectCancel(_ body: (inout ExpectCancelParams.Builder) -> Void = { _ in }) async throws -> ExpectCancelResults.Reader {
+        public func expectCancel(_ body: (inout TestMoreStuff.ExpectCancelParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.ExpectCancelResults.Reader {
             let mb = MessageBuilder()
-            var params = ExpectCancelParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.ExpectCancelParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.expectCancel.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try ExpectCancelResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.ExpectCancelResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct ExpectCancelCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> ExpectCancelResults.Reader {
+            public func value() async throws -> TestMoreStuff.ExpectCancelResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try ExpectCancelResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.ExpectCancelResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendExpectCancel(_ body: (inout ExpectCancelParams.Builder) -> Void = { _ in }) async throws -> ExpectCancelCall {
+        public func sendExpectCancel(_ body: (inout TestMoreStuff.ExpectCancelParams.Builder) -> Void = { _ in }) async throws -> ExpectCancelCall {
             let mb = MessageBuilder()
-            var params = ExpectCancelParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMoreStuff.ExpectCancelParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.expectCancel.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return ExpectCancelCall(promise: promise, connection: connection)
         }
 
-        public func methodWithDefaults(_ body: (inout MethodWithDefaultsParams.Builder) -> Void = { _ in }) async throws -> MethodWithDefaultsResults.Reader {
+        public func methodWithDefaults(_ body: (inout TestMoreStuff.MethodWithDefaultsParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.MethodWithDefaultsResults.Reader {
             let mb = MessageBuilder()
-            var params = MethodWithDefaultsParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 2))
+            var params = TestMoreStuff.MethodWithDefaultsParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 2))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.methodWithDefaults.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try MethodWithDefaultsResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.MethodWithDefaultsResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct MethodWithDefaultsCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> MethodWithDefaultsResults.Reader {
+            public func value() async throws -> TestMoreStuff.MethodWithDefaultsResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try MethodWithDefaultsResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.MethodWithDefaultsResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendMethodWithDefaults(_ body: (inout MethodWithDefaultsParams.Builder) -> Void = { _ in }) async throws -> MethodWithDefaultsCall {
+        public func sendMethodWithDefaults(_ body: (inout TestMoreStuff.MethodWithDefaultsParams.Builder) -> Void = { _ in }) async throws -> MethodWithDefaultsCall {
             let mb = MessageBuilder()
-            var params = MethodWithDefaultsParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 2))
+            var params = TestMoreStuff.MethodWithDefaultsParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 2))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.methodWithDefaults.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return MethodWithDefaultsCall(promise: promise, connection: connection)
         }
 
-        public func getHandle(_ body: (inout GetHandleParams.Builder) -> Void = { _ in }) async throws -> GetHandleResults.Reader {
+        public func getHandle(_ body: (inout TestMoreStuff.GetHandleParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.GetHandleResults.Reader {
             let mb = MessageBuilder()
-            var params = GetHandleParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.GetHandleParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.getHandle.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetHandleResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.GetHandleResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetHandleCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetHandleResults.Reader {
+            public func value() async throws -> TestMoreStuff.GetHandleResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetHandleResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.GetHandleResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `handle`: callable before the RETURN.
             public var handle: TestHandle.Client { TestHandle.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendGetHandle(_ body: (inout GetHandleParams.Builder) -> Void = { _ in }) async throws -> GetHandleCall {
+        public func sendGetHandle(_ body: (inout TestMoreStuff.GetHandleParams.Builder) -> Void = { _ in }) async throws -> GetHandleCall {
             let mb = MessageBuilder()
-            var params = GetHandleParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.GetHandleParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.getHandle.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetHandleCall(promise: promise, connection: connection)
         }
 
-        public func getNull(_ body: (inout GetNullParams.Builder) -> Void = { _ in }) async throws -> GetNullResults.Reader {
+        public func getNull(_ body: (inout TestMoreStuff.GetNullParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.GetNullResults.Reader {
             let mb = MessageBuilder()
-            var params = GetNullParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.GetNullParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.getNull.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetNullResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.GetNullResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetNullCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetNullResults.Reader {
+            public func value() async throws -> TestMoreStuff.GetNullResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetNullResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.GetNullResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `nullCap`: callable before the RETURN.
             public var nullCap: TestMoreStuff.Client { TestMoreStuff.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendGetNull(_ body: (inout GetNullParams.Builder) -> Void = { _ in }) async throws -> GetNullCall {
+        public func sendGetNull(_ body: (inout TestMoreStuff.GetNullParams.Builder) -> Void = { _ in }) async throws -> GetNullCall {
             let mb = MessageBuilder()
-            var params = GetNullParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.GetNullParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.getNull.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetNullCall(promise: promise, connection: connection)
         }
 
-        public func getEnormousString(_ body: (inout GetEnormousStringParams.Builder) -> Void = { _ in }) async throws -> GetEnormousStringResults.Reader {
+        public func getEnormousString(_ body: (inout TestMoreStuff.GetEnormousStringParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.GetEnormousStringResults.Reader {
             let mb = MessageBuilder()
-            var params = GetEnormousStringParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.GetEnormousStringParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.getEnormousString.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetEnormousStringResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.GetEnormousStringResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetEnormousStringCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetEnormousStringResults.Reader {
+            public func value() async throws -> TestMoreStuff.GetEnormousStringResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetEnormousStringResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.GetEnormousStringResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendGetEnormousString(_ body: (inout GetEnormousStringParams.Builder) -> Void = { _ in }) async throws -> GetEnormousStringCall {
+        public func sendGetEnormousString(_ body: (inout TestMoreStuff.GetEnormousStringParams.Builder) -> Void = { _ in }) async throws -> GetEnormousStringCall {
             let mb = MessageBuilder()
-            var params = GetEnormousStringParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.GetEnormousStringParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.getEnormousString.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetEnormousStringCall(promise: promise, connection: connection)
         }
 
-        public func methodWithNullDefault(_ body: (inout MethodWithNullDefaultParams.Builder) -> Void = { _ in }) async throws -> MethodWithNullDefaultResults.Reader {
+        public func methodWithNullDefault(_ body: (inout TestMoreStuff.MethodWithNullDefaultParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.MethodWithNullDefaultResults.Reader {
             let mb = MessageBuilder()
-            var params = MethodWithNullDefaultParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+            var params = TestMoreStuff.MethodWithNullDefaultParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.methodWithNullDefault.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try MethodWithNullDefaultResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.MethodWithNullDefaultResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct MethodWithNullDefaultCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> MethodWithNullDefaultResults.Reader {
+            public func value() async throws -> TestMoreStuff.MethodWithNullDefaultResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try MethodWithNullDefaultResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.MethodWithNullDefaultResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendMethodWithNullDefault(_ body: (inout MethodWithNullDefaultParams.Builder) -> Void = { _ in }) async throws -> MethodWithNullDefaultCall {
+        public func sendMethodWithNullDefault(_ body: (inout TestMoreStuff.MethodWithNullDefaultParams.Builder) -> Void = { _ in }) async throws -> MethodWithNullDefaultCall {
             let mb = MessageBuilder()
-            var params = MethodWithNullDefaultParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+            var params = TestMoreStuff.MethodWithNullDefaultParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.methodWithNullDefault.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return MethodWithNullDefaultCall(promise: promise, connection: connection)
         }
 
-        public func writeToFd(_ body: (inout WriteToFdParams.Builder) -> Void = { _ in }) async throws -> WriteToFdResults.Reader {
+        public func writeToFd(_ body: (inout TestMoreStuff.WriteToFdParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.WriteToFdResults.Reader {
             let mb = MessageBuilder()
-            var params = WriteToFdParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 3))
+            var params = TestMoreStuff.WriteToFdParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 3))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.writeToFd.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try WriteToFdResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.WriteToFdResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct WriteToFdCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> WriteToFdResults.Reader {
+            public func value() async throws -> TestMoreStuff.WriteToFdResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try WriteToFdResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.WriteToFdResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `fdCap3`: callable before the RETURN.
             public var fdCap3: TestInterface.Client { TestInterface.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendWriteToFd(_ body: (inout WriteToFdParams.Builder) -> Void = { _ in }) async throws -> WriteToFdCall {
+        public func sendWriteToFd(_ body: (inout TestMoreStuff.WriteToFdParams.Builder) -> Void = { _ in }) async throws -> WriteToFdCall {
             let mb = MessageBuilder()
-            var params = WriteToFdParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 3))
+            var params = TestMoreStuff.WriteToFdParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 3))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.writeToFd.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return WriteToFdCall(promise: promise, connection: connection)
         }
 
-        public func throwException(_ body: (inout ThrowExceptionParams.Builder) -> Void = { _ in }) async throws -> ThrowExceptionResults.Reader {
+        public func throwException(_ body: (inout TestMoreStuff.ThrowExceptionParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.ThrowExceptionResults.Reader {
             let mb = MessageBuilder()
-            var params = ThrowExceptionParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.ThrowExceptionParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.throwException.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try ThrowExceptionResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.ThrowExceptionResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct ThrowExceptionCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> ThrowExceptionResults.Reader {
+            public func value() async throws -> TestMoreStuff.ThrowExceptionResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try ThrowExceptionResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.ThrowExceptionResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendThrowException(_ body: (inout ThrowExceptionParams.Builder) -> Void = { _ in }) async throws -> ThrowExceptionCall {
+        public func sendThrowException(_ body: (inout TestMoreStuff.ThrowExceptionParams.Builder) -> Void = { _ in }) async throws -> ThrowExceptionCall {
             let mb = MessageBuilder()
-            var params = ThrowExceptionParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.ThrowExceptionParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.throwException.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return ThrowExceptionCall(promise: promise, connection: connection)
         }
 
-        public func throwRemoteException(_ body: (inout ThrowRemoteExceptionParams.Builder) -> Void = { _ in }) async throws -> ThrowRemoteExceptionResults.Reader {
+        public func throwRemoteException(_ body: (inout TestMoreStuff.ThrowRemoteExceptionParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.ThrowRemoteExceptionResults.Reader {
             let mb = MessageBuilder()
-            var params = ThrowRemoteExceptionParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.ThrowRemoteExceptionParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.throwRemoteException.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try ThrowRemoteExceptionResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.ThrowRemoteExceptionResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct ThrowRemoteExceptionCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> ThrowRemoteExceptionResults.Reader {
+            public func value() async throws -> TestMoreStuff.ThrowRemoteExceptionResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try ThrowRemoteExceptionResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.ThrowRemoteExceptionResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendThrowRemoteException(_ body: (inout ThrowRemoteExceptionParams.Builder) -> Void = { _ in }) async throws -> ThrowRemoteExceptionCall {
+        public func sendThrowRemoteException(_ body: (inout TestMoreStuff.ThrowRemoteExceptionParams.Builder) -> Void = { _ in }) async throws -> ThrowRemoteExceptionCall {
             let mb = MessageBuilder()
-            var params = ThrowRemoteExceptionParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.ThrowRemoteExceptionParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.throwRemoteException.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return ThrowRemoteExceptionCall(promise: promise, connection: connection)
         }
 
-        public func throwExceptionWithDetail(_ body: (inout ThrowExceptionWithDetailParams.Builder) -> Void = { _ in }) async throws -> ThrowExceptionWithDetailResults.Reader {
+        public func throwExceptionWithDetail(_ body: (inout TestMoreStuff.ThrowExceptionWithDetailParams.Builder) -> Void = { _ in }) async throws -> TestMoreStuff.ThrowExceptionWithDetailResults.Reader {
             let mb = MessageBuilder()
-            var params = ThrowExceptionWithDetailParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.ThrowExceptionWithDetailParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMoreStuff.interfaceID, method: Method.throwExceptionWithDetail.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try ThrowExceptionWithDetailResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMoreStuff.ThrowExceptionWithDetailResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct ThrowExceptionWithDetailCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> ThrowExceptionWithDetailResults.Reader {
+            public func value() async throws -> TestMoreStuff.ThrowExceptionWithDetailResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try ThrowExceptionWithDetailResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMoreStuff.ThrowExceptionWithDetailResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendThrowExceptionWithDetail(_ body: (inout ThrowExceptionWithDetailParams.Builder) -> Void = { _ in }) async throws -> ThrowExceptionWithDetailCall {
+        public func sendThrowExceptionWithDetail(_ body: (inout TestMoreStuff.ThrowExceptionWithDetailParams.Builder) -> Void = { _ in }) async throws -> ThrowExceptionWithDetailCall {
             let mb = MessageBuilder()
-            var params = ThrowExceptionWithDetailParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMoreStuff.ThrowExceptionWithDetailParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMoreStuff.interfaceID, method: Method.throwExceptionWithDetail.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return ThrowExceptionWithDetailCall(promise: promise, connection: connection)
@@ -7892,82 +8559,97 @@ public enum TestMoreStuff {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestMoreStuff.interfaceID else { throw RPCError.unimplemented(reason: "TestMoreStuff: wrong interface") }
-            switch call.methodID {
-            case Method.callFoo.rawValue:
-                let params = try decoding { try CallFooParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.callFoo(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.callFooWhenResolved.rawValue:
-                let params = try decoding { try CallFooWhenResolvedParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.callFooWhenResolved(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.neverReturn.rawValue:
-                let params = try decoding { try NeverReturnParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.neverReturn(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.hold.rawValue:
-                let params = try decoding { try HoldParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.hold(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.callHeld.rawValue:
-                let params = try decoding { try CallHeldParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.callHeld(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getHeld.rawValue:
-                let params = try decoding { try GetHeldParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getHeld(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.echo.rawValue:
-                let params = try decoding { try EchoParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.echo(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.expectCancel.rawValue:
-                let params = try decoding { try ExpectCancelParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.expectCancel(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.methodWithDefaults.rawValue:
-                let params = try decoding { try MethodWithDefaultsParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.methodWithDefaults(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getHandle.rawValue:
-                let params = try decoding { try GetHandleParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getHandle(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getNull.rawValue:
-                let params = try decoding { try GetNullParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getNull(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.getEnormousString.rawValue:
-                let params = try decoding { try GetEnormousStringParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.getEnormousString(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.methodWithNullDefault.rawValue:
-                let params = try decoding { try MethodWithNullDefaultParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.methodWithNullDefault(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.writeToFd.rawValue:
-                let params = try decoding { try WriteToFdParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.writeToFd(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.throwException.rawValue:
-                let params = try decoding { try ThrowExceptionParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.throwException(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.throwRemoteException.rawValue:
-                let params = try decoding { try ThrowRemoteExceptionParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.throwRemoteException(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.throwExceptionWithDetail.rawValue:
-                let params = try decoding { try ThrowExceptionWithDetailParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.throwExceptionWithDetail(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestMoreStuff.interfaceID:
+                switch call.methodID {
+                case TestMoreStuff.Method.callFoo.rawValue:
+                    let params = try decoding { try TestMoreStuff.CallFooParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.callFoo(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.callFooWhenResolved.rawValue:
+                    let params = try decoding { try TestMoreStuff.CallFooWhenResolvedParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.callFooWhenResolved(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.neverReturn.rawValue:
+                    let params = try decoding { try TestMoreStuff.NeverReturnParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.neverReturn(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.hold.rawValue:
+                    let params = try decoding { try TestMoreStuff.HoldParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.hold(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.callHeld.rawValue:
+                    let params = try decoding { try TestMoreStuff.CallHeldParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.callHeld(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.getHeld.rawValue:
+                    let params = try decoding { try TestMoreStuff.GetHeldParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getHeld(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.echo.rawValue:
+                    let params = try decoding { try TestMoreStuff.EchoParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.echo(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.expectCancel.rawValue:
+                    let params = try decoding { try TestMoreStuff.ExpectCancelParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.expectCancel(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.methodWithDefaults.rawValue:
+                    let params = try decoding { try TestMoreStuff.MethodWithDefaultsParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.methodWithDefaults(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.getHandle.rawValue:
+                    let params = try decoding { try TestMoreStuff.GetHandleParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getHandle(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.getNull.rawValue:
+                    let params = try decoding { try TestMoreStuff.GetNullParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getNull(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.getEnormousString.rawValue:
+                    let params = try decoding { try TestMoreStuff.GetEnormousStringParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getEnormousString(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.methodWithNullDefault.rawValue:
+                    let params = try decoding { try TestMoreStuff.MethodWithNullDefaultParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.methodWithNullDefault(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.writeToFd.rawValue:
+                    let params = try decoding { try TestMoreStuff.WriteToFdParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.writeToFd(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.throwException.rawValue:
+                    let params = try decoding { try TestMoreStuff.ThrowExceptionParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.throwException(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.throwRemoteException.rawValue:
+                    let params = try decoding { try TestMoreStuff.ThrowRemoteExceptionParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.throwRemoteException(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMoreStuff.Method.throwExceptionWithDetail.rawValue:
+                    let params = try decoding { try TestMoreStuff.ThrowExceptionWithDetailParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.throwExceptionWithDetail(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestMoreStuff: no such method")
+                }
+            case TestCallOrder.interfaceID:
+                switch call.methodID {
+                case TestCallOrder.Method.getCallSequence.rawValue:
+                    let params = try decoding { try TestCallOrder.GetCallSequenceParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.getCallSequence(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestCallOrder: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestMoreStuff: no such method")
+                throw RPCError.unimplemented(reason: "TestMoreStuff: wrong interface")
             }
         }
     }
@@ -8084,8 +8766,8 @@ public enum TestMembrane {
         }
 
         public protocol Server: Sendable {
-            func passThrough(params: PassThroughParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> PassThroughResults
-            func intercept(params: InterceptParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> InterceptResults
+            func passThrough(params: TestMembrane_Thing.PassThroughParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMembrane_Thing.PassThroughResults
+            func intercept(params: TestMembrane_Thing.InterceptParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMembrane_Thing.InterceptResults
         }
 
         public struct Client: Sendable {
@@ -8101,51 +8783,56 @@ public enum TestMembrane {
                 self.connection = connection
             }
 
-            public func passThrough(_ body: (inout PassThroughParams.Builder) -> Void = { _ in }) async throws -> PassThroughResults.Reader {
+            init(target: CallTarget, connection: RPCConnection) {
+                self.target = target
+                self.connection = connection
+            }
+
+            public func passThrough(_ body: (inout TestMembrane_Thing.PassThroughParams.Builder) -> Void = { _ in }) async throws -> TestMembrane_Thing.PassThroughResults.Reader {
                 let mb = MessageBuilder()
-                var params = PassThroughParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                var params = TestMembrane_Thing.PassThroughParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
                 body(&params)
                 let result = try await connection.call(target, interface: TestMembrane_Thing.interfaceID, method: Method.passThrough.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-                return try decoding { try PassThroughResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMembrane_Thing.PassThroughResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
 
             public struct PassThroughCall: Sendable {
                 public let promise: RemotePromise
                 public let connection: RPCConnection
-                public func value() async throws -> PassThroughResults.Reader {
+                public func value() async throws -> TestMembrane_Thing.PassThroughResults.Reader {
                     let result = try await promise.result()
-                    return try decoding { try PassThroughResults.Reader(Message(bytes: result.message).rootStruct()) }
+                    return try decoding { try TestMembrane_Thing.PassThroughResults.Reader(Message(bytes: result.message).rootStruct()) }
                 }
             }
 
-            public func sendPassThrough(_ body: (inout PassThroughParams.Builder) -> Void = { _ in }) async throws -> PassThroughCall {
+            public func sendPassThrough(_ body: (inout TestMembrane_Thing.PassThroughParams.Builder) -> Void = { _ in }) async throws -> PassThroughCall {
                 let mb = MessageBuilder()
-                var params = PassThroughParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                var params = TestMembrane_Thing.PassThroughParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
                 body(&params)
                 let promise = try await connection.send(target, interface: TestMembrane_Thing.interfaceID, method: Method.passThrough.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
                 return PassThroughCall(promise: promise, connection: connection)
             }
 
-            public func intercept(_ body: (inout InterceptParams.Builder) -> Void = { _ in }) async throws -> InterceptResults.Reader {
+            public func intercept(_ body: (inout TestMembrane_Thing.InterceptParams.Builder) -> Void = { _ in }) async throws -> TestMembrane_Thing.InterceptResults.Reader {
                 let mb = MessageBuilder()
-                var params = InterceptParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                var params = TestMembrane_Thing.InterceptParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
                 body(&params)
                 let result = try await connection.call(target, interface: TestMembrane_Thing.interfaceID, method: Method.intercept.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-                return try decoding { try InterceptResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMembrane_Thing.InterceptResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
 
             public struct InterceptCall: Sendable {
                 public let promise: RemotePromise
                 public let connection: RPCConnection
-                public func value() async throws -> InterceptResults.Reader {
+                public func value() async throws -> TestMembrane_Thing.InterceptResults.Reader {
                     let result = try await promise.result()
-                    return try decoding { try InterceptResults.Reader(Message(bytes: result.message).rootStruct()) }
+                    return try decoding { try TestMembrane_Thing.InterceptResults.Reader(Message(bytes: result.message).rootStruct()) }
                 }
             }
 
-            public func sendIntercept(_ body: (inout InterceptParams.Builder) -> Void = { _ in }) async throws -> InterceptCall {
+            public func sendIntercept(_ body: (inout TestMembrane_Thing.InterceptParams.Builder) -> Void = { _ in }) async throws -> InterceptCall {
                 let mb = MessageBuilder()
-                var params = InterceptParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+                var params = TestMembrane_Thing.InterceptParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
                 body(&params)
                 let promise = try await connection.send(target, interface: TestMembrane_Thing.interfaceID, method: Method.intercept.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
                 return InterceptCall(promise: promise, connection: connection)
@@ -8154,22 +8841,28 @@ public enum TestMembrane {
         }
 
         /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+        /// Inherited interfaces dispatch here too (the Server protocol inherits
+        /// their requirements; E-order holds for the whole closure).
         public struct Export: ExportHandler {
             public let server: any Server
             public init(_ server: any Server) { self.server = server }
             public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-                guard call.interfaceID == TestMembrane_Thing.interfaceID else { throw RPCError.unimplemented(reason: "TestMembrane_Thing: wrong interface") }
-                switch call.methodID {
-                case Method.passThrough.rawValue:
-                    let params = try decoding { try PassThroughParams.Reader(Message(bytes: call.params).rootStruct()) }
-                    let results = try await server.passThrough(params: params, caps: call.caps, on: call.connection)
-                    return CallResponse(message: results.bytes)
-                case Method.intercept.rawValue:
-                    let params = try decoding { try InterceptParams.Reader(Message(bytes: call.params).rootStruct()) }
-                    let results = try await server.intercept(params: params, caps: call.caps, on: call.connection)
-                    return CallResponse(message: results.bytes)
+                switch call.interfaceID {
+                case TestMembrane.TestMembrane_Thing.interfaceID:
+                    switch call.methodID {
+                    case TestMembrane.TestMembrane_Thing.Method.passThrough.rawValue:
+                        let params = try decoding { try TestMembrane.TestMembrane_Thing.PassThroughParams.Reader(Message(bytes: call.params).rootStruct()) }
+                        let results = try await server.passThrough(params: params, caps: call.caps, on: call.connection)
+                        return CallResponse(message: results.bytes)
+                    case TestMembrane.TestMembrane_Thing.Method.intercept.rawValue:
+                        let params = try decoding { try TestMembrane.TestMembrane_Thing.InterceptParams.Reader(Message(bytes: call.params).rootStruct()) }
+                        let results = try await server.intercept(params: params, caps: call.caps, on: call.connection)
+                        return CallResponse(message: results.bytes)
+                    default:
+                        throw RPCError.unimplemented(reason: "TestMembrane_Thing: no such method")
+                    }
                 default:
-                    throw RPCError.unimplemented(reason: "TestMembrane_Thing: no such method")
+                    throw RPCError.unimplemented(reason: "TestMembrane_Thing: wrong interface")
                 }
             }
         }
@@ -8499,11 +9192,11 @@ public enum TestMembrane {
     }
 
     public protocol Server: Sendable {
-        func makeThing(params: MakeThingParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> MakeThingResults
-        func callPassThrough(params: CallPassThroughParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CallPassThroughResults
-        func callIntercept(params: CallInterceptParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> CallInterceptResults
-        func loopback(params: LoopbackParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> LoopbackResults
-        func waitForever(params: WaitForeverParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> WaitForeverResults
+        func makeThing(params: TestMembrane.MakeThingParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMembrane.MakeThingResults
+        func callPassThrough(params: TestMembrane.CallPassThroughParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMembrane.CallPassThroughResults
+        func callIntercept(params: TestMembrane.CallInterceptParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMembrane.CallInterceptResults
+        func loopback(params: TestMembrane.LoopbackParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMembrane.LoopbackResults
+        func waitForever(params: TestMembrane.WaitForeverParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestMembrane.WaitForeverResults
     }
 
     public struct Client: Sendable {
@@ -8519,130 +9212,135 @@ public enum TestMembrane {
             self.connection = connection
         }
 
-        public func makeThing(_ body: (inout MakeThingParams.Builder) -> Void = { _ in }) async throws -> MakeThingResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func makeThing(_ body: (inout TestMembrane.MakeThingParams.Builder) -> Void = { _ in }) async throws -> TestMembrane.MakeThingResults.Reader {
             let mb = MessageBuilder()
-            var params = MakeThingParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMembrane.MakeThingParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMembrane.interfaceID, method: Method.makeThing.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try MakeThingResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMembrane.MakeThingResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct MakeThingCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> MakeThingResults.Reader {
+            public func value() async throws -> TestMembrane.MakeThingResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try MakeThingResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMembrane.MakeThingResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `thing`: callable before the RETURN.
             public var thing: TestMembrane.TestMembrane_Thing.Client { TestMembrane.TestMembrane_Thing.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendMakeThing(_ body: (inout MakeThingParams.Builder) -> Void = { _ in }) async throws -> MakeThingCall {
+        public func sendMakeThing(_ body: (inout TestMembrane.MakeThingParams.Builder) -> Void = { _ in }) async throws -> MakeThingCall {
             let mb = MessageBuilder()
-            var params = MakeThingParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMembrane.MakeThingParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMembrane.interfaceID, method: Method.makeThing.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return MakeThingCall(promise: promise, connection: connection)
         }
 
-        public func callPassThrough(_ body: (inout CallPassThroughParams.Builder) -> Void = { _ in }) async throws -> CallPassThroughResults.Reader {
+        public func callPassThrough(_ body: (inout TestMembrane.CallPassThroughParams.Builder) -> Void = { _ in }) async throws -> TestMembrane.CallPassThroughResults.Reader {
             let mb = MessageBuilder()
-            var params = CallPassThroughParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestMembrane.CallPassThroughParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMembrane.interfaceID, method: Method.callPassThrough.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try CallPassThroughResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMembrane.CallPassThroughResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct CallPassThroughCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> CallPassThroughResults.Reader {
+            public func value() async throws -> TestMembrane.CallPassThroughResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try CallPassThroughResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMembrane.CallPassThroughResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendCallPassThrough(_ body: (inout CallPassThroughParams.Builder) -> Void = { _ in }) async throws -> CallPassThroughCall {
+        public func sendCallPassThrough(_ body: (inout TestMembrane.CallPassThroughParams.Builder) -> Void = { _ in }) async throws -> CallPassThroughCall {
             let mb = MessageBuilder()
-            var params = CallPassThroughParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestMembrane.CallPassThroughParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMembrane.interfaceID, method: Method.callPassThrough.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return CallPassThroughCall(promise: promise, connection: connection)
         }
 
-        public func callIntercept(_ body: (inout CallInterceptParams.Builder) -> Void = { _ in }) async throws -> CallInterceptResults.Reader {
+        public func callIntercept(_ body: (inout TestMembrane.CallInterceptParams.Builder) -> Void = { _ in }) async throws -> TestMembrane.CallInterceptResults.Reader {
             let mb = MessageBuilder()
-            var params = CallInterceptParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestMembrane.CallInterceptParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMembrane.interfaceID, method: Method.callIntercept.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try CallInterceptResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMembrane.CallInterceptResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct CallInterceptCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> CallInterceptResults.Reader {
+            public func value() async throws -> TestMembrane.CallInterceptResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try CallInterceptResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMembrane.CallInterceptResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendCallIntercept(_ body: (inout CallInterceptParams.Builder) -> Void = { _ in }) async throws -> CallInterceptCall {
+        public func sendCallIntercept(_ body: (inout TestMembrane.CallInterceptParams.Builder) -> Void = { _ in }) async throws -> CallInterceptCall {
             let mb = MessageBuilder()
-            var params = CallInterceptParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
+            var params = TestMembrane.CallInterceptParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMembrane.interfaceID, method: Method.callIntercept.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return CallInterceptCall(promise: promise, connection: connection)
         }
 
-        public func loopback(_ body: (inout LoopbackParams.Builder) -> Void = { _ in }) async throws -> LoopbackResults.Reader {
+        public func loopback(_ body: (inout TestMembrane.LoopbackParams.Builder) -> Void = { _ in }) async throws -> TestMembrane.LoopbackResults.Reader {
             let mb = MessageBuilder()
-            var params = LoopbackParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMembrane.LoopbackParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: TestMembrane.interfaceID, method: Method.loopback.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try LoopbackResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMembrane.LoopbackResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct LoopbackCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> LoopbackResults.Reader {
+            public func value() async throws -> TestMembrane.LoopbackResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try LoopbackResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMembrane.LoopbackResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
             /// Pipelined `thing`: callable before the RETURN.
             public var thing: TestMembrane.TestMembrane_Thing.Client { TestMembrane.TestMembrane_Thing.Client(pipelined: promise.pipeline([0]), connection: connection) }
         }
 
-        public func sendLoopback(_ body: (inout LoopbackParams.Builder) -> Void = { _ in }) async throws -> LoopbackCall {
+        public func sendLoopback(_ body: (inout TestMembrane.LoopbackParams.Builder) -> Void = { _ in }) async throws -> LoopbackCall {
             let mb = MessageBuilder()
-            var params = LoopbackParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = TestMembrane.LoopbackParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: TestMembrane.interfaceID, method: Method.loopback.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return LoopbackCall(promise: promise, connection: connection)
         }
 
-        public func waitForever(_ body: (inout WaitForeverParams.Builder) -> Void = { _ in }) async throws -> WaitForeverResults.Reader {
+        public func waitForever(_ body: (inout TestMembrane.WaitForeverParams.Builder) -> Void = { _ in }) async throws -> TestMembrane.WaitForeverResults.Reader {
             let mb = MessageBuilder()
-            var params = WaitForeverParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMembrane.WaitForeverParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestMembrane.interfaceID, method: Method.waitForever.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try WaitForeverResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestMembrane.WaitForeverResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct WaitForeverCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> WaitForeverResults.Reader {
+            public func value() async throws -> TestMembrane.WaitForeverResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try WaitForeverResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestMembrane.WaitForeverResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendWaitForever(_ body: (inout WaitForeverParams.Builder) -> Void = { _ in }) async throws -> WaitForeverCall {
+        public func sendWaitForever(_ body: (inout TestMembrane.WaitForeverParams.Builder) -> Void = { _ in }) async throws -> WaitForeverCall {
             let mb = MessageBuilder()
-            var params = WaitForeverParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestMembrane.WaitForeverParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestMembrane.interfaceID, method: Method.waitForever.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return WaitForeverCall(promise: promise, connection: connection)
@@ -8651,34 +9349,40 @@ public enum TestMembrane {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestMembrane.interfaceID else { throw RPCError.unimplemented(reason: "TestMembrane: wrong interface") }
-            switch call.methodID {
-            case Method.makeThing.rawValue:
-                let params = try decoding { try MakeThingParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.makeThing(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.callPassThrough.rawValue:
-                let params = try decoding { try CallPassThroughParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.callPassThrough(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.callIntercept.rawValue:
-                let params = try decoding { try CallInterceptParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.callIntercept(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.loopback.rawValue:
-                let params = try decoding { try LoopbackParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.loopback(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.waitForever.rawValue:
-                let params = try decoding { try WaitForeverParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.waitForever(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestMembrane.interfaceID:
+                switch call.methodID {
+                case TestMembrane.Method.makeThing.rawValue:
+                    let params = try decoding { try TestMembrane.MakeThingParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.makeThing(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMembrane.Method.callPassThrough.rawValue:
+                    let params = try decoding { try TestMembrane.CallPassThroughParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.callPassThrough(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMembrane.Method.callIntercept.rawValue:
+                    let params = try decoding { try TestMembrane.CallInterceptParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.callIntercept(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMembrane.Method.loopback.rawValue:
+                    let params = try decoding { try TestMembrane.LoopbackParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.loopback(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestMembrane.Method.waitForever.rawValue:
+                    let params = try decoding { try TestMembrane.WaitForeverParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.waitForever(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestMembrane: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestMembrane: no such method")
+                throw RPCError.unimplemented(reason: "TestMembrane: wrong interface")
             }
         }
     }
@@ -8942,10 +9646,10 @@ public enum TestKeywordMethods {
     }
 
     public protocol Server: Sendable {
-        func delete(params: DeleteParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> DeleteResults
-        func `class`(params: ClassParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> ClassResults
-        func void(params: VoidParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> VoidResults
-        func `return`(params: ReturnParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> ReturnResults
+        func delete(params: TestKeywordMethods.DeleteParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestKeywordMethods.DeleteResults
+        func `class`(params: TestKeywordMethods.ClassParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestKeywordMethods.ClassResults
+        func void(params: TestKeywordMethods.VoidParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestKeywordMethods.VoidResults
+        func `return`(params: TestKeywordMethods.ReturnParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestKeywordMethods.ReturnResults
     }
 
     public struct Client: Sendable {
@@ -8961,101 +9665,106 @@ public enum TestKeywordMethods {
             self.connection = connection
         }
 
-        public func delete(_ body: (inout DeleteParams.Builder) -> Void = { _ in }) async throws -> DeleteResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func delete(_ body: (inout TestKeywordMethods.DeleteParams.Builder) -> Void = { _ in }) async throws -> TestKeywordMethods.DeleteResults.Reader {
             let mb = MessageBuilder()
-            var params = DeleteParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestKeywordMethods.DeleteParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestKeywordMethods.interfaceID, method: Method.delete.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try DeleteResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestKeywordMethods.DeleteResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct DeleteCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> DeleteResults.Reader {
+            public func value() async throws -> TestKeywordMethods.DeleteResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try DeleteResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestKeywordMethods.DeleteResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendDelete(_ body: (inout DeleteParams.Builder) -> Void = { _ in }) async throws -> DeleteCall {
+        public func sendDelete(_ body: (inout TestKeywordMethods.DeleteParams.Builder) -> Void = { _ in }) async throws -> DeleteCall {
             let mb = MessageBuilder()
-            var params = DeleteParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestKeywordMethods.DeleteParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestKeywordMethods.interfaceID, method: Method.delete.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return DeleteCall(promise: promise, connection: connection)
         }
 
-        public func `class`(_ body: (inout ClassParams.Builder) -> Void = { _ in }) async throws -> ClassResults.Reader {
+        public func `class`(_ body: (inout TestKeywordMethods.ClassParams.Builder) -> Void = { _ in }) async throws -> TestKeywordMethods.ClassResults.Reader {
             let mb = MessageBuilder()
-            var params = ClassParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestKeywordMethods.ClassParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestKeywordMethods.interfaceID, method: Method.`class`.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try ClassResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestKeywordMethods.ClassResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct ClassCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> ClassResults.Reader {
+            public func value() async throws -> TestKeywordMethods.ClassResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try ClassResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestKeywordMethods.ClassResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendClass(_ body: (inout ClassParams.Builder) -> Void = { _ in }) async throws -> ClassCall {
+        public func sendClass(_ body: (inout TestKeywordMethods.ClassParams.Builder) -> Void = { _ in }) async throws -> ClassCall {
             let mb = MessageBuilder()
-            var params = ClassParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestKeywordMethods.ClassParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestKeywordMethods.interfaceID, method: Method.`class`.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return ClassCall(promise: promise, connection: connection)
         }
 
-        public func void(_ body: (inout VoidParams.Builder) -> Void = { _ in }) async throws -> VoidResults.Reader {
+        public func void(_ body: (inout TestKeywordMethods.VoidParams.Builder) -> Void = { _ in }) async throws -> TestKeywordMethods.VoidResults.Reader {
             let mb = MessageBuilder()
-            var params = VoidParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestKeywordMethods.VoidParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestKeywordMethods.interfaceID, method: Method.void.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try VoidResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestKeywordMethods.VoidResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct VoidCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> VoidResults.Reader {
+            public func value() async throws -> TestKeywordMethods.VoidResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try VoidResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestKeywordMethods.VoidResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendVoid(_ body: (inout VoidParams.Builder) -> Void = { _ in }) async throws -> VoidCall {
+        public func sendVoid(_ body: (inout TestKeywordMethods.VoidParams.Builder) -> Void = { _ in }) async throws -> VoidCall {
             let mb = MessageBuilder()
-            var params = VoidParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestKeywordMethods.VoidParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestKeywordMethods.interfaceID, method: Method.void.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return VoidCall(promise: promise, connection: connection)
         }
 
-        public func `return`(_ body: (inout ReturnParams.Builder) -> Void = { _ in }) async throws -> ReturnResults.Reader {
+        public func `return`(_ body: (inout TestKeywordMethods.ReturnParams.Builder) -> Void = { _ in }) async throws -> TestKeywordMethods.ReturnResults.Reader {
             let mb = MessageBuilder()
-            var params = ReturnParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestKeywordMethods.ReturnParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestKeywordMethods.interfaceID, method: Method.`return`.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try ReturnResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestKeywordMethods.ReturnResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct ReturnCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> ReturnResults.Reader {
+            public func value() async throws -> TestKeywordMethods.ReturnResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try ReturnResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestKeywordMethods.ReturnResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendReturn(_ body: (inout ReturnParams.Builder) -> Void = { _ in }) async throws -> ReturnCall {
+        public func sendReturn(_ body: (inout TestKeywordMethods.ReturnParams.Builder) -> Void = { _ in }) async throws -> ReturnCall {
             let mb = MessageBuilder()
-            var params = ReturnParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestKeywordMethods.ReturnParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestKeywordMethods.interfaceID, method: Method.`return`.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return ReturnCall(promise: promise, connection: connection)
@@ -9064,30 +9773,36 @@ public enum TestKeywordMethods {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestKeywordMethods.interfaceID else { throw RPCError.unimplemented(reason: "TestKeywordMethods: wrong interface") }
-            switch call.methodID {
-            case Method.delete.rawValue:
-                let params = try decoding { try DeleteParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.delete(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.`class`.rawValue:
-                let params = try decoding { try ClassParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.`class`(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.void.rawValue:
-                let params = try decoding { try VoidParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.void(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
-            case Method.`return`.rawValue:
-                let params = try decoding { try ReturnParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.`return`(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestKeywordMethods.interfaceID:
+                switch call.methodID {
+                case TestKeywordMethods.Method.delete.rawValue:
+                    let params = try decoding { try TestKeywordMethods.DeleteParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.delete(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestKeywordMethods.Method.`class`.rawValue:
+                    let params = try decoding { try TestKeywordMethods.ClassParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.`class`(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestKeywordMethods.Method.void.rawValue:
+                    let params = try decoding { try TestKeywordMethods.VoidParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.void(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                case TestKeywordMethods.Method.`return`.rawValue:
+                    let params = try decoding { try TestKeywordMethods.ReturnParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.`return`(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestKeywordMethods: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestKeywordMethods: no such method")
+                throw RPCError.unimplemented(reason: "TestKeywordMethods: wrong interface")
             }
         }
     }
@@ -9149,7 +9864,7 @@ public enum TestAuthenticatedBootstrap {
     }
 
     public protocol Server: Sendable {
-        func getCallerId(params: GetCallerIdParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GetCallerIdResults
+        func getCallerId(params: TestAuthenticatedBootstrap.GetCallerIdParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestAuthenticatedBootstrap.GetCallerIdResults
     }
 
     public struct Client: Sendable {
@@ -9165,26 +9880,31 @@ public enum TestAuthenticatedBootstrap {
             self.connection = connection
         }
 
-        public func getCallerId(_ body: (inout GetCallerIdParams.Builder) -> Void = { _ in }) async throws -> GetCallerIdResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func getCallerId(_ body: (inout TestAuthenticatedBootstrap.GetCallerIdParams.Builder) -> Void = { _ in }) async throws -> TestAuthenticatedBootstrap.GetCallerIdResults.Reader {
             let mb = MessageBuilder()
-            var params = GetCallerIdParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestAuthenticatedBootstrap.GetCallerIdParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestAuthenticatedBootstrap.interfaceID, method: Method.getCallerId.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GetCallerIdResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestAuthenticatedBootstrap.GetCallerIdResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GetCallerIdCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GetCallerIdResults.Reader {
+            public func value() async throws -> TestAuthenticatedBootstrap.GetCallerIdResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GetCallerIdResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestAuthenticatedBootstrap.GetCallerIdResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendGetCallerId(_ body: (inout GetCallerIdParams.Builder) -> Void = { _ in }) async throws -> GetCallerIdCall {
+        public func sendGetCallerId(_ body: (inout TestAuthenticatedBootstrap.GetCallerIdParams.Builder) -> Void = { _ in }) async throws -> GetCallerIdCall {
             let mb = MessageBuilder()
-            var params = GetCallerIdParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
+            var params = TestAuthenticatedBootstrap.GetCallerIdParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestAuthenticatedBootstrap.interfaceID, method: Method.getCallerId.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GetCallerIdCall(promise: promise, connection: connection)
@@ -9193,6 +9913,8 @@ public enum TestAuthenticatedBootstrap {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
@@ -9200,7 +9922,7 @@ public enum TestAuthenticatedBootstrap {
             guard call.interfaceID == TestAuthenticatedBootstrap.interfaceID else { throw RPCError.unimplemented(reason: "TestAuthenticatedBootstrap: wrong interface") }
             switch call.methodID {
             case Method.getCallerId.rawValue:
-                let params = try decoding { try GetCallerIdParams.Reader(Message(bytes: call.params).rootStruct()) }
+                let params = try decoding { try TestAuthenticatedBootstrap.GetCallerIdParams.Reader(Message(bytes: call.params).rootStruct()) }
                 let results = try await server.getCallerId(params: params, caps: call.caps, on: call.connection)
                 return CallResponse(message: results.bytes)
             default:
@@ -9570,7 +10292,7 @@ public enum TestNameAnnotationInterface {
     }
 
     public protocol Server: Sendable {
-        func badlyNamedMethod(params: BadlyNamedMethodParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> BadlyNamedMethodResults
+        func badlyNamedMethod(params: TestNameAnnotationInterface.BadlyNamedMethodParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TestNameAnnotationInterface.BadlyNamedMethodResults
     }
 
     public struct Client: Sendable {
@@ -9586,26 +10308,31 @@ public enum TestNameAnnotationInterface {
             self.connection = connection
         }
 
-        public func badlyNamedMethod(_ body: (inout BadlyNamedMethodParams.Builder) -> Void = { _ in }) async throws -> BadlyNamedMethodResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func badlyNamedMethod(_ body: (inout TestNameAnnotationInterface.BadlyNamedMethodParams.Builder) -> Void = { _ in }) async throws -> TestNameAnnotationInterface.BadlyNamedMethodResults.Reader {
             let mb = MessageBuilder()
-            var params = BadlyNamedMethodParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
+            var params = TestNameAnnotationInterface.BadlyNamedMethodParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
             body(&params)
             let result = try await connection.call(target, interface: TestNameAnnotationInterface.interfaceID, method: Method.badlyNamedMethod.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try BadlyNamedMethodResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try TestNameAnnotationInterface.BadlyNamedMethodResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct BadlyNamedMethodCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> BadlyNamedMethodResults.Reader {
+            public func value() async throws -> TestNameAnnotationInterface.BadlyNamedMethodResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try BadlyNamedMethodResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try TestNameAnnotationInterface.BadlyNamedMethodResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendBadlyNamedMethod(_ body: (inout BadlyNamedMethodParams.Builder) -> Void = { _ in }) async throws -> BadlyNamedMethodCall {
+        public func sendBadlyNamedMethod(_ body: (inout TestNameAnnotationInterface.BadlyNamedMethodParams.Builder) -> Void = { _ in }) async throws -> BadlyNamedMethodCall {
             let mb = MessageBuilder()
-            var params = BadlyNamedMethodParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
+            var params = TestNameAnnotationInterface.BadlyNamedMethodParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
             body(&params)
             let promise = try await connection.send(target, interface: TestNameAnnotationInterface.interfaceID, method: Method.badlyNamedMethod.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return BadlyNamedMethodCall(promise: promise, connection: connection)
@@ -9614,18 +10341,24 @@ public enum TestNameAnnotationInterface {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == TestNameAnnotationInterface.interfaceID else { throw RPCError.unimplemented(reason: "TestNameAnnotationInterface: wrong interface") }
-            switch call.methodID {
-            case Method.badlyNamedMethod.rawValue:
-                let params = try decoding { try BadlyNamedMethodParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.badlyNamedMethod(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case TestNameAnnotationInterface.interfaceID:
+                switch call.methodID {
+                case TestNameAnnotationInterface.Method.badlyNamedMethod.rawValue:
+                    let params = try decoding { try TestNameAnnotationInterface.BadlyNamedMethodParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.badlyNamedMethod(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "TestNameAnnotationInterface: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "TestNameAnnotationInterface: no such method")
+                throw RPCError.unimplemented(reason: "TestNameAnnotationInterface: wrong interface")
             }
         }
     }

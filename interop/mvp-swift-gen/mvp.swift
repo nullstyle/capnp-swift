@@ -67,7 +67,7 @@ public enum Listener {
     }
 
     public protocol Server: Sendable {
-        func notify(params: NotifyParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> NotifyResults
+        func notify(params: Listener.NotifyParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> Listener.NotifyResults
     }
 
     public struct Client: Sendable {
@@ -83,26 +83,31 @@ public enum Listener {
             self.connection = connection
         }
 
-        public func notify(_ body: (inout NotifyParams.Builder) -> Void = { _ in }) async throws -> NotifyResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func notify(_ body: (inout Listener.NotifyParams.Builder) -> Void = { _ in }) async throws -> Listener.NotifyResults.Reader {
             let mb = MessageBuilder()
-            var params = NotifyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = Listener.NotifyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let result = try await connection.call(target, interface: Listener.interfaceID, method: Method.notify.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try NotifyResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try Listener.NotifyResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct NotifyCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> NotifyResults.Reader {
+            public func value() async throws -> Listener.NotifyResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try NotifyResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try Listener.NotifyResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendNotify(_ body: (inout NotifyParams.Builder) -> Void = { _ in }) async throws -> NotifyCall {
+        public func sendNotify(_ body: (inout Listener.NotifyParams.Builder) -> Void = { _ in }) async throws -> NotifyCall {
             let mb = MessageBuilder()
-            var params = NotifyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
+            var params = Listener.NotifyParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 1))
             body(&params)
             let promise = try await connection.send(target, interface: Listener.interfaceID, method: Method.notify.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return NotifyCall(promise: promise, connection: connection)
@@ -111,18 +116,24 @@ public enum Listener {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == Listener.interfaceID else { throw RPCError.unimplemented(reason: "Listener: wrong interface") }
-            switch call.methodID {
-            case Method.notify.rawValue:
-                let params = try decoding { try NotifyParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.notify(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case Listener.interfaceID:
+                switch call.methodID {
+                case Listener.Method.notify.rawValue:
+                    let params = try decoding { try Listener.NotifyParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.notify(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "Listener: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "Listener: no such method")
+                throw RPCError.unimplemented(reason: "Listener: wrong interface")
             }
         }
     }
@@ -210,7 +221,7 @@ public enum Greeter {
     }
 
     public protocol Server: Sendable {
-        func greet(params: GreetParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> GreetResults
+        func greet(params: Greeter.GreetParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> Greeter.GreetResults
     }
 
     public struct Client: Sendable {
@@ -226,26 +237,31 @@ public enum Greeter {
             self.connection = connection
         }
 
-        public func greet(_ body: (inout GreetParams.Builder) -> Void = { _ in }) async throws -> GreetResults.Reader {
+        init(target: CallTarget, connection: RPCConnection) {
+            self.target = target
+            self.connection = connection
+        }
+
+        public func greet(_ body: (inout Greeter.GreetParams.Builder) -> Void = { _ in }) async throws -> Greeter.GreetResults.Reader {
             let mb = MessageBuilder()
-            var params = GreetParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+            var params = Greeter.GreetParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
             let result = try await connection.call(target, interface: Greeter.interfaceID, method: Method.greet.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
-            return try decoding { try GreetResults.Reader(Message(bytes: result.message).rootStruct()) }
+            return try decoding { try Greeter.GreetResults.Reader(Message(bytes: result.message).rootStruct()) }
         }
 
         public struct GreetCall: Sendable {
             public let promise: RemotePromise
             public let connection: RPCConnection
-            public func value() async throws -> GreetResults.Reader {
+            public func value() async throws -> Greeter.GreetResults.Reader {
                 let result = try await promise.result()
-                return try decoding { try GreetResults.Reader(Message(bytes: result.message).rootStruct()) }
+                return try decoding { try Greeter.GreetResults.Reader(Message(bytes: result.message).rootStruct()) }
             }
         }
 
-        public func sendGreet(_ body: (inout GreetParams.Builder) -> Void = { _ in }) async throws -> GreetCall {
+        public func sendGreet(_ body: (inout Greeter.GreetParams.Builder) -> Void = { _ in }) async throws -> GreetCall {
             let mb = MessageBuilder()
-            var params = GreetParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
+            var params = Greeter.GreetParams.Builder(mb.initRoot(dataWords: 0, pointerWords: 2))
             body(&params)
             let promise = try await connection.send(target, interface: Greeter.interfaceID, method: Method.greet.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))
             return GreetCall(promise: promise, connection: connection)
@@ -254,18 +270,24 @@ public enum Greeter {
     }
 
     /// Serves a `Server` on a connection (pass it in `CapSlot.export`).
+    /// Inherited interfaces dispatch here too (the Server protocol inherits
+    /// their requirements; E-order holds for the whole closure).
     public struct Export: ExportHandler {
         public let server: any Server
         public init(_ server: any Server) { self.server = server }
         public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {
-            guard call.interfaceID == Greeter.interfaceID else { throw RPCError.unimplemented(reason: "Greeter: wrong interface") }
-            switch call.methodID {
-            case Method.greet.rawValue:
-                let params = try decoding { try GreetParams.Reader(Message(bytes: call.params).rootStruct()) }
-                let results = try await server.greet(params: params, caps: call.caps, on: call.connection)
-                return CallResponse(message: results.bytes)
+            switch call.interfaceID {
+            case Greeter.interfaceID:
+                switch call.methodID {
+                case Greeter.Method.greet.rawValue:
+                    let params = try decoding { try Greeter.GreetParams.Reader(Message(bytes: call.params).rootStruct()) }
+                    let results = try await server.greet(params: params, caps: call.caps, on: call.connection)
+                    return CallResponse(message: results.bytes)
+                default:
+                    throw RPCError.unimplemented(reason: "Greeter: no such method")
+                }
             default:
-                throw RPCError.unimplemented(reason: "Greeter: no such method")
+                throw RPCError.unimplemented(reason: "Greeter: wrong interface")
             }
         }
     }

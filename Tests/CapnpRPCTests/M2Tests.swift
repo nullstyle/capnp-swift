@@ -3,6 +3,7 @@
 // backpressure.
 
 import Capnp
+import Foundation
 import CapnpMVP
 @testable import CapnpRPC
 import Dispatch
@@ -274,5 +275,48 @@ enum CapRefFactory {
         // refuses it (BAD_ID) if it is not live, which is fine for the test:
         // the point is whether `send` suspends before reaching the core.
         CapRef(id: 0, releases: ReleaseList(), owner: ObjectIdentifier(connection))
+    }
+}
+
+@Suite("StreamWindow")
+struct StreamWindowTests {
+    final class Flag: @unchecked Sendable, CustomStringConvertible {
+        private let lock = NSLock()
+        private var value = false
+        var isSet: Bool {
+            get { lock.lock(); defer { lock.unlock() }; return value }
+        }
+        func set() { lock.lock(); value = true; lock.unlock() }
+        var description: String { isSet ? "set" : "clear" }
+    }
+
+    @Test("the window suspends at the call limit and releases space")
+    func windowLimits() async throws {
+        let window = StreamWindow(maxCalls: 2, maxBytes: 1 << 20)
+        await window.acquire(bytes: 100)
+        await window.acquire(bytes: 100)
+        // Third acquire must suspend until a release.
+        let acquired = Flag()
+        let task = Task { await window.acquire(bytes: 100); acquired.set() }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!acquired.isSet)
+        window.release(bytes: 100)
+        try await withTimeout(.seconds(2)) { while !acquired.isSet { try await Task.sleep(for: .milliseconds(5)) } }
+        #expect(acquired.isSet)
+        _ = await task.result
+    }
+
+    @Test("the byte limit suspends even below the call limit")
+    func byteLimit() async throws {
+        let window = StreamWindow(maxCalls: 0, maxBytes: 150)
+        await window.acquire(bytes: 100)
+        let acquired = Flag()
+        let task = Task { await window.acquire(bytes: 100); acquired.set() }
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!acquired.isSet)
+        window.release(bytes: 100)
+        try await withTimeout(.seconds(2)) { while !acquired.isSet { try await Task.sleep(for: .milliseconds(5)) } }
+        #expect(acquired.isSet)
+        _ = await task.result
     }
 }

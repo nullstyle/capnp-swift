@@ -275,9 +275,13 @@ pub const Generator = struct {
 
         try w.print("{s}public struct {s} {{\n", .{ pad, name });
 
-        // Nested named declarations first.
+        // Nested named declarations first (interfaces too: a nested
+        // interface must live inside its parent for qualified references).
+        // Only LEXICAL children: a brand application's display name is not
+        // prefixed by its parent's (v1 erases brands).
         for (node.nested_nodes) |nested| {
             const child = self.getNode(nested.id) orelse continue;
+            if (!lexicalChild(node, child)) continue;
             switch (child.kind) {
                 .@"struct" => {
                     const child_struct = child.struct_node orelse continue;
@@ -285,6 +289,7 @@ pub const Generator = struct {
                     try self.emitStructNamed(w, child, null, indent + 1);
                 },
                 .@"enum" => try self.emitEnum(w, child, indent + 1),
+                .interface => try self.emitInterface(w, child, indent + 1),
                 else => {},
             }
         }
@@ -437,7 +442,31 @@ pub const Generator = struct {
         }
     }
 
-    fn emitInterface(self: *Generator, w: *std.Io.Writer, node: *schema.Node, indent: usize) !void {
+    /// The interface and every transitive superclass (self first). Generic
+    /// interfaces (v1 erases brands to any_pointer) get an empty closure:
+    /// their dispatch stays single-interface, since branded method structs
+    /// have no declared Swift counterpart.
+    fn interfaceClosure(self: *Generator, node: *schema.Node) ![]*schema.Node {
+        var out: std.ArrayList(*schema.Node) = .empty;
+        if (node.is_generic) return out.items;
+        try out.append(self.scratch(), node);
+        var i: usize = 0;
+        while (i < out.items.len) : (i += 1) {
+            const iface = out.items[i].interface_node orelse continue;
+            for (iface.superclasses) |super_id| {
+                const sup = self.getNode(super_id) orelse continue;
+                if (sup.is_generic) continue;
+                var seen = false;
+                for (out.items) |existing| {
+                    if (existing.id == sup.id) seen = true;
+                }
+                if (!seen) try out.append(self.scratch(), sup);
+            }
+        }
+        return out.items;
+    }
+
+    fn emitInterface(self: *Generator, w: *std.Io.Writer, node: *schema.Node, indent: usize) anyerror!void {
         const iface = node.interface_node orelse return;
         if (indent > 32) return error.ScopeTooDeep;
         const name = self.swiftTypeName(node);
@@ -479,9 +508,13 @@ pub const Generator = struct {
             const mcap = try self.capitalized(try self.swiftMemberName(method.name));
             if (self.getNode(method.param_struct_type)) |pn| {
                 const pname = try self.suffixed(mcap, "Params");
+                // Save/restore: nested emissions (a nested interface inside
+                // the params struct) run their own params cycles and must
+                // not clobber this one.
+                const saved = self.in_params_struct;
                 self.in_params_struct = true;
                 try self.emitStructNamed(w, pn, pname, indent + 1);
-                self.in_params_struct = false;
+                self.in_params_struct = saved;
             }
             if (!method.isStreaming()) {
                 if (self.getNode(method.result_struct_type)) |rn| {
@@ -491,13 +524,25 @@ pub const Generator = struct {
             }
         }
 
-        // Server protocol.
-        try w.print("{s}    public protocol Server: Sendable {{\n", .{pad});
+        const iname_q = self.swiftTypeName(node);
+        // Server protocol: superclass Server protocols are inherited, so a
+        // conforming object implements the ancestors' methods too.
+        try w.print("{s}    public protocol Server: Sendable", .{pad});
+        for (iface.superclasses) |super_id| {
+            const sup = self.getNode(super_id) orelse continue;
+            try w.print(", {s}.Server", .{self.swiftRef(sup)});
+        }
+        try w.writeAll(" {\n");
         for (iface.methods) |method| {
-            if (method.isStreaming()) continue;
             const mname = try self.swiftMemberName(method.name);
-            const mcap = try self.capitalized(try self.swiftMemberName(method.name));
-            try w.print("{s}        func {s}(params: {s}.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> {s}\n", .{ pad, mname, try self.suffixed(mcap, "Params"), try self.suffixed(mcap, "Results") });
+            const mcap = try self.suffixed(try self.capitalized(mname), "Params");
+            if (method.isStreaming()) {
+                // Streaming methods have no results to build: the runtime
+                // answers an empty StreamResult.
+                try w.print("{s}        func {s}(params: {s}.{s}.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws\n", .{ pad, mname, iname_q, mcap });
+            } else {
+                try w.print("{s}        func {s}(params: {s}.{s}.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> {s}.{s}\n", .{ pad, mname, iname_q, mcap, iname_q, try self.suffixed(try self.capitalized(mname), "Results") });
+            }
         }
         try w.print("{s}    }}\n\n", .{pad});
 
@@ -522,16 +567,59 @@ pub const Generator = struct {
         try w.print("{s}        self.target = .pipelined(pipelined)\n", .{pad});
         try w.print("{s}        self.connection = connection\n", .{pad});
         try w.print("{s}    }}\n\n", .{pad});
+        try w.print("{s}    init(target: CallTarget, connection: RPCConnection) {{\n", .{pad});
+        try w.print("{s}        self.target = target\n", .{pad});
+        try w.print("{s}        self.connection = connection\n", .{pad});
+        try w.print("{s}    }}\n\n", .{pad});
+
+        // Ancestor interfaces callable through the same capability. Two
+        // ancestors may share a name (`extends(First, External.First)`):
+        // later properties get a numeric suffix.
+        var used_props: std.ArrayList([]const u8) = .empty;
+        for (iface.superclasses) |super_id| {
+            const sup = self.getNode(super_id) orelse continue;
+            const sup_ref = self.swiftRef(sup);
+            // Lower-cased so it never shadows the interface type itself.
+            var prop = try self.swiftMemberName(try self.lowerFirst(lastSegment(sup.display_name)));
+            var suffix: usize = 2;
+            while (blk: {
+                for (used_props.items) |u| {
+                    if (std.mem.eql(u8, u, prop)) break :blk true;
+                }
+                break :blk false;
+            }) {
+                prop = try std.fmt.allocPrint(self.scratch(), "{s}{d}", .{ prop, suffix });
+                suffix += 1;
+            }
+            try used_props.append(self.scratch(), prop);
+            try w.print("{s}    /// Calls on `{s}` through this capability.\n", .{ pad, sup_ref });
+            try w.print("{s}    public var {s}: {s}.Client {{ {s}.Client(target: target, connection: connection) }}\n\n", .{ pad, prop, sup_ref, sup_ref });
+        }
 
         for (iface.methods) |method| {
             if (method.isStreaming()) {
-                try w.print("{s}    // `{s}` streams; the Swift-side window wrapper is not emitted yet (M3 follow-up).\n\n", .{ pad, method.name });
+                const mname = try self.swiftMemberName(method.name);
+                const mcap = try std.fmt.allocPrint(self.scratch(), "{s}.{s}", .{ iname, try self.suffixed(try self.capitalized(mname), "Params") });
+                const params_node = self.getNode(method.param_struct_type);
+                const dw: usize = if (params_node) |pn| pn.struct_node.?.data_word_count else 0;
+                const pw: usize = if (params_node) |pn| pn.struct_node.?.pointer_count else 0;
+                try w.print("{s}    /// One streamed call. The connection's stream window suspends the\n", .{pad});
+                try w.print("{s}    /// sender above `Options.streamWindowMaxCalls`/`Bytes` in flight (plan S5).\n", .{pad});
+                try w.print("{s}    public func {s}(_ body: (inout {s}.Builder) -> Void = {{ _ in }}) async throws {{\n", .{ pad, mname, mcap });
+                try w.print("{s}        let mb = MessageBuilder()\n", .{pad});
+                try w.print("{s}        var params = {s}.Builder(mb.initRoot(dataWords: {d}, pointerWords: {d}))\n", .{ pad, mcap, dw, pw });
+                try w.print("{s}        body(&params)\n", .{pad});
+                try w.print("{s}        let bytes = mb.toBytes().count\n", .{pad});
+                try w.print("{s}        try await connection.streamWindow.acquire(bytes: bytes)\n", .{pad});
+                try w.print("{s}        defer {{ connection.streamWindow.release(bytes: bytes) }}\n", .{pad});
+                try w.print("{s}        _ = try await connection.call(target, interface: {s}.interfaceID, method: Method.{s}.rawValue, params: mb.toBytes(), caps: params.exports.map(CapSlot.export))\n", .{ pad, iname, mname });
+                try w.print("{s}    }}\n\n", .{pad});
                 continue;
             }
             const mname = try self.swiftMemberName(method.name);
             const mcap = try self.capitalized(mname);
-            const params_name = try self.suffixed(mcap, "Params");
-            const results_name = try self.suffixed(mcap, "Results");
+            const params_name = try std.fmt.allocPrint(self.scratch(), "{s}.{s}", .{ iname, try self.suffixed(mcap, "Params") });
+            const results_name = try std.fmt.allocPrint(self.scratch(), "{s}.{s}", .{ iname, try self.suffixed(mcap, "Results") });
             const call_name = try self.suffixed(mcap, "Call");
             const send_name = try self.suffixed("send", mcap);
             const params_node = self.getNode(method.param_struct_type);
@@ -584,26 +672,63 @@ pub const Generator = struct {
         const iface = node.interface_node.?;
         const iname = self.swiftTypeName(node);
         const pad = indentation(indent);
+        const closure = try self.interfaceClosure(node);
 
         try w.print("{s}/// Serves a `Server` on a connection (pass it in `CapSlot.export`).\n", .{pad});
+        try w.print("{s}/// Inherited interfaces dispatch here too (the Server protocol inherits\n", .{pad});
+        try w.print("{s}/// their requirements; E-order holds for the whole closure).\n", .{pad});
         try w.print("{s}public struct Export: ExportHandler {{\n", .{pad});
         try w.print("{s}    public let server: any Server\n", .{pad});
         try w.print("{s}    public init(_ server: any Server) {{ self.server = server }}\n", .{pad});
         try w.print("{s}    public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {{\n", .{pad});
-        try w.print("{s}        guard call.interfaceID == {s}.interfaceID else {{ throw RPCError.unimplemented(reason: \"{s}: wrong interface\") }}\n", .{ pad, iname, iname });
-        try w.print("{s}        switch call.methodID {{\n", .{pad});
-        for (iface.methods) |method| {
-            if (method.isStreaming()) continue;
-            const mname = try self.swiftMemberName(method.name);
-            const mcap = try self.capitalized(mname);
-            const params_name = try self.suffixed(mcap, "Params");
-            try w.print("{s}        case Method.{s}.rawValue:\n", .{ pad, mname });
-            try w.print("{s}            let params = try decoding {{ try {s}.Reader(Message(bytes: call.params).rootStruct()) }}\n", .{ pad, params_name });
-            try w.print("{s}            let results = try await server.{s}(params: params, caps: call.caps, on: call.connection)\n", .{ pad, mname });
-            try w.print("{s}            return CallResponse(message: results.bytes)\n", .{pad});
+        if (closure.len == 0) {
+            try w.print("{s}        guard call.interfaceID == {s}.interfaceID else {{ throw RPCError.unimplemented(reason: \"{s}: wrong interface\") }}\n", .{ pad, iname, iname });
+            try w.print("{s}        switch call.methodID {{\n", .{pad});
+            for (iface.methods) |method| {
+                const mname = try self.swiftMemberName(method.name);
+                const mcap = try self.suffixed(try self.capitalized(mname), "Params");
+                try w.print("{s}        case Method.{s}.rawValue:\n", .{ pad, mname });
+                try w.print("{s}            let params = try decoding {{ try {s}.{s}.Reader(Message(bytes: call.params).rootStruct()) }}\n", .{ pad, iname, mcap });
+                if (method.isStreaming()) {
+                    try w.print("{s}            try await server.{s}(params: params, caps: call.caps, on: call.connection)\n", .{ pad, mname });
+                    try w.print("{s}            return CallResponse(message: MessageBuilder.emptyStruct())\n", .{pad});
+                } else {
+                    try w.print("{s}            let results = try await server.{s}(params: params, caps: call.caps, on: call.connection)\n", .{ pad, mname });
+                    try w.print("{s}            return CallResponse(message: results.bytes)\n", .{pad});
+                }
+            }
+            try w.print("{s}        default:\n", .{pad});
+            try w.print("{s}            throw RPCError.unimplemented(reason: \"{s}: no such method\")\n", .{ pad, iname });
+            try w.print("{s}        }}\n", .{pad});
+            try w.print("{s}    }}\n", .{pad});
+            try w.print("{s}}}\n\n", .{pad});
+            return;
+        }
+        try w.print("{s}        switch call.interfaceID {{\n", .{pad});
+        for (closure) |ancestor| {
+            const a_iface = ancestor.interface_node orelse continue;
+            const a_name = self.swiftTypeName(ancestor);
+            try w.print("{s}        case {s}.interfaceID:\n", .{ pad, self.swiftRef(ancestor) });
+            try w.print("{s}            switch call.methodID {{\n", .{pad});
+            for (a_iface.methods) |method| {
+                const mname = try self.swiftMemberName(method.name);
+                const mcap = try self.suffixed(try self.capitalized(mname), "Params");
+                try w.print("{s}            case {s}.Method.{s}.rawValue:\n", .{ pad, self.swiftRef(ancestor), mname });
+                try w.print("{s}                let params = try decoding {{ try {s}.{s}.Reader(Message(bytes: call.params).rootStruct()) }}\n", .{ pad, self.swiftRef(ancestor), mcap });
+                if (method.isStreaming()) {
+                    try w.print("{s}                try await server.{s}(params: params, caps: call.caps, on: call.connection)\n", .{ pad, mname });
+                    try w.print("{s}                return CallResponse(message: MessageBuilder.emptyStruct())\n", .{pad});
+                } else {
+                    try w.print("{s}                let results = try await server.{s}(params: params, caps: call.caps, on: call.connection)\n", .{ pad, mname });
+                    try w.print("{s}                return CallResponse(message: results.bytes)\n", .{pad});
+                }
+            }
+            try w.print("{s}            default:\n", .{pad});
+            try w.print("{s}                throw RPCError.unimplemented(reason: \"{s}: no such method\")\n", .{ pad, a_name });
+            try w.print("{s}            }}\n", .{pad});
         }
         try w.print("{s}        default:\n", .{pad});
-        try w.print("{s}            throw RPCError.unimplemented(reason: \"{s}: no such method\")\n", .{ pad, iname });
+        try w.print("{s}            throw RPCError.unimplemented(reason: \"{s}: wrong interface\")\n", .{ pad, iname });
         try w.print("{s}        }}\n", .{pad});
         try w.print("{s}    }}\n", .{pad});
         try w.print("{s}}}\n\n", .{pad});
@@ -967,6 +1092,9 @@ pub const Generator = struct {
 
     /// The node's Swift name qualified from the file root (`Outer.Inner`),
     /// so references resolve from any scope in the generated file.
+    /// The node's Swift name qualified from the file root (`Outer.Inner`),
+    /// so references resolve from any scope in the generated file. Every
+    /// piece is named as declared (collision renames included).
     fn swiftQualifiedTypeName(self: *Generator, node: *schema.Node) ![]const u8 {
         var prefix: []const u8 = "";
         if (self.current_file) |cur| {
@@ -980,13 +1108,13 @@ pub const Generator = struct {
                 if (!dup) self.referenced_modules.append(self.scratch(), prefix) catch {};
             }
         }
-        var chain: [16][]const u8 = undefined;
+        var chain: [16]*schema.Node = undefined;
         var depth: usize = 0;
         var current: *schema.Node = node;
         while (true) {
             if (depth == chain.len) return error.ScopeTooDeep;
             if (current.kind == .file) break; // the file itself is not a scope
-            chain[depth] = lastSegment(current.display_name);
+            chain[depth] = current;
             depth += 1;
             if (current.scope_id == 0) break;
             current = self.getNode(current.scope_id) orelse return error.MissingScopeNode;
@@ -1000,20 +1128,27 @@ pub const Generator = struct {
         while (i > 0) {
             i -= 1;
             if (i + 1 != depth) try buf.append(self.scratch(), '.');
-            const piece = try self.swiftIdentifierAlloc(chain[i]);
-            try buf.appendSlice(self.scratch(), piece);
+            try buf.appendSlice(self.scratch(), self.swiftTypeName(chain[i]));
         }
         return buf.toOwnedSlice(self.scratch());
     }
 
-    fn lastSegment(display_name: []const u8) []const u8 {
-        if (std.mem.lastIndexOfScalar(u8, display_name, ':')) |i| {
-            return display_name[i + 1 ..];
-        }
-        return display_name;
-    }
+/// A lexical (declaration) child: its display name extends the parent's.
+/// Brand applications name their application site instead, so they fail
+/// this check (v1 erases brands).
+fn lexicalChild(parent: *schema.Node, child: *schema.Node) bool {
+    return child.display_name.len > parent.display_name.len + 1
+        and std.mem.startsWith(u8, child.display_name, parent.display_name)
+        and child.display_name[parent.display_name.len] == '.';
+}
 
-    /// A member (field, enumerant, case) name, escaped for Swift.
+fn lastSegment(display_name: []const u8) []const u8 {
+    if (std.mem.lastIndexOfScalar(u8, display_name, ':')) |i| {
+        return display_name[i + 1 ..];
+    }
+    return display_name;
+}
+
     fn swiftMemberName(self: *Generator, name: []const u8) ![]const u8 {
         return self.swiftIdentifierAlloc(name);
     }
@@ -1034,6 +1169,14 @@ pub const Generator = struct {
             return std.fmt.allocPrint(self.scratch(), "`{s}{s}`", .{ name[1 .. name.len - 1], suffix });
         }
         return std.fmt.allocPrint(self.scratch(), "{s}{s}", .{ name, suffix });
+    }
+
+    fn lowerFirst(self: *Generator, name: []const u8) ![]const u8 {
+        if (name.len == 0 or !std.ascii.isUpper(name[0])) return name;
+        var buf: std.ArrayList(u8) = .empty;
+        try buf.append(self.scratch(), std.ascii.toLower(name[0]));
+        try buf.appendSlice(self.scratch(), name[1..]);
+        return buf.toOwnedSlice(self.scratch());
     }
 
     fn groupTypeName(self: *Generator, field: schema.Field) ![]const u8 {

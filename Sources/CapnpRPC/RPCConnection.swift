@@ -37,6 +37,12 @@ public actor RPCConnection: TransportDelegate {
         /// Outbound backpressure: `send` suspends while this many bytes sit
         /// between `transport.send` and its completion.
         public var outboundHighWaterBytes = 8 << 20
+        /// Streaming-input window (plan §5): a caller with `-> stream`
+        /// methods suspends above this many streaming calls in flight, or
+        /// this many bytes of their params (the StreamResult return frees
+        /// space; the first failure is sticky in the caller's task).
+        public var streamWindowMaxCalls = 64
+        public var streamWindowMaxBytes = 1 << 20
 
         public init() {}
     }
@@ -82,6 +88,10 @@ public actor RPCConnection: TransportDelegate {
     private let core: CoreBox
     private let transport: any Transport
     private let options: Options
+    /// The streaming-input window (plan §5); see `StreamWindow`. Nonisolated:
+    /// the struct locks internally, and generated (nonisolated) client code
+    /// uses it from streaming wrappers.
+    public nonisolated let streamWindow: StreamWindow
     private let bootstrapHandler: (any ExportHandler)?
     private let releases = ReleaseList()
     private var questions: [UInt32: Question] = [:]
@@ -111,6 +121,7 @@ public actor RPCConnection: TransportDelegate {
         executor = QueueExecutor(label: "capnp-swift.connection")
         self.transport = transport
         self.options = options
+        self.streamWindow = StreamWindow(maxCalls: options.streamWindowMaxCalls, maxBytes: options.streamWindowMaxBytes)
         bootstrapHandler = bootstrap
         (eventStream, eventContinuation) = AsyncStream<RPCEvent>.makeStream(bufferingPolicy: .bufferingNewest(256))
 
