@@ -31,21 +31,21 @@ public enum CapnpError: Error, Sendable, Equatable {
 }
 
 /// Element sizes of a list pointer.
-enum ElementSize: UInt8 {
+public enum ElementSize: UInt8 {
     case void = 0, bit = 1, byte = 2, twoBytes = 3, fourBytes = 4, eightBytes = 5, pointer = 6, composite = 7
 }
 
 /// A pointer word, decoded.
-struct Pointer: Sendable {
-    let word: UInt64
-    var kind: UInt8 { UInt8(word & 0x3) }
-    var isNull: Bool { word == 0 }
+public struct Pointer: Sendable {
+    public let word: UInt64
+    public var kind: UInt8 { UInt8(word & 0x3) }
+    public var isNull: Bool { word == 0 }
     /// Signed 30-bit word offset (struct and list pointers).
-    var offset: Int { Int(Int32(bitPattern: UInt32(truncatingIfNeeded: word)) >> 2) }
-    var structDataWords: Int { Int((word >> 32) & 0xFFFF) }
-    var structPointerWords: Int { Int((word >> 48) & 0xFFFF) }
-    var listElementSize: UInt8 { UInt8((word >> 32) & 0x7) }
-    var listElementCount: Int { Int((word >> 35) & 0x1FFF_FFFF) }
+    public var offset: Int { Int(Int32(bitPattern: UInt32(truncatingIfNeeded: word)) >> 2) }
+    public var structDataWords: Int { Int((word >> 32) & 0xFFFF) }
+    public var structPointerWords: Int { Int((word >> 48) & 0xFFFF) }
+    public var listElementSize: UInt8 { UInt8((word >> 32) & 0x7) }
+    public var listElementCount: Int { Int((word >> 35) & 0x1FFF_FFFF) }
     var farTwoWordPad: Bool { (word >> 2) & 1 == 1 }
     var farWordOffset: Int { Int((word >> 3) & 0x1FFF_FFFF) }
     var farSegment: Int { Int(word >> 32) }
@@ -61,6 +61,15 @@ public struct Message: Sendable {
     let segments: [Range<Int>]
     /// Pointer-chase depth bound (capnp-zig uses 64).
     static let maxDepth = 64
+
+    /// Bytes produced by a trusted producer (the schema compiler's default
+    /// values embedded in generated code): same parse, no error surface.
+    /// Bytes from the wire must go through `init(bytes:)`.
+    public init(trustedBytes: [UInt8]) throws {
+        // Same checks; generated code wraps the one-time throw, so a
+        // malformed default (a generator bug) fails loudly at first use.
+        try self.init(bytes: trustedBytes)
+    }
 
     public init(bytes: [UInt8]) throws {
         self.bytes = bytes
@@ -103,9 +112,15 @@ public struct Message: Sendable {
         return Message.u64(bytes, seg.lowerBound + pos)
     }
 
-    /// Follow a pointer at (`segment`, `pos`): resolve far pointers and return
-    /// the final pointer with the segment and byte position its offset is
-    /// relative to (the word after it).
+    /// Follow a pointer at (`segment`, `pos`): resolve far and double-far
+    /// pointers and return the final pointer with the segment and byte
+    /// position its offset is relative to (the word after it).
+    ///
+    /// Double-far: the two-word landing pad holds [far pointer to the content
+    /// location, the actual pointer]. The content position is the second
+    /// far's target; the actual pointer's offset counts from the word after
+    /// it (capnp-zig validateFarPointer: pad word 0 is far, pad word 1 is the
+    /// tag, content_override = the inner far's target).
     func resolve(segment: Int, pos: Int, depth: Int) throws -> (ptr: Pointer, segment: Int, base: Int)? {
         guard depth > 0 else { throw CapnpError.malformed("pointer nesting too deep") }
         let p = Pointer(word: try word(segment: segment, pos: pos))
@@ -113,7 +128,25 @@ public struct Message: Sendable {
         if p.kind == 2 {
             let padSeg = p.farSegment
             let padPos = p.farWordOffset * 8
-            if p.farTwoWordPad { throw CapnpError.unsupported("double-far pointer") }
+            guard padPos >= 0 else { throw CapnpError.malformed("far pointer offset negative") }
+            let seg = segments[padSeg]
+            if p.farTwoWordPad {
+                guard padPos + 16 <= seg.count else { throw CapnpError.malformed("double-far landing pad out of its segment") }
+                let inner = Pointer(word: try word(segment: padSeg, pos: padPos))
+                guard inner.kind == 2, !inner.farTwoWordPad else { throw CapnpError.malformed("double-far landing pad is not a single far") }
+                let tag = Pointer(word: try word(segment: padSeg, pos: padPos + 8))
+                if tag.isNull { return nil }
+                if tag.kind == 2 { throw CapnpError.malformed("far pointer to a far pointer") }
+                let contentSeg = inner.farSegment
+                let contentPos = inner.farWordOffset * 8
+                guard contentPos >= 0 else { throw CapnpError.malformed("far pointer offset negative") }
+                // The content starts exactly at the inner far's target; the
+                // tag's own offset is ignored in this position (capnp-zig
+                // computeContentOffset with a content override). Canonical
+                // tags carry offset 0 anyway. Keep the (ptr, base) contract:
+                // base + offset*8 must land on contentPos.
+                return (tag, contentSeg, contentPos - tag.offset * 8)
+            }
             let landing = Pointer(word: try word(segment: padSeg, pos: padPos))
             if landing.kind == 2 { throw CapnpError.malformed("far pointer to a far pointer") }
             if landing.isNull { return nil }
@@ -190,9 +223,15 @@ public struct StructReader: Sendable {
 
     public func readUInt8(at byteOffset: Int) -> UInt8 { dataByte(byteOffset) }
 
+    public func readInt8(at byteOffset: Int) -> Int8 { Int8(bitPattern: dataByte(byteOffset)) }
+
     public func readUInt16(at byteOffset: Int) -> UInt16 {
         guard byteOffset + 2 <= dataBytes else { return 0 }
         return UInt16(dataByte(byteOffset)) | UInt16(dataByte(byteOffset + 1)) << 8
+    }
+
+    public func readInt16(at byteOffset: Int) -> Int16 {
+        Int16(bitPattern: readUInt16(at: byteOffset))
     }
 
     public func readUInt32(at byteOffset: Int) -> UInt32 {
@@ -202,6 +241,10 @@ public struct StructReader: Sendable {
         return v
     }
 
+    public func readInt32(at byteOffset: Int) -> Int32 {
+        Int32(bitPattern: readUInt32(at: byteOffset))
+    }
+
     public func readUInt64(at byteOffset: Int) -> UInt64 {
         guard byteOffset + 8 <= dataBytes else { return 0 }
         var v: UInt64 = 0
@@ -209,11 +252,30 @@ public struct StructReader: Sendable {
         return v
     }
 
+    public func readInt64(at byteOffset: Int) -> Int64 {
+        Int64(bitPattern: readUInt64(at: byteOffset))
+    }
+
+    public func readFloat32(at byteOffset: Int) -> Float32 {
+        Float32(bitPattern: readUInt32(at: byteOffset))
+    }
+
+    public func readFloat64(at byteOffset: Int) -> Float64 {
+        Float64(bitPattern: readUInt64(at: byteOffset))
+    }
+
+    /// Whether the struct's data section covers `bytes` at `byteOffset`
+    /// (generated accessors substitute a field's schema default when it
+    /// does not: schema evolution, an older message under a newer schema).
+    public func covers(byteOffset: Int, _ bytes: Int) -> Bool {
+        byteOffset >= 0 && byteOffset + bytes <= dataBytes
+    }
+
     public func readBool(at bitOffset: Int) -> Bool {
         (dataByte(bitOffset / 8) >> UInt8(bitOffset % 8)) & 1 == 1
     }
 
-    private func pointerPos(_ index: Int) -> Int? {
+    func pointerPos(_ index: Int) -> Int? {
         guard index >= 0, index < pointerCount else { return nil }
         return pointerStart + index * 8
     }
@@ -257,7 +319,7 @@ public struct StructReader: Sendable {
 /// builders it hands out write into its storage.
 public final class MessageBuilder {
     /// Segment bytes, always a multiple of 8. Word 0 is the root pointer.
-    private var segment: [UInt8] = [UInt8](repeating: 0, count: 8)
+    var segment: [UInt8] = [UInt8](repeating: 0, count: 8)
     private var rootSet = false
 
     public init() {}
@@ -388,7 +450,7 @@ public struct StructBuilder {
         message.writeByte(index, value ? byte | mask : byte & ~mask)
     }
 
-    private func pointerWord(_ index: Int) -> Int {
+    func pointerWord(_ index: Int) -> Int {
         precondition(index >= 0 && index < pointerWords, "pointer outside the pointer section")
         return pointerStartWord + index
     }
