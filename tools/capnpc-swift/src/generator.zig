@@ -35,6 +35,108 @@ pub const Generator = struct {
     /// While emitting a method-params struct: add the cap setters (Builder)
     /// and Client getters (Reader).
     in_params_struct: bool = false,
+    /// The file node being emitted, and every file id in the request: a
+    /// reference to another requested file stays unprefixed (one module);
+    /// anything else is foreign and gets its module name (plan §6).
+    current_file: ?*schema.Node = null,
+    requested_file_ids: std.AutoHashMapUnmanaged(schema.Id, void) = .{},
+    /// Top-level names that collide across the requested files (one Swift
+    /// module): the later declarations are renamed with their module stem.
+    name_overrides: std.AutoHashMapUnmanaged(schema.Id, []const u8) = .{},
+
+    pub fn setRequestedFiles(self: *Generator, allocator: std.mem.Allocator, files: []const schema.RequestedFile) !void {
+        self.requested_file_ids.deinit(allocator);
+        self.requested_file_ids = .{};
+        self.name_overrides.deinit(allocator);
+        self.name_overrides = .{};
+        try self.requested_file_ids.ensureTotalCapacity(allocator, @intCast(files.len));
+        for (files) |f| {
+            self.requested_file_ids.put(allocator, f.id, {}) catch {};
+        }
+        // Two requested files may declare the same top-level name (one Swift
+        // module): keep the first verbatim, rename later ones with the
+        // module stem (`First` in a second file -> `First_External`).
+        var seen: std.StringHashMapUnmanaged(void) = .{};
+        defer seen.deinit(self.scratch());
+        for (files) |f| {
+            const file_node = self.getNode(f.id) orelse continue;
+            for (file_node.nested_nodes) |nested| {
+                const child = self.getNode(nested.id) orelse continue;
+                switch (child.kind) {
+                    .@"struct", .@"enum", .interface => {},
+                    else => continue,
+                }
+                const plain = self.swiftIdentifierAlloc(lastSegment(child.display_name)) catch continue;
+                if (seen.contains(plain)) {
+                    const module = self.moduleName(file_node);
+                    const renamed = std.fmt.allocPrint(self.scratch(), "{s}_{s}", .{ self.unescaped(plain), self.unescaped(module) }) catch continue;
+                    self.name_overrides.put(allocator, child.id, renamed) catch {};
+                } else {
+                    seen.put(self.scratch(), plain, {}) catch {};
+                }
+            }
+        }
+    }
+
+    /// The module a schema file's types live in: `$Swift.module` when
+    /// annotated, else the file stem in PascalCase.
+    fn moduleName(self: *Generator, file_node: *schema.Node) []const u8 {
+        const swift_module_annotation: schema.Id = 0xd4c3b2a1e5f60718;
+        for (file_node.annotations) |use| {
+            if (use.id == swift_module_annotation) {
+                switch (use.value) {
+                    .text => |t| return t,
+                    else => {},
+                }
+            }
+        }
+        const stem = fileStem(file_node);
+        return pascalCase(self, stem) catch file_node.display_name;
+    }
+
+    fn fileStem(file_node: *schema.Node) []const u8 {
+        var name = file_node.display_name;
+        if (std.mem.lastIndexOfScalar(u8, name, ':')) |i| name = name[0..i];
+        if (std.mem.lastIndexOfScalar(u8, name, '/')) |i| name = name[i + 1 ..];
+        if (name.len >= 6 and std.mem.endsWith(u8, name, ".capnp")) {
+            name = name[0 .. name.len - 6];
+        }
+        return name;
+    }
+
+    fn pascalCase(self: *Generator, stem: []const u8) ![]const u8 {
+        var buf: std.ArrayList(u8) = .empty;
+        errdefer buf.deinit(self.scratch());
+        var upper_next = true;
+        for (stem) |c| {
+            if (c == '_' or c == '-' or c == '.') {
+                upper_next = true;
+            } else if (upper_next) {
+                try buf.append(self.scratch(), std.ascii.toUpper(c));
+                upper_next = false;
+            } else {
+                try buf.append(self.scratch(), c);
+            }
+        }
+        return buf.toOwnedSlice(self.scratch());
+    }
+
+    /// Import lines for schema imports that leave the requested file set.
+    fn foreignImportModules(self: *Generator, requested_file: schema.RequestedFile) []const []const u8 {
+        var modules: std.ArrayList([]const u8) = .empty;
+        for (requested_file.imports) |import| {
+            const node = self.getNode(import.id) orelse continue;
+            if (node.kind != .file) continue;
+            if (self.requested_file_ids.contains(import.id)) continue;
+            const module = self.moduleName(node);
+            var dup = false;
+            for (modules.items) |m| {
+                if (std.mem.eql(u8, m, module)) dup = true;
+            }
+            if (!dup) modules.append(self.scratch(), module) catch {};
+        }
+        return modules.items;
+    }
 
     pub fn init(allocator: std.mem.Allocator, nodes: []schema.Node) !Generator {
         var self = Generator{ .allocator = allocator, .arena = std.heap.ArenaAllocator.init(allocator) };
@@ -47,6 +149,8 @@ pub const Generator = struct {
 
     pub fn deinit(self: *Generator) void {
         self.node_map.deinit(self.allocator);
+        self.requested_file_ids.deinit(self.allocator);
+        self.name_overrides.deinit(self.allocator);
         self.arena.deinit();
     }
 
@@ -70,6 +174,8 @@ pub const Generator = struct {
     }
 
     pub fn generateFile(self: *Generator, requested_file: schema.RequestedFile) ![]u8 {
+        self.current_file = self.getNode(requested_file.id);
+        defer self.current_file = null;
         // The returned text is owned by `allocator` (the caller frees it);
         // interior scratch lives in the arena.
         var aw: std.Io.Writer.Allocating = .init(self.allocator);
@@ -801,8 +907,12 @@ pub const Generator = struct {
 
     /// The type name for a node: the last path segment of its display name,
     /// escaped for Swift.
-    /// The declaration name: the last display-name segment, escaped.
+    /// The declaration name: the last display-name segment, escaped. A
+    /// top-level node renamed for a cross-file collision keeps its new name.
     fn swiftTypeName(self: *Generator, node: *schema.Node) []const u8 {
+        if (self.name_overrides.get(node.id)) |override| {
+            return self.swiftIdentifierAlloc(override) catch "BadName";
+        }
         return self.swiftIdentifierAlloc(lastSegment(node.display_name)) catch "BadName";
     }
 
@@ -815,6 +925,13 @@ pub const Generator = struct {
     /// The node's Swift name qualified from the file root (`Outer.Inner`),
     /// so references resolve from any scope in the generated file.
     fn swiftQualifiedTypeName(self: *Generator, node: *schema.Node) ![]const u8 {
+        var prefix: []const u8 = "";
+        if (self.current_file) |cur| {
+            const ref_file = self.getFileNode(node.id) orelse cur;
+            if (ref_file.id != cur.id and !self.requested_file_ids.contains(ref_file.id)) {
+                prefix = self.moduleName(ref_file);
+            }
+        }
         var chain: [16][]const u8 = undefined;
         var depth: usize = 0;
         var current: *schema.Node = node;
@@ -827,6 +944,10 @@ pub const Generator = struct {
             current = self.getNode(current.scope_id) orelse return error.MissingScopeNode;
         }
         var buf: std.ArrayList(u8) = .empty;
+        if (prefix.len > 0) {
+            try buf.appendSlice(self.scratch(), prefix);
+            try buf.append(self.scratch(), '.');
+        }
         var i: usize = depth;
         while (i > 0) {
             i -= 1;

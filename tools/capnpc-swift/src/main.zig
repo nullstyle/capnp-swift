@@ -63,6 +63,7 @@ pub fn main(init: std.process.Init) !void {
 
     var gen = try generator.Generator.init(allocator, request.nodes);
     defer gen.deinit();
+    try gen.setRequestedFiles(allocator, request.requested_files);
 
     for (request.requested_files) |requested_file| {
         const output_code = gen.generateFile(requested_file) catch |err| {
