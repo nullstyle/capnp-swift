@@ -85,7 +85,11 @@ jobs:
           scripts/use-local-core.sh
           just e2e-matrix
           swift build --product e2e-swift-server --product e2e-swift-client
-          BIN="$(swift build --product e2e-swift-server --show-bin-path)"
+          # --show-bin-path reports a scratch dir on runners; locate the
+          # built executable instead.
+          BIN="$(dirname "$(find .build -name e2e-swift-server -type f -perm -111 -print -quit)")"
+          echo "swift bins: $BIN"
+          ls -la "$BIN" | head -5
           scripts/e2e-pair.sh --transport=unix "$BIN/e2e-swift-server" "$BIN/e2e-swift-client"
 
   cpp:
@@ -126,7 +130,11 @@ jobs:
           just e2e-cpp-peers
           ls -la third_party/capnp-zig/tests/e2e/cpp/build | head -20 || true
           swift build --product e2e-swift-server --product e2e-swift-client
-          BIN="$(swift build --product e2e-swift-server --show-bin-path)"
+          # --show-bin-path reports a scratch dir on runners; locate the
+          # built executable instead.
+          BIN="$(dirname "$(find .build -name e2e-swift-server -type f -perm -111 -print -quit)")"
+          echo "swift bins: $BIN"
+          ls -la "$BIN" | head -5
           CPP=third_party/capnp-zig/tests/e2e/cpp/build
           scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e_client" game_world chat inventory matchmaking
           scripts/e2e-pair.sh "$CPP/e2e_server" "$BIN/e2e-swift-client" game_world chat inventory matchmaking
