@@ -71,6 +71,12 @@ jobs:
         run: |
           git clone --quiet --depth=1 --branch "$CAPNP_ZIG_TAG" \
             https://github.com/nullstyle/capnp-zig.git third_party/capnp-zig
+      - name: Zig e2e peers (verbose summary)
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          cd third_party/capnp-zig
+          mise exec -- zig build e2e-zig-server-install e2e-zig-client-install --summary all
+          ls -la zig-out/bin
       - name: Matrix (M4) + unix lane (M5)
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
@@ -118,6 +124,7 @@ jobs:
           cd core && mise exec -- zig build xcframework && cd ..
           scripts/use-local-core.sh
           just e2e-cpp-peers
+          ls -la third_party/capnp-zig/tests/e2e/cpp/build | head -20 || true
           swift build --product e2e-swift-server --product e2e-swift-client
           BIN="$(swift build --product e2e-swift-server --show-bin-path)"
           CPP=third_party/capnp-zig/tests/e2e/cpp/build
