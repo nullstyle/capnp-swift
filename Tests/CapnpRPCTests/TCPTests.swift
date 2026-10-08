@@ -37,21 +37,34 @@ struct TCPTests {
 
     @Test("a connect to a closed port fails with .disconnected")
     func connectRefused() async throws {
-        // Bind and release a port so nothing listens on it.
-        let probe = try RPCListener(port: 0, bootstrap: { Greeter.Export(SwiftGreeter()) })
-        let port = try await probe.start()
-        probe.cancel()
-        try await Task.sleep(for: .milliseconds(100))
-        do {
-            _ = try await withTimeout(.seconds(10)) {
-                try await RPCConnection.connect(transport: TCPTransport(host: "127.0.0.1", port: port, connectTimeout: .seconds(3)))
-            }
-            Issue.record("connect succeeded on a closed port")
-        } catch let error as RPCError {
-            guard case .disconnected = error else {
-                Issue.record("expected .disconnected, got \(error)")
+        // Bind and release a port so nothing listens on it. The listener's
+        // teardown is asynchronous, so a connect racing a slow close can
+        // succeed — retry until the port is truly refusing (observed on a
+        // loaded CI runner, 2026-10-08).
+        var lastPort: UInt16 = 0
+        for _ in 0..<5 {
+            let probe = try RPCListener(port: 0, bootstrap: { Greeter.Export(SwiftGreeter()) })
+            let port = try await probe.start()
+            lastPort = port
+            probe.cancel()
+            try await Task.sleep(for: .milliseconds(300))
+            do {
+                _ = try await withTimeout(.seconds(10)) {
+                    try await RPCConnection.connect(transport: TCPTransport(host: "127.0.0.1", port: port, connectTimeout: .seconds(3)))
+                }
+                // The listener was still up; release and try a fresh port.
+                continue
+            } catch let error as RPCError {
+                guard case .disconnected = error else {
+                    Issue.record("expected .disconnected, got \(error)")
+                    return
+                }
+                return
+            } catch {
+                Issue.record("expected RPCError.disconnected, got \(error)")
                 return
             }
         }
+        Issue.record("connect succeeded on a closed port (5 tries, last port \(lastPort))")
     }
 }

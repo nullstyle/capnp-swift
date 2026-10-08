@@ -41,6 +41,7 @@ with_deadline() {
 total_pass=0; total_fail=0
 for schema in "${SCHEMAS[@]}"; do
   sock=""
+  server_log=$(mktemp /tmp/capnp-e2e-server-XXXXXX.log)
   if [ "$TRANSPORT" = unix ]; then
     sockdir=$(mktemp -d /tmp/capnp-e2e-unix-XXXXXX)
     sock="$sockdir/$schema.sock"
@@ -64,9 +65,9 @@ except OSError:
     sys.exit(1)"; }
   fi
   if [ "$TRANSPORT" = unix ]; then
-    "$SERVER" --host "$host_arg" --schema "$schema" >/dev/null 2>&1 &
+    "$SERVER" --host "$host_arg" --schema "$schema" >"$server_log" 2>&1 &
   else
-    "$SERVER" --host "$host_arg" --port "$port" --schema "$schema" >/dev/null 2>&1 &
+    "$SERVER" --host "$host_arg" --port "$port" --schema "$schema" >"$server_log" 2>&1 &
   fi
   server_pid=$!
   # Probe until the server accepts (max 30 s).
@@ -77,6 +78,7 @@ except OSError:
   done
   if [ "$ready" != 1 ]; then
     echo "not ok - $schema: server never became ready"
+    echo "  # server output was:"; sed 's/^/  # /' "$server_log"
     total_fail=$((total_fail+1))
     kill $server_pid 2>/dev/null; wait $server_pid 2>/dev/null
     continue
