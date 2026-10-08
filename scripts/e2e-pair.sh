@@ -19,6 +19,25 @@ SERVER="$1"; CLIENT="$2"; shift 2
 SCHEMAS=("$@")
 [ ${#SCHEMAS[@]} -eq 0 ] && SCHEMAS=(game_world chat inventory matchmaking resolve_disembargo)
 
+# Run CMD under an absolute deadline; exit 124 when it expires. macOS has
+# no `timeout` (CI runners neither), so fall back to background + poll.
+with_deadline() {
+  local secs=$1; shift
+  if command -v timeout >/dev/null 2>&1; then timeout "$secs" "$@"; return $?; fi
+  if command -v gtimeout >/dev/null 2>&1; then gtimeout "$secs" "$@"; return $?; fi
+  "$@" &
+  local pid=$!
+  local waited=0
+  while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$secs" ]; do
+    sleep 1; waited=$((waited + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+    return 124
+  fi
+  wait "$pid"
+}
+
 total_pass=0; total_fail=0
 for schema in "${SCHEMAS[@]}"; do
   sock=""
@@ -64,9 +83,9 @@ except OSError:
   fi
   # Client under an absolute 60 s deadline; TAP lines counted on both streams.
   if [ "$TRANSPORT" = unix ]; then
-    out=$( { timeout 60 "$CLIENT" --host "$host_arg" --schema "$schema" 2>&1; echo "EXIT=$?"; } )
+    out=$( { with_deadline 60 "$CLIENT" --host "$host_arg" --schema "$schema" 2>&1; echo "EXIT=$?"; } )
   else
-    out=$( { timeout 60 "$CLIENT" --host "$host_arg" --port "$port" --schema "$schema" 2>&1; echo "EXIT=$?"; } )
+    out=$( { with_deadline 60 "$CLIENT" --host "$host_arg" --port "$port" --schema "$schema" 2>&1; echo "EXIT=$?"; } )
   fi
   exit_code=$(echo "$out" | grep -o 'EXIT=[0-9]*' | tail -1 | cut -d= -f2)
   pass=$(echo "$out" | grep -c '^ok ')

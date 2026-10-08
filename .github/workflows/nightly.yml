@@ -128,8 +128,8 @@ jobs:
           swift build --product e2e-swift-server --product e2e-swift-client
           BIN="$(swift build --product e2e-swift-server --show-bin-path)"
           CPP=third_party/capnp-zig/tests/e2e/cpp/build
-          scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e-cpp-client" game_world chat inventory matchmaking
-          scripts/e2e-pair.sh "$CPP/e2e-cpp-server" "$BIN/e2e-swift-client" game_world chat inventory matchmaking
+          scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e_client" game_world chat inventory matchmaking
+          scripts/e2e-pair.sh "$CPP/e2e_server" "$BIN/e2e-swift-client" game_world chat inventory matchmaking
 
   quic:
     runs-on: macos-26
