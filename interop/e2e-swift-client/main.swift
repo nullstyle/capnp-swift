@@ -29,6 +29,7 @@ func tap(_ ok: Bool, _ name: String) {
 var host = "127.0.0.1"
 var port: UInt16 = 4000
 var schema = "game_world"
+var useQuic = false
 var args = Array(CommandLine.arguments.dropFirst())
 while let arg = args.first {
     args.removeFirst()
@@ -36,8 +37,14 @@ while let arg = args.first {
     case "--host": host = args.removeFirst()
     case "--port": port = UInt16(args.removeFirst()) ?? 4000
     case "--schema": schema = args.removeFirst()
+    case "--transport":
+        let v = args.removeFirst()
+        if v == "quic" { useQuic = true } else if v != "tcp" {
+            FileHandle.standardError.write(Data("e2e-swift-client: unknown transport \(v)\n".utf8))
+            exit(2)
+        }
     case "--help", "-h":
-        print("Usage: e2e-swift-client [--host 127.0.0.1] [--port 4000] [--schema game_world|chat|inventory|matchmaking|resolve_disembargo]")
+        print("Usage: e2e-swift-client [--host 127.0.0.1] [--port 4000] [--schema game_world|chat|inventory|matchmaking|resolve_disembargo] [--transport tcp|quic]")
         exit(0)
     default: break
     }
@@ -45,12 +52,26 @@ while let arg = args.first {
 
 do {
     let transport: any Transport
-    if let unixPath = host.hasPrefix("unix:") ? String(host.dropFirst("unix:".count)) : nil {
+    var options = RPCConnection.Options()
+    if useQuic {
+        guard #available(macOS 26.0, *) else {
+            FileHandle.standardError.write(Data("e2e-swift-client: --transport quic needs macOS 26\n".utf8))
+            exit(2)
+        }
+        // The harness's zig QUIC peer serves the test fixture certificate
+        // (Tests/fixtures/tls); pin it. The Swift QUIC transport has no
+        // skip-verification mode by design.
+        let der = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Tests/fixtures/tls/test-cert.der")
+        transport = QUICTransport(host: host, port: port, trust: .testOnlyTrustThisCertificate(try! Data(contentsOf: der)), connectTimeout: .seconds(10))
+        options.framing = .u32LE
+    } else if let unixPath = host.hasPrefix("unix:") ? String(host.dropFirst("unix:".count)) : nil {
         transport = UnixTransport(path: unixPath, connectTimeout: .seconds(10))
     } else {
         transport = TCPTransport(host: host, port: port, connectTimeout: .seconds(10))
     }
-    let connection = try await RPCConnection.connect(transport: transport)
+    let connection = try await RPCConnection.connect(transport: transport, options: options)
 
     switch schema {
     case "game_world": try await gameWorld(connection)

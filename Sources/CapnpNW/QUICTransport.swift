@@ -371,6 +371,7 @@ final class QUICStreamTransport: Transport, @unchecked Sendable {
     private var closed = false
     private var paused = false
     private var receiving = false
+    private var receiveTask: Task<Void, Never>?
     private var buffered: [([UInt8], @Sendable () -> Void)] = []
 
     init(stream: QUIC.Stream<QUICStream>) {
@@ -425,7 +426,7 @@ final class QUICStreamTransport: Transport, @unchecked Sendable {
     private func receiveLoop() {
         guard !closed, !paused, !receiving else { return }
         receiving = true
-        Task { [weak self] in
+        receiveTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let message = try await stream.receive(atLeast: 1, atMost: 65536)
@@ -455,6 +456,19 @@ final class QUICStreamTransport: Transport, @unchecked Sendable {
     private func close(with error: (any Error)?) {
         guard !closed else { return }
         closed = true
+        // FIN the stream: without it the peer sits on an open stream until
+        // its idle timeout, and the caller's open questions end as
+        // deadlines instead of disconnects (found by the zig e2e client's
+        // disconnectNow check over QUIC, 2026-10-08).
+        // Cancel the pending receive too: the suspended receive holds the
+        // stream, the stream holds its parent connection, and a live
+        // connection never sends the close the peer needs (the zig e2e
+        // client's disconnectNow ends as CallTimedOut instead; 2026-10-08).
+        receiveTask?.cancel()
+        Task { [stream] in
+            try? await stream.send(Data(), endOfStream: true)
+            qtrace("server stream FIN sent")
+        }
         // Deferred for the same reason as QUICTransport.cancel().
         let nsError = error.map { $0 as NSError }
         if let queue {
@@ -493,14 +507,24 @@ public final class QUICListener: @unchecked Sendable {
 
         let listener: NetworkListener<QUIC>
         do {
-            listener = try NetworkListener<QUIC>(using: .init {
-                var quic = QUIC(alpn: [capnpQUICALPN])
-                quic = quic.idleTimeout(120_000)
-                if let secIdentity = sec_identity_create(identity.identity) {
-                    quic = quic.tls.localIdentity(secIdentity)
-                }
-                return quic
-            })
+            var quic = QUIC(alpn: [capnpQUICALPN])
+            quic = quic.idleTimeout(120_000)
+            if let secIdentity = sec_identity_create(identity.identity) {
+                quic = quic.tls.localIdentity(secIdentity)
+            }
+            // Built outside the result-builder closure: a multi-statement
+            // body there crashes this Swift (rdar-worthy, 2026-10-08).
+            let builder = NWParametersBuilder.parameters { quic }
+            // Bind the requested port: without an explicit localPort the
+            // listener silently picks an ephemeral one (anything but port 0
+            // dialed the wrong port; found by the 5-schema matrix,
+            // 2026-10-08). requiredLocalEndpoint is ignored by the modern
+            // listener; localPort is its spelling.
+            var bound = builder
+            if port != 0 {
+                bound = builder.localPort(NWEndpoint.Port(rawValue: port)!)
+            }
+            listener = try NetworkListener<QUIC>(using: bound)
         } catch {
             // The builder path is infallible for QUIC (no provider); keep
             // the throwing shape anyway for source stability.

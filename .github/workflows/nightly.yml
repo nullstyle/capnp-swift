@@ -191,6 +191,7 @@ jobs:
           just quic-e2e-swift-zig
           just quic-e2e-zig-swift
           just quic-idle-gate
+          just e2e-matrix-quic
 
   ios-sim:
     runs-on: macos-26

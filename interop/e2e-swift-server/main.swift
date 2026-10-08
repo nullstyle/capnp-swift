@@ -24,6 +24,7 @@ let schemas = ["game_world", "chat", "inventory", "matchmaking", "resolve_disemb
 var host = "0.0.0.0"
 var port: UInt16 = 4700
 var schema = "game_world"
+var useQuic = false
 var args = Array(CommandLine.arguments.dropFirst())
 while let arg = args.first {
     args.removeFirst()
@@ -31,8 +32,14 @@ while let arg = args.first {
     case "--host": host = args.removeFirst()
     case "--port": port = UInt16(args.removeFirst()) ?? 4700
     case "--schema": schema = args.removeFirst()
+    case "--transport":
+        let v = args.removeFirst()
+        if v == "quic" { useQuic = true } else if v != "tcp" {
+            FileHandle.standardError.write(Data("e2e-swift-server: unknown transport \(v)\n".utf8))
+            exit(2)
+        }
     case "--help", "-h":
-        print("Usage: e2e-swift-server [--host 0.0.0.0] [--port 4700] [--schema \(schemas.joined(separator: "|"))]")
+        print("Usage: e2e-swift-server [--host 0.0.0.0] [--port 4700] [--schema \(schemas.joined(separator: "|"))] [--transport tcp|quic]")
         exit(0)
     default: break
     }
@@ -52,6 +59,27 @@ default: fatalError("unreachable")
 }
 
 do {
+    if useQuic {
+        guard #available(macOS 26.0, *) else {
+            FileHandle.standardError.write(Data("e2e-swift-server: --transport quic needs macOS 26\n".utf8))
+            exit(2)
+        }
+        // The test fixture identity (Tests/fixtures/tls), built keychain-free
+        // from raw DER (a p12 identity stalls the modern QUIC handshake).
+        let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Tests/fixtures/tls")
+        let cert = try Data(contentsOf: dir.appendingPathComponent("test-cert.der"))
+        let key = try Data(contentsOf: dir.appendingPathComponent("test-key.der"))
+        let identity = try TLSIdentity(certificateDER: cert, keyDER: key)
+        let listener = QUICListener(port: port, identity: identity, bootstrap: bootstrap)
+        _ = try await listener.start()
+        FileHandle.standardError.write(Data("READY\n".utf8))
+        FileHandle.standardError.write(Data("e2e-swift-server: \(schema) over quic on port \(port)\n".utf8))
+        while true {
+            try await Task.sleep(for: .seconds(3600))
+        }
+    }
     let listener: RPCListener
     var servingOn = "port \(port)"
     if let unixPath = host.hasPrefix("unix:") ? String(host.dropFirst("unix:".count)) : nil {
