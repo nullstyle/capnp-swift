@@ -87,8 +87,16 @@ jobs:
           swift build --product e2e-swift-server --product e2e-swift-client
           # --show-bin-path reports a scratch dir on runners; locate the
           # built executable instead.
-          BIN="$(dirname "$(find .build -name e2e-swift-server \( -type f -o -type l \) -print -quit)")"
-          [ -x "$BIN/e2e-swift-server" ] || { echo "no e2e-swift-server under .build" >&2; exit 1; }
+          echo "--- .build layout:"
+          find .build -maxdepth 6 \( -name "e2e-swift-*" -o -name "e2e-swift-server" \) -print | head -20
+          SBP="$(swift build --product e2e-swift-server --show-bin-path)"
+          echo "show-bin-path: $SBP"; ls -la "$SBP" 2>&1 | head -10
+          if [ -x "$SBP/e2e-swift-server" ]; then
+            BIN="$SBP"
+          else
+            BIN="$(dirname "$(find .build -name e2e-swift-server \( -type f -o -type l \) -print -quit)")"
+          fi
+          [ -x "$BIN/e2e-swift-server" ] || { echo "no runnable e2e-swift-server anywhere" >&2; find .build -maxdepth 4 -type d -print | head -30; exit 1; }
           echo "swift bins: $BIN"
           scripts/e2e-pair.sh --transport=unix "$BIN/e2e-swift-server" "$BIN/e2e-swift-client"
 
@@ -132,8 +140,16 @@ jobs:
           swift build --product e2e-swift-server --product e2e-swift-client
           # --show-bin-path reports a scratch dir on runners; locate the
           # built executable instead.
-          BIN="$(dirname "$(find .build -name e2e-swift-server \( -type f -o -type l \) -print -quit)")"
-          [ -x "$BIN/e2e-swift-server" ] || { echo "no e2e-swift-server under .build" >&2; exit 1; }
+          echo "--- .build layout:"
+          find .build -maxdepth 6 \( -name "e2e-swift-*" -o -name "e2e-swift-server" \) -print | head -20
+          SBP="$(swift build --product e2e-swift-server --show-bin-path)"
+          echo "show-bin-path: $SBP"; ls -la "$SBP" 2>&1 | head -10
+          if [ -x "$SBP/e2e-swift-server" ]; then
+            BIN="$SBP"
+          else
+            BIN="$(dirname "$(find .build -name e2e-swift-server \( -type f -o -type l \) -print -quit)")"
+          fi
+          [ -x "$BIN/e2e-swift-server" ] || { echo "no runnable e2e-swift-server anywhere" >&2; find .build -maxdepth 4 -type d -print | head -30; exit 1; }
           echo "swift bins: $BIN"
           CPP=third_party/capnp-zig/tests/e2e/cpp/build
           scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e_client" game_world chat inventory matchmaking
