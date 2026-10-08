@@ -75,7 +75,7 @@ jobs:
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           cd third_party/capnp-zig
-          mise exec -- zig build e2e-zig-server-install e2e-zig-client-install --summary all
+          mise x zig -- zig build e2e-zig-server-install e2e-zig-client-install --summary all
           ls -la zig-out/bin
       - name: Matrix (M4) + unix lane (M5)
         run: |

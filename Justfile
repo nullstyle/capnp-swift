@@ -109,7 +109,10 @@ artifactbundle:
 
 # Build the Zig e2e peers from the pinned tag export (third_party/capnp-zig).
 e2e-zig-peers:
-    cd third_party/capnp-zig && mise exec -- zig build e2e-zig-server-install e2e-zig-client-install
+    # `mise x zig --` picks ONLY zig from capnp-zig's mise.toml: installing
+    # their whole dev toolset (cmake/go/uv/act) once per CI job trips the
+    # GitHub API rate limit (403 during the nightly's parallel jobs).
+    cd third_party/capnp-zig && mise x zig -- zig build e2e-zig-server-install e2e-zig-client-install
 
 # Build the C++ reference peers (needs homebrew capnp; cmake).
 e2e-cpp-peers:
