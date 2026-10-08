@@ -84,7 +84,10 @@ jobs:
           cd core && mise exec -- zig build xcframework && cd ..
           scripts/use-local-core.sh
           just e2e-matrix
-          swift build --product e2e-swift-server --product e2e-swift-client
+          # One --product per invocation: SwiftPM builds only the LAST
+          # --product flag on a cold build (masked locally by warm caches).
+          swift build --product e2e-swift-server
+          swift build --product e2e-swift-client
           # --show-bin-path reports a scratch dir on runners; locate the
           # built executable instead.
           echo "--- .build layout:"
@@ -137,7 +140,10 @@ jobs:
           scripts/use-local-core.sh
           just e2e-cpp-peers
           ls -la third_party/capnp-zig/tests/e2e/cpp/build | head -20 || true
-          swift build --product e2e-swift-server --product e2e-swift-client
+          # One --product per invocation: SwiftPM builds only the LAST
+          # --product flag on a cold build (masked locally by warm caches).
+          swift build --product e2e-swift-server
+          swift build --product e2e-swift-client
           # --show-bin-path reports a scratch dir on runners; locate the
           # built executable instead.
           echo "--- .build layout:"

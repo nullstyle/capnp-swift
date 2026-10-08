@@ -116,7 +116,8 @@ e2e-cpp-peers:
     cd third_party/capnp-zig/tests/e2e/cpp && cmake -S . -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j
 
 e2e-swift-peers: xcframework
-    swift build --product e2e-swift-server --product e2e-swift-client
+    swift build --product e2e-swift-server
+    swift build --product e2e-swift-client
 
 # The matrix: every schema, both Zig pairings (the M4 gate) and the extras.
 e2e-matrix: e2e-zig-peers e2e-swift-peers
