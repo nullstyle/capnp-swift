@@ -41,7 +41,7 @@ with_deadline() {
 total_pass=0; total_fail=0
 for schema in "${SCHEMAS[@]}"; do
   sock=""
-  server_log=$(mktemp /tmp/capnp-e2e-server-XXXXXX.log)
+  server_log="$(mktemp /tmp/capnp-e2e-server-XXXXXX).log"
   if [ "$TRANSPORT" = unix ]; then
     sockdir=$(mktemp -d /tmp/capnp-e2e-unix-XXXXXX)
     sock="$sockdir/$schema.sock"
