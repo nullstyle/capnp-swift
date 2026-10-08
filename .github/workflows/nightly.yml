@@ -1,0 +1,197 @@
+# Nightly (plan §9): the slow lanes — the 30-minute core fuzz, the full
+# interop matrix (Zig + C++ reference), the QUIC lanes incl. the 90 s idle
+# gate, and the iOS simulator tests. workflow_dispatch runs it on demand;
+# locally: `scripts/ci-local.sh schedule [job]` (act, host mode).
+
+name: nightly
+
+on:
+  schedule:
+    - cron: "30 6 * * *" # 06:30 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CAPNP_ZIG_TAG: v0.21.0
+
+jobs:
+  fuzz:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: Core tests + 30-minute fuzz
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core
+          mise exec -- zig build test --summary all
+          mise exec -- zig build fuzz-abi -- --seconds 1800
+
+  matrix:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: Fetch the pinned capnp-zig tag
+        run: |
+          git clone --quiet --depth=1 --branch "$CAPNP_ZIG_TAG" \
+            https://github.com/nullstyle/capnp-zig.git third_party/capnp-zig
+      - name: Matrix (M4) + unix lane (M5)
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core && mise exec -- zig build xcframework && cd ..
+          scripts/use-local-core.sh
+          just e2e-matrix
+          swift build --product e2e-swift-server --product e2e-swift-client
+          BIN="$(swift build --product e2e-swift-server --show-bin-path)"
+          scripts/e2e-pair.sh --transport=unix \\
+            "$BIN/e2e-swift-server" "$BIN/e2e-swift-client"
+
+  cpp:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: Homebrew C++ deps
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH"
+          brew install capnp cmake
+      - name: Fetch the pinned capnp-zig tag
+        run: |
+          git clone --quiet --depth=1 --branch "$CAPNP_ZIG_TAG" \
+            https://github.com/nullstyle/capnp-zig.git third_party/capnp-zig
+      - name: C++ reference, both directions (M4; resolve_disembargo filed)
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core && mise exec -- zig build xcframework && cd ..
+          scripts/use-local-core.sh
+          just e2e-cpp-peers
+          swift build --product e2e-swift-server --product e2e-swift-client
+          BIN="$(swift build --product e2e-swift-server --show-bin-path)"
+          CPP=third_party/capnp-zig/tests/e2e/cpp/build
+          scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e-cpp-client" \\
+            game_world chat inventory matchmaking
+          scripts/e2e-pair.sh "$CPP/e2e-cpp-server" "$BIN/e2e-swift-client" \\
+            game_world chat inventory matchmaking
+
+  quic:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: QUIC lanes incl. the 90 s idle gate (M6)
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core && mise exec -- zig build xcframework && cd ..
+          scripts/use-local-core.sh
+          just quic-e2e-swift-zig
+          just quic-e2e-zig-swift
+          just quic-idle-gate
+
+  ios-sim:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: iOS XCFramework + simulator tests (M5)
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core && mise exec -- zig build xcframework -Dios=true && cd ..
+          scripts/use-local-core.sh
+          UDID="$(xcrun simctl list devices available -j | python3 -c '''
+          import json,sys
+          devs = [d for r in json.load(sys.stdin)["devices"].values() for d in r]
+          print(next(d["udid"] for d in devs if d["isAvailable"]))
+          ''')"
+          echo "simulator $UDID"
+          set -o pipefail
+          xcodebuild test -scheme capnp-swift-Package \\
+            -destination "platform=iOS Simulator,id=$UDID" 2>&1 | tail -20
+

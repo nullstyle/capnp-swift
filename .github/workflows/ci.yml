@@ -1,0 +1,156 @@
+# CI (plan §9): the fast gates on every push and PR; the slow lanes
+# (nightly fuzz, interop matrix incl. C++, QUIC, iOS simulator) are in
+# nightly.yml.
+#
+# Plain `run:` steps only — no node-based actions — so the workflows also
+# run under `act` on a Mac in host mode: `scripts/ci-local.sh [event] [job]`.
+# Every job builds the XCFramework and swaps Package.swift to it
+# (scripts/use-local-core.sh) so the tree's core is what gets tested.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: Core tests + macOS XCFramework + gates
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core
+          mise exec -- zig build test --summary all
+          mise exec -- zig build test-abi --summary all
+          mise exec -- zig build xcframework
+          cd ..
+          # Test THIS tree's core, not the released binary (docs/release.md).
+          scripts/use-local-core.sh
+          scripts/check-symbols.sh --strict
+          scripts/check-dsym.sh debug
+          scripts/check-dsym.sh release
+          swift build --product capnpc-driver
+          cd tools/capnpc-swift && mise exec -- zig build && cd ../..
+          just generate-check
+
+  swift:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: Build, test, mvp e2e
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core && mise exec -- zig build xcframework && cd ..
+          scripts/use-local-core.sh
+          swift build
+          swift test
+          swift build -c release
+          just mvp-e2e
+
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: iOS XCFramework + device build
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core && mise exec -- zig build xcframework -Dios=true && cd ..
+          scripts/use-local-core.sh
+          set -o pipefail
+          xcodebuild build -scheme CapnpRPC -destination "generic/platform=iOS" \\
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -20
+
+  sanitizers:
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          command -v just >/dev/null 2>&1 || brew install just
+          mise install
+          mise exec -- zig version
+      - name: TSan + ASan
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core && mise exec -- zig build xcframework && cd ..
+          scripts/use-local-core.sh
+          just tsan
+          just asan
+

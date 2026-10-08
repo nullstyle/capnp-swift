@@ -1,0 +1,3 @@
+# act (local workflow runs): execute macos-26 jobs directly on this Mac
+# (host mode, no containers) — the workflows use plain run steps only.
+-P macos-26=-self-hosted
