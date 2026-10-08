@@ -14,7 +14,9 @@ struct NoopListener: Listener.Server, Sendable {
     func notify(_ msg: String) async throws {}
 }
 
-@Suite("M5")
+// Serialized: both TLS tests call SecPKCS12Import, and concurrent imports
+// of the same file raced on a CI runner (OSStatus -26276, 2026-10-08).
+@Suite("M5", .serialized)
 struct M5Tests {
     #if os(macOS)
     @Test("a unix listener serves a unix client, with path guards")

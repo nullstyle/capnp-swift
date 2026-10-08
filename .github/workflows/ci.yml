@@ -121,8 +121,7 @@ jobs:
           cd core && mise exec -- zig build xcframework -Dios=true && cd ..
           scripts/use-local-core.sh
           set -o pipefail
-          xcodebuild build -scheme CapnpRPC -destination "generic/platform=iOS" \\
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tail -20
+          xcodebuild build -scheme CapnpRPC -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO 2>&1 | tail -20
 
   sanitizers:
     runs-on: macos-26

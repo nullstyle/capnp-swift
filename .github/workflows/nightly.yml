@@ -80,8 +80,7 @@ jobs:
           just e2e-matrix
           swift build --product e2e-swift-server --product e2e-swift-client
           BIN="$(swift build --product e2e-swift-server --show-bin-path)"
-          scripts/e2e-pair.sh --transport=unix \\
-            "$BIN/e2e-swift-server" "$BIN/e2e-swift-client"
+          scripts/e2e-pair.sh --transport=unix "$BIN/e2e-swift-server" "$BIN/e2e-swift-client"
 
   cpp:
     runs-on: macos-26
@@ -122,10 +121,8 @@ jobs:
           swift build --product e2e-swift-server --product e2e-swift-client
           BIN="$(swift build --product e2e-swift-server --show-bin-path)"
           CPP=third_party/capnp-zig/tests/e2e/cpp/build
-          scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e-cpp-client" \\
-            game_world chat inventory matchmaking
-          scripts/e2e-pair.sh "$CPP/e2e-cpp-server" "$BIN/e2e-swift-client" \\
-            game_world chat inventory matchmaking
+          scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e-cpp-client" game_world chat inventory matchmaking
+          scripts/e2e-pair.sh "$CPP/e2e-cpp-server" "$BIN/e2e-swift-client" game_world chat inventory matchmaking
 
   quic:
     runs-on: macos-26
@@ -185,13 +182,8 @@ jobs:
           set -euxo pipefail
           cd core && mise exec -- zig build xcframework -Dios=true && cd ..
           scripts/use-local-core.sh
-          UDID="$(xcrun simctl list devices available -j | python3 -c '''
-          import json,sys
-          devs = [d for r in json.load(sys.stdin)["devices"].values() for d in r]
-          print(next(d["udid"] for d in devs if d["isAvailable"]))
-          ''')"
+          UDID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devs=[d for r in json.load(sys.stdin)["devices"].values() for d in r]; print(next(d["udid"] for d in devs if d["isAvailable"]))')"
           echo "simulator $UDID"
           set -o pipefail
-          xcodebuild test -scheme capnp-swift-Package \\
-            -destination "platform=iOS Simulator,id=$UDID" 2>&1 | tail -20
+          xcodebuild test -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" 2>&1 | tail -20
 
