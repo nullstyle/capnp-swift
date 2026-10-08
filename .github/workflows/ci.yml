@@ -55,6 +55,7 @@ jobs:
           # Test THIS tree's core, not the released binary (docs/release.md).
           scripts/use-local-core.sh
           scripts/check-symbols.sh --strict
+          scripts/check-native-header.sh
           scripts/check-dsym.sh debug
           scripts/check-dsym.sh release
           swift build --product capnpc-driver

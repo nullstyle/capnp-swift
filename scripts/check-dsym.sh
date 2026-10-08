@@ -38,10 +38,15 @@ fail() {
 [[ -d CapnpCore.xcframework ]] ||
     fail "CapnpCore.xcframework is missing; run: cd core && mise exec -- zig build xcframework"
 
-abi="core/src/abi.zig"
-line="$(grep -n 'CAPNP_CORE_DEBUG_TRAP_LINE' "$abi" | head -1 | cut -d: -f1)"
-[[ -n "$line" ]] || fail "no CAPNP_CORE_DEBUG_TRAP_LINE marker in $abi"
-expected="$repo/$abi:$line"
+# The trap frame lives in the capnp-zig package since v0.23.0 (H7):
+# zig-pkg/capnpc_zig-<version>-<hash>/src/native/abi.zig. The DWARF carries
+# that versioned path, so match the SUFFIX and read the marker line from the
+# package's file (it moves with every pin).
+pkg_abi="$(ls core/zig-pkg/capnpc_zig-*/src/native/abi.zig 2>/dev/null | head -1)"
+[[ -n "$pkg_abi" ]] || fail "no capnpc_zig package under core/zig-pkg (run a core build first)"
+line="$(grep -n 'CAPNP_CORE_DEBUG_TRAP_LINE' "$pkg_abi" | head -1 | cut -d: -f1)"
+[[ -n "$line" ]] || fail "no CAPNP_CORE_DEBUG_TRAP_LINE marker in $pkg_abi"
+expected="src/native/abi.zig:$line"
 
 echo "check-dsym: building TrapProbe ($config)"
 swift build -c "$config" --product TrapProbe >/dev/null
@@ -81,6 +86,8 @@ echo "check-dsym: atos -fullPath -o <dSYM> -arch $arch -l $load_address $pc"
 echo "  -> $symbolicated"
 
 [[ "$symbolicated" == *"debugTrapFrame"* ]] || fail "trapping frame is not debugTrapFrame"
-[[ "$symbolicated" == *"($expected)" ]] || fail "trapping frame does not resolve to $expected"
+# Substring, not a suffix: the DWARF path is core/zig-pkg/<versioned
+# package>/src/native/abi.zig — the versioned prefix changes per pin.
+[[ "$symbolicated" == *"$expected"* ]] || fail "trapping frame does not resolve to $expected"
 
-echo "check-dsym: OK ($config, $arch): the trap resolves to $abi:$line"
+echo "check-dsym: OK ($config, $arch): the trap resolves to $pkg_abi:$line"

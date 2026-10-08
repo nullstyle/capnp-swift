@@ -100,7 +100,7 @@ struct E2EGreeter: Greeter.Server {
 }
 
 func serveGreeterOverQUIC() async {
-    guard #available(macOS 26.0, *) else {
+    guard #available(macOS 26.0, iOS 26.0, *) else {
         FileHandle.standardError.write(Data("mvp-e2e: --serve-quic needs macOS 26\n".utf8))
         exit(2)
     }
@@ -170,7 +170,7 @@ struct MVPE2E {
             server.executableURL = URL(fileURLWithPath: serverPath)
             var serverArgs = ["--host", "127.0.0.1", "--port", "0"]
             if useQuic {
-                guard #available(macOS 26.0, *) else {
+                guard #available(macOS 26.0, iOS 26.0, *) else {
                     FileHandle.standardError.write(Data("mvp-e2e: --transport quic needs macOS 26\n".utf8))
                     exit(2)
                 }

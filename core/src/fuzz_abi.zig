@@ -33,8 +33,11 @@
 //! seed and the step so it can be replayed with `--seed`.
 
 const std = @import("std");
-const abi = @import("abi.zig");
-const effects = @import("effects.zig");
+// The shim is upstream since capnp-zig v0.23.0 (H7); the fuzzer drives the
+// same module the library embeds.
+const native = @import("capnpc-zig").native;
+const abi = native.abi;
+const effects = native.effects;
 const capnp = @import("capnpc-zig");
 
 const message = capnp.message;

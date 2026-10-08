@@ -1,8 +1,9 @@
-# H7 — Move the sans-IO shim into capnp-zig `src/native/` (post-0.1.0, refined 2026-10-08)
+# H7 — Move the sans-IO shim into capnp-zig `src/native/` (post-0.1.0)
 
-Status: handoff (not started). D1 said "A until M7, then B" — M7 shipped,
-so this is the next structural move. Refined from the plan §3/§10 sketch
-after the H11 sprint established the collaboration mechanics.
+Status: **EXECUTED 2026-10-08** — capnp-zig v0.23.0 (tag aca9824) ships
+the shim as the Experimental `native` module; capnp-swift pins it
+(steps 2-3 below are what was done, kept for the next pin bump). D1 is
+closed as B.
 
 ## Collaboration mechanics (settled this sprint)
 

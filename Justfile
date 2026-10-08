@@ -70,6 +70,7 @@ gates: core-test xcframework
     swift build -c release
     swift test
     scripts/check-symbols.sh
+    scripts/check-native-header.sh
     scripts/check-dsym.sh debug
     scripts/check-dsym.sh release
     just mvp-e2e

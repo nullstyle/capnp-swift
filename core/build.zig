@@ -21,11 +21,19 @@
 //! ___zig_probe_stack), never strip DWARF (an app's dSYM is built from the
 //! DWARF inside the .a), static only.
 //!
+//! Since capnp-zig v0.23.0 (handoff H7 executed) the shim itself lives
+//! upstream as the Experimental `native` module (`src/native/` in the
+//! package): conn.zig, effects.zig, cap_remap.zig, abi.zig, selftest.zig
+//! and their tests. What stays here: apple_root.zig (the library root:
+//! Apple std overrides + the allocator and version string the native ABI
+//! reads from its root), core/include/capnp_core.h (the shipped SNAPSHOT
+//! of the package's src/native/include/capnp_core.h; the snapshot gate
+//! scripts/check-native-header.sh keeps them identical), fuzz_abi.zig
+//! (our long-fuzz lane; upstream runs its own), and this build file.
+//!
 //! Imports available to core sources: "capnpc-zig" and "capnpc-zig-core"
-//! (both capnp-zig's `capnpc-zig-core` module: serialization, codegen and the
-//! RPC Peer without transports; it imports itself as "capnpc-zig", so code
-//! written against that name moves upstream unchanged, plan H7), and
-//! "build_info" (versions from build.zig.zon).
+//! (both capnp-zig's `capnpc-zig-core` module, which exports `native`),
+//! and "build_info" (versions from build.zig.zon).
 
 const std = @import("std");
 const manifest = @import("build.zig.zon");
@@ -54,31 +62,17 @@ pub fn build(b: *std.Build) void {
     build_info.addOption([]const u8, "capnp_zig_version", pinnedVersion(manifest.dependencies.capnpc_zig.hash));
 
     // ---- test -------------------------------------------------------------
+    // The shim's own tests moved upstream with it (capnp-zig v0.23.0); we
+    // run the package's abi_test/conn_test against OUR library root and
+    // OUR header snapshot, so the embedded configuration (allocator,
+    // version string, Apple overrides) is what gets exercised.
     const test_step = b.step("test", "Run the core unit tests");
     {
-        const mod = coreModule(b, build_info, "src/abi.zig", target, optimize, .{});
-        // Header-drift test inputs: the header through translate-c, and its
-        // raw text for the reverse (header -> export) direction.
-        const header_c = b.addTranslateC(.{
-            .root_source_file = b.path("include/capnp_core.h"),
-            .target = target,
-            .optimize = optimize,
-        });
-        mod.addImport("capnp_core_h", header_c.createModule());
-        mod.addAnonymousImport("capnp_core_h_text", .{ .root_source_file = b.path("include/capnp_core.h") });
-
-        const tests = b.addTest(.{ .name = "core-abi", .root_module = mod });
-        test_step.dependOn(&b.addRunArtifact(tests).step);
-
-        // The connection core (conn.zig, effects.zig, cap_remap.zig): two
-        // in-process conns back to back, incl. the M0 `caps_roundtrip` gate.
-        const conn_tests = b.addTest(.{
-            .name = "core-conn",
-            .root_module = coreModule(b, build_info, "src/conn_test.zig", target, optimize, .{}),
-        });
-        test_step.dependOn(&b.addRunArtifact(conn_tests).step);
-
-        // The Apple root must at least compile for the host on every test run.
+        // The shim's own tests run transitively: the package's lib_core
+        // references native/{conn,abi}_test.zig in test builds (18 native
+        // tests at v0.23.0), and test-abi below runs the C ABI through OUR
+        // header snapshot and host library. Here: the Apple root must at
+        // least compile for the host on every test run.
         const host_lib = appleLibrary(b, build_info, target, optimize);
         test_step.dependOn(&host_lib.step);
     }
@@ -91,7 +85,15 @@ pub fn build(b: *std.Build) void {
     // runs it too.
     const test_abi_step = b.step("test-abi", "Run the C ABI tests (capnp_core.h against the host static library)");
     {
-        const mod = coreModule(b, build_info, "src/abi_test.zig", target, optimize, .{});
+        const dep = capnpDependency(b, target, optimize);
+        const mod = b.createModule(.{
+            .root_source_file = dep.path("src/native/abi_test.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{.{ .name = "capnpc-zig", .module = dep.module("capnpc-zig-core") }},
+        });
+        // The header through translate-c — OUR snapshot, the one shipped in
+        // the XCFramework (the snapshot gate keeps it equal to the package's).
         const header_c = b.addTranslateC(.{
             .root_source_file = b.path("include/capnp_core.h"),
             .target = target,
@@ -172,6 +174,24 @@ const ModuleExtras = struct {
     omit_frame_pointer: ?bool = null,
 };
 
+/// The capnp-zig dependency, always with fd passing compiled out.
+fn capnpDependency(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.Optimize,
+) *std.Build.Dependency {
+    // `-Dfd-passing=false` (capnp-zig >= v0.21.0, handoff H1): Swift owns
+    // every socket, so the core compiles fd passing, the fd closer threads
+    // and the AF_UNIX transport out. That removes the fd closer's
+    // `___ulock_*` / `_pthread_create` / `_getrlimit` imports from the slices
+    // (plan D7) and lets the core compile for iOS (M5).
+    return b.dependency("capnpc_zig", .{
+        .target = target,
+        .optimize = optimize,
+        .@"fd-passing" = false,
+    });
+}
+
 /// A core module rooted at `root`, with the capnp-zig core dependency built
 /// for the same target and mode.
 fn coreModule(
@@ -187,11 +207,7 @@ fn coreModule(
     // and the AF_UNIX transport out. That removes the fd closer's
     // `___ulock_*` / `_pthread_create` / `_getrlimit` imports from the slices
     // (plan D7) and lets the core compile for iOS (M5).
-    const dep = b.dependency("capnpc_zig", .{
-        .target = target,
-        .optimize = optimize,
-        .@"fd-passing" = false,
-    });
+    const dep = capnpDependency(b, target, optimize);
     const capnp_core = dep.module("capnpc-zig-core");
     const mod = b.createModule(.{
         .root_source_file = b.path(root),

@@ -44,8 +44,7 @@ let package = Package(
         // after `cd core && mise exec -- zig build xcframework -Dios=true`.
         .binaryTarget(
             name: "CapnpCore",
-            url: "https://github.com/nullstyle/capnp-swift/releases/download/0.1.0/CapnpCore.xcframework.zip",
-            checksum: "7b2f1def4fe992aebe9086d81e9db1fd4af973a6a8d5148cc90e72cc60785f3c"
+            path: "CapnpCore.xcframework"
         ),
         .target(
             name: "Capnp"

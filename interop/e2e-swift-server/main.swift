@@ -60,7 +60,7 @@ default: fatalError("unreachable")
 
 do {
     if useQuic {
-        guard #available(macOS 26.0, *) else {
+        guard #available(macOS 26.0, iOS 26.0, *) else {
             FileHandle.standardError.write(Data("e2e-swift-server: --transport quic needs macOS 26\n".utf8))
             exit(2)
         }

@@ -19,10 +19,16 @@
 //!   per allocation). Code in the core takes its allocator from here.
 
 const std = @import("std");
-pub const abi = @import("abi.zig");
+const build_info = @import("build_info");
+
+// The shim lives upstream since capnp-zig v0.23.0 (handoff H7): the
+// Experimental `native` module in the package. Referencing `native.abi`
+// from this root is what emits the `capnp_*` symbols into the archive.
+const core = @import("capnpc-zig-core");
+pub const abi = core.native.abi;
 
 comptime {
-    // Analyze abi.zig so its `export fn`s land in the archive.
+    // Analyze abi so its `export fn`s land in the archive.
     _ = abi;
 }
 
@@ -30,6 +36,14 @@ comptime {
 pub const allocator: std.mem.Allocator = std.heap.c_allocator;
 /// What `abi.zig` reads (`@import("root").capnp_core_allocator`).
 pub const capnp_core_allocator: std.mem.Allocator = allocator;
+
+/// What `abi.zig` reads (`@import("root").capnp_core_version_string`):
+/// core <version> / capnp-zig <pin version> / <pin hash>, both from
+/// build.zig.zon (release.md "Version bookkeeping" bumps these together).
+pub const capnp_core_version_string: [:0]const u8 =
+    "core " ++ build_info.core_version ++
+    " / capnp-zig " ++ build_info.capnp_zig_version ++
+    " / " ++ build_info.capnp_zig_hash;
 
 pub const panic = std.debug.FullPanic(corePanic);
 
