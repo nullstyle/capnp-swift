@@ -8,7 +8,14 @@ default:
     @just --list
 
 # Build the static CapnpCore.xcframework (needed before any swift build).
+# ALL platforms by default (-Dios=true): a macOS-only rebuild silently
+# replaces the multi-slice framework and the next iOS build fails with "no
+# library for this platform" (bit us twice). xcframework-macos is the quick
+# iteration path when you truly only need macOS.
 xcframework:
+    cd core && mise exec -- zig build xcframework -Dios=true
+
+xcframework-macos:
     cd core && mise exec -- zig build xcframework
 
 # Core unit tests (C ABI, connection core) including test-abi.
