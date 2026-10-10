@@ -87,6 +87,10 @@ gates: core-test xcframework
 
 # ---- M3 codegen (D6 option A) -------------------------------------------
 
+# Optional consumer probe for the Experimental generics resolver facade.
+type-resolver-spike:
+    cd tools/type-resolver-spike && mise exec -- zig build test --summary all
+
 # The pipeline runner: capnp.wasm under WasmKit + the native plugin.
 driver-build:
     swift build --product capnpc-driver

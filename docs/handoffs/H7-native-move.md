@@ -5,6 +5,15 @@ the shim as the Experimental `native` module; capnp-swift pins it
 (steps 2-3 below are what was done, kept for the next pin bump). D1 is
 closed as B.
 
+The second clause is also exported in v0.23.0: the Experimental
+`type_resolver` facade. The capnp-swift consumer spike completed on
+2026-10-10 (eight ablated cases; all 26 requests produce byte-identical
+Swift in a separate v0.21.0/v0.23.0 compatibility build). The shipping
+generator retains v0.21.0. [H12](H12-type-resolver-lexical-lookup.md)
+records the lookup-only nested RPC defect; full request-node contexts
+work. See [the probe](../../tools/type-resolver-spike/README.md) and
+[research](type-resolver-research.md) for the remaining adoption decisions.
+
 ## Collaboration mechanics (settled this sprint)
 
 - The capnp-zig checkout (`~/prj/zig/capnp-zig`) belongs to the capnp-zig
@@ -52,8 +61,10 @@ against. On a pin bump: regenerate the snapshot, update the expected
 - The pin flow gains: bump the capnp-zig tag, `zig build xcframework`,
   refresh the header snapshot + version string, full gates, then the
   release ceremony's `--verify` double build.
-- Also export `type_resolver` for generics while touching the seam
-  (plan H7's second clause).
+- The public `type_resolver` export shipped in v0.23.0 (plan H7's
+  second clause). Its consumer spike is complete; adopting it in the
+  shipping generator still requires a Swift generic pointer-value design
+  and separate generator pin validation.
 
 ## Order of work
 

@@ -1,0 +1,14 @@
+.{
+    .name = .capnp_swift_type_resolver_spike,
+    .version = "0.0.1",
+    .fingerprint = 0x0483c754c88019ea,
+    .minimum_zig_version = "0.17.0",
+    .dependencies = .{
+        // This probe consumes the public facade without changing the generator pin.
+        .capnpc_zig = .{
+            .url = "https://github.com/nullstyle/capnp-zig/archive/refs/tags/v0.23.0.tar.gz",
+            .hash = "capnpc_zig-0.23.0-nUduFUsRTgCn5wyHqoKC0ZXgBemZlU7y6bWBmH3RpW9U",
+        },
+    },
+    .paths = .{ "build.zig", "build.zig.zon", "src", "fixtures", "README.md" },
+}

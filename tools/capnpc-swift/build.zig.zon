@@ -4,9 +4,10 @@
     .fingerprint = 0x24aaf40665d39004,
     .minimum_zig_version = "0.17.0",
     .dependencies = .{
-        // The same capnp-zig tag core/build.zig.zon pins (bump all three
-        // together: core, interop/zig-peer, this file). `zig build` fetches
-        // it; never run `zig fetch <url>` (CLAUDE.md).
+        // Independent codegen pin for the Stable schema/request modules.
+        // The RPC core and interop peer have separate pins. A generator
+        // upgrade must preserve generated output and pass its own gates.
+        // `zig build` fetches it; never run `zig fetch <url>` (CLAUDE.md).
         .capnpc_zig = .{
             .url = "https://github.com/nullstyle/capnp-zig/archive/refs/tags/v0.21.0.tar.gz",
             .hash = "capnpc_zig-0.21.0-nUduFa7PRwBrWc9CyzM8u052LMqBhHzvA52R1s407iCg",
