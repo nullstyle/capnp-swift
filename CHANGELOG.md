@@ -91,6 +91,10 @@ All notable changes to capnp-swift are recorded here.
   Listener cancellation also refuses acceptances that finish building
   their bootstrap after shutdown collected the live connections. Two real
   TCP regression tests cover these orderings; both were ablated.
+- Verification complete: final hosted CI 38088814861 and simulator
+  38088816473 passed; the other nightly lanes, including the 30-minute
+  fuzz with zero live bytes at exit, passed in 38087009525. The simulator
+  preserves 36+9 tests plus the separate full 64 x 10k stress test.
 
 ### Fixed (M0 review, 2026-10-06)
 
