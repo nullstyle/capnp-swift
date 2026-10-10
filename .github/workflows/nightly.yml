@@ -233,7 +233,7 @@ jobs:
           set -euxo pipefail
           cd core && mise exec -- zig build xcframework -Dios=true && cd ..
           scripts/use-local-core.sh
-          UDID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devs=[d for r in json.load(sys.stdin)["devices"].values() for d in r]; print(next(d["udid"] for d in devs if d["isAvailable"]))')"
+          UDID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; print(next(d["udid"] for r,devs in json.load(sys.stdin)["devices"].items() if r.startswith("com.apple.CoreSimulator.SimRuntime.iOS-") for d in devs if d["isAvailable"]))')"
           echo "simulator $UDID"
           # The 64 x 10k loopback workload is a separate process so it
           # cannot starve simulator handshakes with 5-10 s deadlines.
