@@ -6,6 +6,16 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- Concrete Swift specialization prototype (2026-10-10):
+  `just type-resolver-specializations` resolves effective lexical bindings
+  through the public facade and generates typed readers/builders for Text,
+  Data, nested structs, integer lists and recursive struct lists. Distinct
+  applications of the same node remain distinct. Five Swift cases pass,
+  with independent C++ encode/decode verification and a wrong-binding
+  typecheck gate; four rejection cases bring the Zig suite to 12/12.
+  All 11 new checks were ablated; core CI runs the combined gate. This
+  optional tool keeps the shipping generator and public Swift interface
+  unchanged.
 - Public `type_resolver` consumer spike (2026-10-10): optional
   `just type-resolver-spike` runs eight cases against capnp-zig v0.23.0,
   with every case ablated. Slice-backed contexts preserve generic brands;

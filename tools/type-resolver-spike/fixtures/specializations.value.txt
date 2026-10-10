@@ -1,0 +1,10 @@
+(textBox = (value = "héllo"),
+ dataBox = (value = 0x"0001ff"),
+ nestedBox = (value = (value = "nested")),
+ listBox = (value = [1, 65535, 42]),
+ boxes = [(value = "first"), (value = "second")],
+ head = (value = "head", next = (value = "tail"),
+         children = [(value = "child0"),
+                     (value = "child1", next = (value = "grandchild"))]),
+ lexical = (outer = "outer", inner = 0x"0908"),
+ otherLexical = (outer = 0x"0706", inner = "inner"))

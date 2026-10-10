@@ -10,5 +10,5 @@
             .hash = "capnpc_zig-0.23.0-nUduFUsRTgCn5wyHqoKC0ZXgBemZlU7y6bWBmH3RpW9U",
         },
     },
-    .paths = .{ "build.zig", "build.zig.zon", "src", "fixtures", "README.md" },
+    .paths = .{ "build.zig", "build.zig.zon", "src", "fixtures", "swift", "README.md" },
 }

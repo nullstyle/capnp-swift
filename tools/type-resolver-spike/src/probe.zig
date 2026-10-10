@@ -211,3 +211,27 @@ test "lookup-only mode loses the outer scope of an anonymous nested RPC payload"
     // A plain node-ID lookup cannot recover the method owner's lexical parent.
     try std.testing.expectError(error.InvalidSchema, methodStruct(&indexed_inner, method.param_struct_type, method.param_brand));
 }
+
+test "concrete generation rejects an erased parameter" {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "specializations");
+    defer f.deinit();
+    try std.testing.expectError(error.UnboundType, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":UnboundRoot")).id, .{}));
+}
+
+test "concrete generation refuses an unsupported pointer shape" {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "specializations");
+    defer f.deinit();
+    try std.testing.expectError(error.UnsupportedType, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":UnsupportedRoot")).id, .{}));
+}
+
+test "concrete generation refuses a nonempty schema default" {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "specializations");
+    defer f.deinit();
+    try std.testing.expectError(error.UnsupportedDefault, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":DefaultRoot")).id, .{}));
+}
+
+test "expanding applications stop at the consumer budget" {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "specializations");
+    defer f.deinit();
+    try std.testing.expectError(error.ApplicationLimit, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":ExpandingRoot")).id, .{ .max_applications = 8 }));
+}

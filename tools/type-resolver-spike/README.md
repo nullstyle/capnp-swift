@@ -38,6 +38,62 @@ fix should change the callback expectation to Text, while preserving the
 slice result. [H12](../../docs/handoffs/H12-type-resolver-lexical-lookup.md)
 contains the reproduction and the proposed public contract.
 
+## Concrete Swift specialization prototype
+
+```sh
+just type-resolver-specializations
+```
+
+This runs the 12-case Zig suite, builds the separate specialization
+executable, checks its committed Swift output for drift, and compiles it
+with the current pure Swift `Capnp` sources in a fresh temporary directory.
+Five Swift cases cover distinct/nested Box applications, integer and
+struct lists, recursive Link applications, both lexical bindings, and
+null/missing field defaults. A negative Swift typecheck proves Box(Text)
+rejects Data. If `capnp` is installed, the C++ encoder independently
+produces the same fixture values, the Swift reader checks them, and the
+C++ decoder compares the Swift builder's values against that fixture.
+C++ 1.5.0 was used in the recorded run. A missing C++ tool produces an
+explicit skip; the other checks still run.
+The core CI job runs this combined gate on every push and pull request.
+
+The planner keys named applications by node ID **and effective bindings
+of every lexical parameter**. This separates Box(Text) from Box(Data),
+deduplicates Box(Text) reached through different paths, and terminates
+recursive Link(Text) traversal. It uses only public Context operations.
+Generated `AppN` names are local to the output; they are not a proposed
+public naming scheme. [The design note](../../docs/generic-specializations.md)
+defines the supported subset and remaining Swift interface decisions.
+
+The four new Zig cases reject erased parameters, unsupported AnyPointer,
+nonempty schema defaults, and expanding applications over the consumer's
+budget. Generation finishes before the executable writes any output.
+The default application budget is 256, with resolver depth and key-size
+bounds as additional limits.
+
+Regenerate the synthetic request with the same pinned compiler command
+as the lexical fixture below, replacing both `lexical_rpc` names with
+`specializations`. Its SHA-256 is
+`dcbe14551bbfeca369f1919e90ea32dddffde31ca81bd843f7658edadb6e881f`;
+regeneration was compared byte-identically. Then regenerate and execute
+the Swift gate with:
+
+```sh
+bash scripts/type-resolver-specializations.sh --update
+```
+
+The independent C++ input is `fixtures/specializations.value.txt`.
+`swift/GeneratedSpecializations.swift` is generated, never hand-edited.
+
+All 11 new checks were ablated through `scripts/ablate.py`: four Zig error
+expectations, the five named Swift value checks, C++ decoded-value parity
+(change child1's Swift value), and the wrong-binding gate (substitute a
+valid Text setter call). Each produced its intended named failure, rather
+than an unrelated compile error. All three mutated files were restored
+byte-for-byte; the restored suite and Swift gate passed. Logs:
+`/tmp/capnp-swift-specialization-ablations.log` and
+`/tmp/capnp-swift-specialization-ablation-{1..11}.log`.
+
 ## Generator compatibility (2026-10-10)
 
 A scratch copy of the shipping generator source was built separately with

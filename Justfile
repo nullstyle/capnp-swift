@@ -91,6 +91,9 @@ gates: core-test xcframework
 type-resolver-spike:
     cd tools/type-resolver-spike && mise exec -- zig build test --summary all
 
+type-resolver-specializations: type-resolver-spike
+    bash scripts/type-resolver-specializations.sh
+
 # The pipeline runner: capnp.wasm under WasmKit + the native plugin.
 driver-build:
     swift build --product capnpc-driver

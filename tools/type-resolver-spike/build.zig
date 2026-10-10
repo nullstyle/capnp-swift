@@ -21,5 +21,15 @@ pub fn build(b: *std.Build) void {
     });
     const step = b.step("test", "Probe the public resolver against committed generic requests");
     step.dependOn(&b.addRunArtifact(tests).step);
+    const exe = b.addExecutable(.{
+        .name = "capnpc-swift-specialize",
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{.{ .name = "capnp", .module = dep.module("capnpc-zig-core") }},
+        }),
+    });
+    b.installArtifact(exe);
     b.default_step = step;
 }

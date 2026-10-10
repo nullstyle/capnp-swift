@@ -61,6 +61,7 @@ jobs:
           swift build --product capnpc-driver
           cd tools/capnpc-swift && mise exec -- zig build && cd ../..
           just generate-check
+          just type-resolver-specializations
 
   swift:
     runs-on: macos-26
