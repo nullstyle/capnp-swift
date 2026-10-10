@@ -60,6 +60,9 @@ All notable changes to capnp-swift are recorded here.
 
 ### Changed
 
+- Release 0.1.1 approved (2026-10-10): the package manifest selects the
+  approved release archive by URL and checksum. The tag will include this
+  manifest; publication and the fresh remote-consumer smoke follow.
 - CI repair (2026-10-10): the nightly QUIC job fetches the pinned
   capnp-zig tag before building its matrix peers. A fresh runner previously
   failed at `cd third_party/capnp-zig`, before the capability check could

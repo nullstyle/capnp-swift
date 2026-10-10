@@ -38,13 +38,14 @@ let package = Package(
         .package(url: "https://github.com/swiftwasm/WasmKit", from: "0.4.1"),
     ],
     targets: [
-        // The release artifact (0.1.0). Development convenience: to hack on
+        // The release artifact (0.1.1). Development convenience: to hack on
         // the core itself, temporarily swap this for
         //   .binaryTarget(name: "CapnpCore", path: "CapnpCore.xcframework")
         // after `cd core && mise exec -- zig build xcframework -Dios=true`.
         .binaryTarget(
             name: "CapnpCore",
-            path: "CapnpCore.xcframework"
+            url: "https://github.com/nullstyle/capnp-swift/releases/download/0.1.1/CapnpCore.xcframework.zip",
+            checksum: "750f53096f825ba211607b27adcbdd6216e487b1f6c03b0b11135427af975340"
         ),
         .target(
             name: "Capnp"
