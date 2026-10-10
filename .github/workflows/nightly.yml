@@ -182,6 +182,10 @@ jobs:
           command -v just >/dev/null 2>&1 || brew install just
           mise install
           mise exec -- zig version
+      - name: Fetch the pinned capnp-zig tag
+        run: |
+          git clone --quiet --depth=1 --branch "$CAPNP_ZIG_TAG" \
+            https://github.com/nullstyle/capnp-zig.git third_party/capnp-zig
       - name: QUIC lanes incl. the 90 s idle gate (M6)
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
