@@ -204,10 +204,9 @@ public final class TLSTransport: Transport, @unchecked Sendable {
     }
 
     public func open() async throws {
-        if ready { return }
-        if closed { throw TCPTransport.ConnectError.cancelled }
+        guard let queue else { throw TCPTransport.ConnectError.cancelled }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            queue?.async { [weak self] in
+            queue.async { [weak self] in
                 guard let self else { return continuation.resume(throwing: TCPTransport.ConnectError.cancelled) }
                 if self.ready { return continuation.resume() }
                 if self.closed { return continuation.resume(throwing: TCPTransport.ConnectError.cancelled) }

@@ -167,24 +167,27 @@ public final class RPCListener: Sendable {
 
     /// Stop accepting and close every connection.
     public func cancel() {
+        let (lockFD, live) = state.withLock { s -> (Int32, [RPCConnection]) in
+            // Mark shutdown before collecting connections: an acceptance
+            // still building its bootstrap must not register after this.
+            s.cancelled = true
+            let result = (s.lockFD, Array(s.connections.values))
+            s.lockFD = -1
+            s.connections.removeAll()
+            return result
+        }
         listener.cancel()
-        let lockFD = state.withLock { s in
-            defer { s.lockFD = -1 }
-            return s.lockFD
-        }
         if lockFD >= 0 { close(lockFD) }
-        let live = state.withLock { s -> [RPCConnection] in
-            defer { s.connections.removeAll() }
-            return Array(s.connections.values)
-        }
         for connection in live {
             Task { await connection.close() }
         }
     }
 
     private func accept(_ nwConnection: NWConnection) {
-        let over = state.withLock { s in serverOptions.maxConnections > 0 && s.connections.count >= serverOptions.maxConnections }
-        if over {
+        let refused = state.withLock { s in
+            s.cancelled || (serverOptions.maxConnections > 0 && s.connections.count >= serverOptions.maxConnections)
+        }
+        if refused {
             nwConnection.cancel()
             return
         }
@@ -197,7 +200,15 @@ public final class RPCListener: Sendable {
             nwConnection.cancel()
             return
         }
-        state.withLock { $0.connections[ObjectIdentifier(connection)] = connection }
+        let registered = state.withLock { s in
+            guard !s.cancelled else { return false }
+            s.connections[ObjectIdentifier(connection)] = connection
+            return true
+        }
+        guard registered else {
+            nwConnection.cancel()
+            return
+        }
         Task { [weak self] in
             do {
                 try await connection.start()

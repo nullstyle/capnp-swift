@@ -4,10 +4,69 @@
 import CapnpMVP
 import CapnpNW
 import CapnpRPC
+import Dispatch
+import Network
 import Testing
 
 @Suite("TCP")
 struct TCPTests {
+    @Test("closing before startup refuses the connection without starting Network.framework")
+    func closeBeforeStart() async throws {
+        let network = NWConnection(host: "127.0.0.1", port: 1, using: .tcp)
+        let connection = try RPCConnection(
+            transport: TCPTransport(connection: network))
+        await connection.close()
+        do {
+            try await withTimeout(.seconds(5)) { try await connection.start() }
+            Issue.record("a connection closed before startup must refuse start")
+        } catch let error as RPCError {
+            guard case .disconnected = error else {
+                Issue.record("expected .disconnected, got \(error)")
+                return
+            }
+        }
+        _ = try await withTimeout(.seconds(5)) { await connection.waitClosed() }
+        guard case .setup = network.state else {
+            Issue.record("closing before startup must leave Network.framework unstarted")
+            return
+        }
+    }
+
+    @Test("listener cancellation refuses an acceptance still building its bootstrap")
+    func cancelDuringAccept() async throws {
+        let (entered, notification) = AsyncStream<Void>.makeStream()
+        let acceptGate = DispatchSemaphore(value: 0)
+        let listener = try RPCListener(port: 0, bootstrap: {
+            notification.yield(())
+            acceptGate.wait()
+            return Greeter.Export(SwiftGreeter())
+        })
+        defer {
+            acceptGate.signal()
+            notification.finish()
+            listener.cancel()
+        }
+        let port = try await listener.start()
+        let client = try await RPCConnection.connect(
+            transport: TCPTransport(host: "127.0.0.1", port: port, connectTimeout: .seconds(5)))
+        defer { Task { await client.close() } }
+        try await withTimeout(.seconds(5)) {
+            var iterator = entered.makeAsyncIterator()
+            guard await iterator.next() != nil else { throw TestTimeout() }
+        }
+
+        // accept() has passed its first state check, but has not registered
+        // the RPCConnection yet. Shutdown must refuse its later registration.
+        listener.cancel()
+        acceptGate.signal()
+        let cause = try await withTimeout(.seconds(5)) { await client.waitClosed() }
+        guard case .disconnected = cause else {
+            Issue.record("expected .disconnected after listener cancellation, got \(cause)")
+            return
+        }
+        #expect(listener.connectionCount == 0)
+    }
+
     @Test("RPCListener serves a client over loopback TCP, both directions, and closes its connections")
     func listenerRoundTrip() async throws {
         let listener = try RPCListener(port: 0, bootstrap: { Greeter.Export(SwiftGreeter()) })

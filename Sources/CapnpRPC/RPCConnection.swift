@@ -170,6 +170,9 @@ public actor RPCConnection: TransportDelegate {
     /// and wait until bytes can flow. A connect failure throws
     /// `.disconnected`.
     public func start() async throws {
+        // A listener can close an accepted connection before its startup
+        // task reaches this actor. Never start a cancelled NWConnection.
+        if let closeReason { throw closeReason }
         precondition(!started, "RPCConnection.start called twice")
         started = true
         releases.attach(self)
@@ -360,7 +363,13 @@ public actor RPCConnection: TransportDelegate {
     public func close() {
         guard !transportIsClosed else { return }
         if closeReason == nil { closeReason = .disconnected(reason: "closed locally") }
-        transport.cancel()
+        if started {
+            transport.cancel()
+        } else {
+            // Transport callbacks are not attached yet. End the core here
+            // instead of cancelling an unstarted transport with no queue.
+            handleTransportClosed(nil)
+        }
     }
 
     /// Graceful shutdown (plan §5): no new calls; open questions may return

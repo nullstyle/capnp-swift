@@ -7,9 +7,9 @@ import Network
 /// `TCP_NODELAY` and keepalive on, raw `receive(minimumIncompleteLength: 1)`
 /// feeding `push_bytes`, sends in order, a connect timeout.
 ///
-/// Every method runs on the connection's queue (the `RPCConnection` actor
-/// calls them from its executor, and `NWConnection.start(queue:)` runs the
-/// callbacks there), so the state below needs no lock.
+/// Synchronous methods and Network callbacks run on the connection's
+/// queue. The async `open()` hops back to that queue before reading or
+/// changing state; a nonisolated async method can run on another executor.
 public final class TCPTransport: Transport, @unchecked Sendable {
     private let connection: NWConnection
     private let connectTimeout: Duration
@@ -65,10 +65,14 @@ public final class TCPTransport: Transport, @unchecked Sendable {
     }
 
     public func open() async throws {
-        if ready { return }
-        if closed { throw ConnectError.cancelled }
+        guard let queue else { throw ConnectError.cancelled }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            opening = continuation
+            queue.async { [weak self] in
+                guard let self else { return continuation.resume(throwing: ConnectError.cancelled) }
+                if self.ready { return continuation.resume() }
+                if self.closed { return continuation.resume(throwing: ConnectError.cancelled) }
+                self.opening = continuation
+            }
         }
     }
 

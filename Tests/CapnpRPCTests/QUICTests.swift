@@ -22,9 +22,9 @@ struct QUICTests {
         return (try TLSIdentity(certificateDER: cert, keyDER: key), cert)
     }
 
-    @Test("a QUIC listener serves a QUIC client over the baseline wire")
+    @Test("parallel QUIC connections complete and close over the baseline wire", arguments: 0..<16)
     @available(macOS 26.0, iOS 26.0, *)
-    func roundTrip() async throws {
+    func roundTrip(_ iteration: Int) async throws {
         let (identity, cert) = try Self.fixtures()
         let listener = QUICListener(port: 0, identity: identity, bootstrap: { Greeter.Export(SwiftGreeter()) })
         let port = try await withTimeout(.seconds(10)) { try await listener.start() }
@@ -36,9 +36,16 @@ struct QUICTests {
             transport: QUICTransport(host: "127.0.0.1", port: port, trust: .testOnlyTrustThisCertificate(cert), connectTimeout: .seconds(10)),
             options: clientOptions)
         let greeter = Greeter.Client(cap: try await client.bootstrap(), connection: client)
-        _ = try await withTimeout(.seconds(10)) { try await greeter.greet(name: "QUIC", listener: NoopListener()) }
+        let name = "QUIC-\(iteration)"
+        let reply = try await withTimeout(.seconds(10)) { try await greeter.greet(name: name, listener: NoopListener()) }
+        #expect(reply == "Hello, \(name)!")
         await client.close()
+        _ = await client.waitClosed()
         listener.cancel()
+        // Keep the test process alive for pending SDK teardown callbacks.
+        // Returning immediately masked a Network.framework trap that the
+        // longer full suite exposed under ASan and on the iOS runner.
+        try await Task.sleep(for: .seconds(1))
     }
 
     @Test("the core reads the frozen ALPN and the framing option maps")

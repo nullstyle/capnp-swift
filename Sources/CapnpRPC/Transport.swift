@@ -10,9 +10,10 @@ public protocol TransportDelegate: AnyObject, Sendable {
 }
 
 /// A byte stream the connection owns (plan §2: Swift owns every socket; the
-/// core never sees one). The connection calls every method on its own
-/// `DispatchSerialQueue`, and the transport runs every delegate callback on
-/// that queue, so implementations need no locking of their own.
+/// core never sees one). The connection calls synchronous methods on its
+/// own `DispatchSerialQueue`, and the transport runs every delegate callback
+/// on that queue. The nonisolated async `open()` must hop to the queue before
+/// touching state shared with those callbacks.
 public protocol Transport: AnyObject, Sendable {
     /// Attach and begin: connect, then read. Called once, first.
     func start(queue: DispatchSerialQueue, delegate: any TransportDelegate)

@@ -110,20 +110,22 @@ public final class QUICTransport: Transport, @unchecked Sendable {
         self.connection = connection
         scheduleTimeout()
         connection.onStateUpdate { [weak self] _, state in
+            // Unlike NWConnection's callbacks, the modern API does not
+            // inherit start()'s Dispatch queue.
+            queue.async { [weak self] in
                 guard let self else { return }
-            switch state {
-            case .ready:
-                self.cancelTimeout()
-                guard !self.ready, !self.closed else { return }
-                self.ready = true
-            case .failed(let error):
-                self.cancelTimeout()
-                self.fail(TCPTransport.ConnectError.failed("\(error)"))
-            case .cancelled:
-                self.cancelTimeout()
-                self.fail(TCPTransport.ConnectError.cancelled)
-            default:
-                break
+                switch state {
+                case .ready:
+                    guard !self.ready, !self.closed else { return }
+                    self.ready = true
+                    self.finishOpeningIfReady()
+                case .failed(let error):
+                    self.fail(TCPTransport.ConnectError.failed("\(error)"))
+                case .cancelled:
+                    self.fail(TCPTransport.ConnectError.cancelled)
+                default:
+                    break
+                }
             }
         }
         // All channel setup funnels through the transport's queue, keeping
@@ -133,9 +135,9 @@ public final class QUICTransport: Transport, @unchecked Sendable {
             guard let self else { return }
             do {
                 let stream = try await connection.openStream()
-                self.queue?.async { [weak self] in self?.streamReady(stream) }
+                queue.async { [weak self] in self?.streamReady(stream) }
             } catch {
-                self.queue?.async { [weak self] in
+                queue.async { [weak self] in
                     self?.fail(TCPTransport.ConnectError.failed("\(error)"))
                 }
             }
@@ -143,8 +145,14 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     }
 
     private func streamReady(_ stream: QUIC.Stream<QUICStream>) {
-        guard ready, !closed else { return }
+        guard !closed else { return }
         self.stream = stream
+        finishOpeningIfReady()
+    }
+
+    private func finishOpeningIfReady() {
+        guard ready, !closed, stream != nil else { return }
+        cancelTimeout()
         if let opening {
             self.opening = nil
             opening.resume()
@@ -153,10 +161,9 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     }
 
     public func open() async throws {
-        if ready, stream != nil { return }
-        if closed { throw TCPTransport.ConnectError.cancelled }
+        guard let queue else { throw TCPTransport.ConnectError.cancelled }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            queue?.async { [weak self] in
+            queue.async { [weak self] in
                 guard let self else { return continuation.resume(throwing: TCPTransport.ConnectError.cancelled) }
                 if self.ready, self.stream != nil { return continuation.resume() }
                 if self.closed { return continuation.resume(throwing: TCPTransport.ConnectError.cancelled) }
@@ -167,7 +174,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
 
     private func scheduleTimeout() {
         let work = DispatchWorkItem { [weak self] in
-            guard let self, !(ready || closed) else { return }
+            guard let self, !closed, !ready || stream == nil else { return }
             self.fail(TCPTransport.ConnectError.timedOut(self.connectTimeout))
         }
         timeoutWork = work
@@ -309,6 +316,12 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     /// define, write a stray frame, and report how the peer refused it.
     /// Diagnostic only — never touches the RPC stream.
     public func probeSecondaryStream() async -> SecondaryStreamProbe {
+        guard let queue else {
+            return SecondaryStreamProbe(openThrew: true, sendThrew: false, receiveError: "no connection", applicationErrorCode: nil)
+        }
+        let connection = await withCheckedContinuation { continuation in
+            queue.async { [weak self] in continuation.resume(returning: self?.connection) }
+        }
         guard let connection else {
             return SecondaryStreamProbe(openThrew: true, sendThrew: false, receiveError: "no connection", applicationErrorCode: nil)
         }
@@ -545,7 +558,6 @@ public final class QUICListener: @unchecked Sendable {
                 self.readyContinuation = nil
                 self.state.unlock()
                 waiter?.resume(returning: port)
-                self.serve()
             case .failed(let error):
                 self.state.lock()
                 let waiter = self.readyContinuation
@@ -559,11 +571,13 @@ public final class QUICListener: @unchecked Sendable {
         // The modern listener has no start(): `run` both starts serving
         // and pumps accepts. Serve from a task; .ready (with the bound
         // port) arrives through onStateUpdate once run warms up.
-        serve()
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<UInt16, any Error>) in
             state.lock()
             readyContinuation = continuation
             state.unlock()
+            // Register the waiter before starting the one accept pump:
+            // a fast .ready callback must not arrive ahead of its waiter.
+            serve()
         }
     }
 
@@ -576,18 +590,23 @@ public final class QUICListener: @unchecked Sendable {
 
     private func serve() {
         Task { [weak self] in
-            guard let self else { return }
-            while !self.cancelled {
-                do {
-                    try await self.listener.run { [weak self] connection in
-                        guard let self else { return }
-                        await self.accept(connection)
-                    }
-                } catch {
-                    return
+            guard let self, self.shouldServe() else { return }
+            // run() pumps all accepts and must only run once per listener.
+            do {
+                try await self.listener.run { [weak self] connection in
+                    guard let self, self.shouldServe() else { return }
+                    await self.accept(connection)
                 }
+            } catch {
+                return
             }
         }
+    }
+
+    private func shouldServe() -> Bool {
+        state.lock()
+        defer { state.unlock() }
+        return !cancelled
     }
 
     private func accept(_ connection: NetworkConnection<QUIC>) async {
