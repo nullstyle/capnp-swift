@@ -9,6 +9,11 @@ on:
   schedule:
     - cron: "30 6 * * *" # 06:30 UTC daily
   workflow_dispatch:
+    inputs:
+      ios_only:
+        description: Run only the simulator lane while diagnosing a failure
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -18,6 +23,7 @@ env:
 
 jobs:
   fuzz:
+    if: ${{ !inputs.ios_only }}
     runs-on: macos-26
     timeout-minutes: 60
     steps:
@@ -47,6 +53,7 @@ jobs:
           mise exec -- zig build fuzz-abi -- --seconds 1800
 
   matrix:
+    if: ${{ !inputs.ios_only }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:
@@ -104,6 +111,7 @@ jobs:
           scripts/e2e-pair.sh --transport=unix "$BIN/e2e-swift-server" "$BIN/e2e-swift-client"
 
   cpp:
+    if: ${{ !inputs.ios_only }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:
@@ -162,6 +170,7 @@ jobs:
           scripts/e2e-pair.sh "$CPP/e2e_server" "$BIN/e2e-swift-client" game_world chat inventory matchmaking
 
   quic:
+    if: ${{ !inputs.ios_only }}
     runs-on: macos-26
     timeout-minutes: 45
     steps:
@@ -226,6 +235,29 @@ jobs:
           scripts/use-local-core.sh
           UDID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; devs=[d for r in json.load(sys.stdin)["devices"].values() for d in r]; print(next(d["udid"] for d in devs if d["isAvailable"]))')"
           echo "simulator $UDID"
-          set -o pipefail
-          xcodebuild test -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" 2>&1 | tail -200
+          # The 64 x 10k loopback workload is a separate process so it
+          # cannot starve simulator handshakes with 5-10 s deadlines.
+          # Both lanes retain their internal connection concurrency.
+          LOG_DIR="${RUNNER_TEMP:-/tmp}/capnp-swift-ios"
+          mkdir -p "$LOG_DIR"
+          xcodebuild -version
+          sysctl hw.logicalcpu hw.memsize
+          xcrun simctl list devices available
+          xcodebuild build-for-testing -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID"
+          xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
+            '-skip-testing:CapnpRPCTests/LoopbackTests/manyConnections()' 2>&1 | tee "$LOG_DIR/network.log"
+          xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
+            '-only-testing:CapnpRPCTests/LoopbackTests/manyConnections()' 2>&1 | tee "$LOG_DIR/stress.log"
+          # Xcode can exit 0 for an empty filter. Require the stress test
+          # to run once, and ensure the first process really excluded it.
+          python3 - "$LOG_DIR/network.log" "$LOG_DIR/stress.log" <<'PY'
+          import pathlib, re, sys
+          network, stress = [pathlib.Path(p).read_text() for p in sys.argv[1:]]
+          name = '64 connections x 10k calls, each with a callback (the TSan gate)'
+          if f'Test "{name}" started' in network:
+              raise SystemExit('loopback stress unexpectedly ran with simulator networking')
+          if not re.search(r'Test run with 1 tests? in .* passed', stress) or not re.search(r'Test "' + re.escape(name) + r'" passed', stress):
+              raise SystemExit('loopback stress filter must select and pass exactly one test')
+          print('simulator: networking and 64 x 10k stress both passed')
+          PY
 

@@ -55,7 +55,8 @@ prints in the release notes.
 
 ## 3. Package.swift: path → url + checksum
 
-Zip the framework, upload it to the release asset store, then:
+Zip the framework and compute its checksum. Prepare the target's final
+release-asset URL; uploading waits for owner approval in step 5.
 
 ```
 zip -r CapnpCore.xcframework.zip CapnpCore.xcframework
@@ -73,7 +74,9 @@ Flip the target (the line is marked in `Package.swift`):
 +        ),
 ```
 
-Commit that diff; it is part of the release commit.
+Commit that diff; it is part of the release commit. The tag must point to
+that commit: a tag with `path:` refers to a gitignored framework that a
+fresh consumer cannot resolve.
 
 ## 4. Sign
 
@@ -103,13 +106,17 @@ the release announced.
 
 ## Version bookkeeping
 
-A release bumps, together, in one commit:
+When the core version changes, update together in one commit:
 
-- `core/build.zig.zon` `.version`,
-- the expected string in `core/src/abi.zig` (the ABI test),
+- `core/build.zig.zon` `.version` (feeds `core/src/apple_root.zig`
+  through `build_info`; the native ABI reads that root's version string),
 - the expected string in `Tests/CapnpRPCTests/CapnpCoreInfoTests.swift`
   (`capnp_core_version()` reports `core <v> / capnp-zig <pin> / <hash>`),
 - `CHANGELOG.md`.
 
 Each release pins exactly one capnp-zig tag; the pin and its hash are
 visible in that same string.
+
+For 0.1.1, the package tag advances while the core version stays 0.1.0;
+the staged binary reports the new capnp-zig v0.23.0 pin. The former local
+`core/src/abi.zig` moved upstream in H7 and is not a release-edit target.
