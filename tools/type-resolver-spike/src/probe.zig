@@ -235,3 +235,28 @@ test "expanding applications stop at the consumer budget" {
     defer f.deinit();
     try std.testing.expectError(error.ApplicationLimit, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":ExpandingRoot")).id, .{ .max_applications = 8 }));
 }
+
+test "concrete RPC rejects conflicting inherited bindings to one wire ID" {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "rpc_specializations");
+    defer f.deinit();
+    try std.testing.expectError(error.ConflictingInheritedApplication, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":ConflictingRoot")).id, .{}));
+}
+
+test "concrete RPC rejects method-local generics without inference" {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "rpc_specializations");
+    defer f.deinit();
+    try std.testing.expectError(error.UnsupportedMethodGenerics, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":MethodRoot")).id, .{}));
+}
+
+test "concrete RPC detects inheritance cycles before application reuse" {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "rpc_specializations");
+    defer f.deinit();
+    // A frontend will reject this declaration. Mutate only the owned request
+    // graph to test malformed input without changing any upstream source.
+    const seed = @constCast(try f.node(":CycleSeed"));
+    const original = seed.interface_node.?;
+    defer seed.interface_node = original;
+    var parents = [_]schema.Id{seed.id};
+    seed.interface_node.?.superclasses = &parents;
+    try std.testing.expectError(error.InheritanceCycle, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":CycleRoot")).id, .{}));
+}

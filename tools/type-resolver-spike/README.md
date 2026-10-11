@@ -11,7 +11,7 @@ This separate test package pins capnp-zig v0.23.0, whose Experimental
 generator still pins v0.21.0; the RPC core's v0.23.0 pin is independent.
 The probe imports only `capnp.schema`, `capnp.request`, and the public
 `capnp.type_resolver` facade. It reads the repository's existing request
-fixtures plus the small lexical RPC fixture below. Keep the whole checkout
+fixtures plus the synthetic lexical, struct and RPC fixtures below. Keep the whole checkout
 available when running it.
 
 Every request outlives its contexts and resolved types. Fields carry
@@ -44,7 +44,7 @@ contains the reproduction and the proposed public contract.
 just type-resolver-specializations
 ```
 
-This runs the 12-case Zig suite, builds the separate specialization
+This runs the 15-case Zig suite, builds the separate specialization
 executable, checks its committed Swift output for drift, and compiles it
 with the current pure Swift `Capnp` sources in a fresh temporary directory.
 Five Swift cases cover distinct/nested Box applications, integer and
@@ -55,7 +55,8 @@ produces the same fixture values, the Swift reader checks them, and the
 C++ decoder compares the Swift builder's values against that fixture.
 C++ 1.5.0 was used in the recorded run. A missing C++ tool produces an
 explicit skip; the other checks still run.
-The core CI job runs this combined gate on every push and pull request.
+The core CI job runs `just type-resolver-rpc`, which includes this gate,
+on every push and pull request.
 
 The planner keys named applications by node ID **and effective bindings
 of every lexical parameter**. This separates Box(Text) from Box(Data),
@@ -93,6 +94,73 @@ than an unrelated compile error. All three mutated files were restored
 byte-for-byte; the restored suite and Swift gate passed. Logs:
 `/tmp/capnp-swift-specialization-ablations.log` and
 `/tmp/capnp-swift-specialization-ablation-{1..11}.log`.
+
+## Concrete generic RPC and inheritance prototype
+
+```sh
+just type-resolver-rpc
+```
+
+The recipe depends on the serialization gate, then generates the RPC fixture
+and compares the committed output. A fresh temporary directory compiles the
+current `Capnp` and `CapnpRPC` sources and links the existing macOS core archive.
+Run `just xcframework` first if that archive is missing; do not rebuild it
+concurrently with Swift compilation. No package manifest or release artifact
+is changed by the gate. The Swift 6 harness uses real LoopbackTransport pairs,
+five-second call deadlines, and an independent 45-second process watchdog.
+
+Twelve runtime checks cover a branded diamond with one Base(Text)
+implementation, separate Base(Text)/Base(Data) payload applications, same-name
+ancestor methods, named Box(Text) payloads, Outer(Text).Inner lexical lookup,
+callbacks, returned capability lifetime, shared nested capability indexes,
+struct-list capability entries, foreign connection rejection, and unknown
+interface/method rejection. Two negative Swift typechecks reject Data in an
+inherited Text payload and a server missing its inherited echo method.
+Three Zig checks reject conflicting brands for one inherited wire ID,
+method-local generics, and an inheritance cycle in an owned request graph.
+The complete Zig suite passes 15/15.
+
+The graph keys anonymous method payloads with their logical owner's effective
+bindings, obtained through the public resolver. Equal ancestors deduplicate
+by application; conflicting applications of one wire ID in a single export
+are rejected because calls carry no brand discriminator. Separate exports
+may use different applications. Typed parent views are `super0`, `super1`, etc.;
+field aliases are `<Field>Capability`. These names, like AppN, are experimental.
+Nested builders and readers share the payload capability table. Method-local
+generics, streaming, local returned-export views, and typed result pipelines
+remain outside this prototype; see the design note for its adoption boundary.
+
+Regenerate `fixtures/rpc_specializations.request.bin` with the pinned WasmKit
+command in the provenance section below, replacing `lexical_rpc` with
+`rpc_specializations`. Then run:
+
+```sh
+bash scripts/type-resolver-rpc.sh --update
+```
+
+The request is synthetic and generated with the same compiler SHA-256 recorded
+below; regeneration compares byte-identically. Request SHA-256:
+`dbc99b17e64f9047c84f3ec5f0eae26c959262ac6bfdf2953636281baa29f0f9`.
+`swift/GeneratedRPCSpecializations.swift` is generated, never hand-edited.
+
+All 17 new checks were individually ablated through `scripts/ablate.py`, with
+an intended named failure required for every run: three Zig error expectations,
+twelve runtime checks, and two negative typechecks changed into valid programs.
+Every mutated source was restored byte-for-byte; the restored combined gate
+passes. Logs: `/tmp/capnp-swift-rpc-ablations.log`,
+`/tmp/capnp-swift-rpc-ablation-{1..16}.log`,
+`/tmp/capnp-swift-rpc-ablation-17.log` (struct-list capability check), and
+`/tmp/capnp-swift-rpc-final-gate.log`.
+
+The struct-list case also uncovered an existing serialization bug: the Swift
+builder included the tag in the list pointer's declared word count. The native
+clone rejected the list at the segment boundary. The runtime now emits the
+spec's count excluding the tag; a shipping unit regression compares exact
+independent C++ 1.5.0 bytes. Its assertion was ablated separately. Reintroducing
+the old builder formula reproduces the native refusal in the RPC gate, with
+source restoration verified. Logs:
+`/tmp/capnp-swift-list-count-unit-ablation.log` and
+`/tmp/capnp-swift-rpc-list-count-regression-ablation.log`.
 
 ## Generator compatibility (2026-10-10)
 

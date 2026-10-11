@@ -15,6 +15,17 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- Concrete generic RPC and inheritance prototype (2026-10-10):
+  `just type-resolver-rpc` generates typed clients, server protocols and
+  exports with branded ancestor views. Anonymous payload identity includes
+  owner bindings; equal diamond ancestors deduplicate and conflicting
+  applications of one inherited wire ID are rejected. Callbacks, returned
+  capabilities and nested/struct-list capability tables pass real loopback
+  RPC checks. Twelve runtime checks, two negative Swift typechecks and three
+  Zig rejection cases pass; all 17 new gates were individually ablated.
+  Core CI runs the combined struct/RPC gate. Production pins and release
+  0.1.1 stay unchanged; method-local generics, streaming, local capability
+  views, typed pipelines and public application naming remain adoption work.
 - Concrete Swift specialization prototype (2026-10-10):
   `just type-resolver-specializations` resolves effective lexical bindings
   through the public facade and generates typed readers/builders for Text,
