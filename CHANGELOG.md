@@ -4,6 +4,15 @@ All notable changes to capnp-swift are recorded here.
 
 ## [Unreleased]
 
+### Fixed
+
+- Struct-list builders now exclude the tag from the inline-composite word
+  count, matching the Cap'n Proto encoding spec. The old count could make a
+  list at the segment boundary fail native RPC payload cloning with
+  `results refused (-8)`. A regression compares exact independent C++ bytes;
+  the generic RPC gate also returns callable capabilities in struct lists.
+  Both the regression expectation and the old implementation were ablated.
+
 ### Added
 
 - Concrete Swift specialization prototype (2026-10-10):

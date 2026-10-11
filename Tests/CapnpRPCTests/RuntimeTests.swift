@@ -59,6 +59,28 @@ struct CapnpRuntimeTests {
         }
     }
 
+    @Test("composite list word count excludes its tag at the segment boundary")
+    func compositeListWireCount() {
+        let mb = MessageBuilder()
+        let list = mb.initRoot(dataWords: 0, pointerWords: 1)
+            .initStructList(0, dataWords: 1, pointerWords: 0, count: 2)
+        list[0].setUInt64(at: 0, 7)
+        list[1].setUInt64(at: 0, 9)
+        // Independent C++ Cap'n Proto 1.5.0 output for:
+        // struct Root { entries @0 :List(Entry); }
+        // struct Entry { value @0 :UInt64; }
+        // (entries = [(value = 7), (value = 9)])
+        // The list pointer declares two element words; its tag is separate.
+        let reference: [UInt64] = [
+            0x0000_0005_0000_0000, 0x0001_0000_0000_0000,
+            0x0000_0017_0000_0001, 0x0000_0001_0000_0008, 7, 9,
+        ]
+        let expected: [UInt8] = reference.flatMap { word in
+            (0..<8).map { UInt8(truncatingIfNeeded: word >> ($0 * 8)) }
+        }
+        #expect(mb.toBytes() == expected)
+    }
+
     @Test("fixed-size, bit, pointer and composite lists round-trip through the builder")
     func listRoundTrip() throws {
         let mb = MessageBuilder()

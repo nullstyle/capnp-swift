@@ -10,7 +10,7 @@
 //   composite: the list pointer's offset names a tag word (a struct pointer
 //   whose OFFSET field holds the element count, its sizes the element's
 //   data/pointer words); the list count field holds the total content words
-//   including the tag; elements start after the tag, stride = data + pointer
+//   excluding the tag; elements start after the tag, stride = data + pointer
 //   words (capnp-zig message.zig resolveInlineCompositeList).
 
 extension Message {
@@ -238,9 +238,8 @@ public struct StructListReader: Sendable {
         let dataWords = tag.structDataWords
         let pointerWords = tag.structPointerWords
         let strideBytes = (dataWords + pointerWords) * 8
-        // The list count field holds the total content words including the
-        // tag; writers may round up (capnp-zig Layout B allows slack), so the
-        // element extent — not the word count — is the bounds check.
+        // The declared word count excludes the tag and may include padding.
+        // This reader bounds-checks the actual element extent.
         _ = list.pointer.listElementCount
         self.message = message
         self.segment = list.segment
@@ -420,7 +419,7 @@ extension MessageBuilder {
     }
 
     /// Allocate an inline-composite struct list at `pointerWord`. The list
-    /// pointer's count field holds the total content words including the tag.
+    /// pointer's count field holds the element words, excluding the tag.
     /// A zero-element list is a NULL pointer: the canonical empty (a bare
     /// tag with count 0 is ambiguous — capnp-zig's walk reads it as a struct
     /// pointer and refuses the payload).
@@ -436,7 +435,7 @@ extension MessageBuilder {
         let tag = UInt64(UInt32(bitPattern: Int32(count) << 2)) | UInt64(dataWords) << 32 | UInt64(pointerWords) << 48
         writeWord(tagWordIndex, tag)
         let offset = Int32(tagWordIndex - (pointerWord + 1))
-        let word = UInt64(UInt32(bitPattern: offset << 2)) | 1 | UInt64(ElementSize.composite.rawValue) << 32 | UInt64(1 + stride * count) << 35
+        let word = UInt64(UInt32(bitPattern: offset << 2)) | 1 | UInt64(ElementSize.composite.rawValue) << 32 | UInt64(stride * count) << 35
         writeWord(pointerWord, word)
         return StructListBuilder(message: self, firstElementWord: tagWordIndex + 1, count: count, dataWords: Int(dataWords), pointerWords: Int(pointerWords))
     }
