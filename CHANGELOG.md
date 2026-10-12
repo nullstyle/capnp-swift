@@ -15,6 +15,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Pointer copying now counts inline-composite lists by pointer edges, matching
+  reader depth limits. Valid deeply nested lists and retained scalar elements
+  at the depth boundary copy successfully; non-null children beyond the budget
+  still fail. Both old implementations and boundary assertions were ablated.
 - The outbound backpressure test now waits for observable transport and actor
   state. Its old 30 ms sleep could fail before bootstrap started, and its
   byte threshold never filled the window. Immediate and delayed bootstrap

@@ -387,7 +387,9 @@ private struct PointerCopy {
     }
 
     mutating func structure(_ raw: StructReader, destination: PointerBuilder, depth: Int) throws {
-        guard depth > 0 else { throw CapnpError.malformed("pointer nesting too deep") }
+        // An already-resolved inline struct needs no further pointer step to
+        // copy its scalar bytes. Its child pointer chases remain depth-checked.
+        guard depth >= 0 else { throw CapnpError.malformed("pointer nesting too deep") }
         let dw = raw.dataBytes / 8, pw = raw.pointerCount
         let data = try bytes(segment: raw.segment, start: raw.dataStart, count: raw.dataBytes)
         _ = try bytes(segment: raw.segment, start: raw.pointerStart, count: pw * 8)
@@ -443,7 +445,9 @@ private struct PointerCopy {
                     let raw = StructReader(message: source, segment: resolved.segment, dataStart: sourceStart,
                                            dataBytes: dw * 8, pointerStart: sourceStart + dw * 8,
                                            pointerCount: pw, depth: depth - 1)
-                    try structure(raw, destination: destination.element(list[e]), depth: depth - 1)
+                    // Inline elements have no pointer edge of their own.
+                    // Their child pointers spend the list's depth step below.
+                    try structure(raw, destination: destination.element(list[e]), depth: depth)
                 }
             } else if size == ElementSize.pointer.rawValue {
                 _ = try bytes(segment: resolved.segment, start: start, count: count * 8)

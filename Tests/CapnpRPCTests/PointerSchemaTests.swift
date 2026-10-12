@@ -174,6 +174,100 @@ struct PointerSchemaTests {
         #expect(okay, "pointer copying rejects cycles at the configured depth")
     }
 
+    @Test("pointer composite-list copying matches reader depth boundaries")
+    func compositeDepthBoundary() throws {
+        func nested(_ count: Int) throws -> PointerReader {
+            let root = PointerBuilder()
+            _ = root.initializeStruct(dataWords: 0, pointerWords: 1)
+            var field = try root.field(0)
+            for _ in 0..<count {
+                let element = try field.initializeStructList(1, dataWords: 0, pointerWords: 1)[0]
+                field = try element.field(0)
+            }
+            try field.setText("leaf")
+            return try root.freeze()
+        }
+
+        func leaf(_ value: PointerReader, lists: Int) throws -> String {
+            var field = try value.field(0)
+            for _ in 0..<lists {
+                guard let element = try field.readStructList().first else {
+                    throw CapnpError.malformed("missing nested list element")
+                }
+                field = try element.field(0)
+            }
+            return try field.readText()
+        }
+
+        func legacyLeaf(_ value: PointerReader, lists: Int) throws -> String {
+            var raw = try value.readStruct()
+            for _ in 0..<lists {
+                guard let list = try raw.readStructList(0), let element = list.indices.first else {
+                    throw CapnpError.malformed("missing nested list element")
+                }
+                raw = list[element]
+            }
+            return try raw.readText(0)
+        }
+
+        func copiedLeaf(_ value: PointerReader, lists: Int, depth: Int = 64) -> Bool {
+            do {
+                let destination = PointerBuilder()
+                try value.copy(to: destination, limits: .init(depth: depth))
+                return try leaf(destination.freeze(), lists: lists) == "leaf"
+            } catch { return false }
+        }
+
+        // One root struct, 62 list pointers and the Text pointer use all 64
+        // pointer steps. An inline list element does not spend another step.
+        let accepted = try nested(62), rejected = try nested(63), small = try nested(4)
+        let okay = try leaf(accepted, lists: 62) == "leaf"
+          && legacyLeaf(accepted, lists: 62) == "leaf"
+          && copiedLeaf(accepted, lists: 62)
+          && rejects { _ = try leaf(rejected, lists: 63) }
+          && rejects { _ = try legacyLeaf(rejected, lists: 63) }
+          && rejects { try rejected.copy(to: PointerBuilder()) }
+          && copiedLeaf(small, lists: 4, depth: 6)
+          && rejects { try small.copy(to: PointerBuilder(), limits: .init(depth: 5)) }
+        #expect(okay, "pointer composite-list copying matches reader depth boundaries")
+    }
+
+    @Test("retained terminal inline scalar values copy at zero remaining depth")
+    func retainedInlineScalarDepth() throws {
+        func retainedLeaf(pointerWords: UInt16) throws -> PointerReader {
+            let root = PointerBuilder()
+            _ = root.initializeStruct(dataWords: 0, pointerWords: 1)
+            var field = try root.field(0)
+            for _ in 0..<62 {
+                field = try field.initializeStructList(1, dataWords: 0, pointerWords: 1)[0].field(0)
+            }
+            let terminal = try field.initializeStructList(1, dataWords: 1, pointerWords: pointerWords)[0]
+            terminal.initializeStruct(dataWords: 1, pointerWords: pointerWords).setUInt64(at: 0, 42)
+            if pointerWords != 0 { try terminal.field(0).setText("child") }
+            let whole = try root.freeze()
+            if pointerWords == 0 { try whole.copy(to: PointerBuilder()) }
+            var list = try whole.field(0)
+            for _ in 0..<62 { list = try list.readStructList()[0].field(0) }
+            return try list.readStructList()[0]
+        }
+
+        // Only this leaf retains its source storage after the helper returns.
+        // The root and 63 list pointers spent all 64 pointer steps already.
+        let scalar = try retainedLeaf(pointerWords: 0), child = try retainedLeaf(pointerWords: 1)
+        func copiedScalar() -> Bool {
+            do {
+                let destination = PointerBuilder()
+                try scalar.copy(to: destination)
+                return try destination.freeze().readStruct().readUInt64(at: 0) == 42
+            } catch { return false }
+        }
+        let okay = try scalar.readStruct().readUInt64(at: 0) == 42 && copiedScalar()
+          && rejects { try child.copy(to: PointerBuilder()) }
+          && rejects { _ = try child.field(0).readText() }
+          && rejects { try scalar.copy(to: PointerBuilder(), limits: .init(depth: 0)) }
+        #expect(okay, "retained terminal inline scalar values copy at zero remaining depth")
+    }
+
     @Test("pointer copying resolves independent far and double far fixtures")
     func farPointers() throws {
         let single: [UInt8] = [1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0]
