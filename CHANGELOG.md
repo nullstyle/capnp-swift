@@ -15,6 +15,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- The private method-generic probe copier now converts pointer-list allocation
+  offsets from bytes to words before walking the elements. A two-Text-element
+  regression proves copying and readback; both its expectation and the old
+  implementation produced the intended named ablation failure.
 - Struct-list builders now exclude the tag from the inline-composite word
   count, matching the Cap'n Proto encoding spec. The old count could make a
   list at the segment boundary fail native RPC payload cloning with

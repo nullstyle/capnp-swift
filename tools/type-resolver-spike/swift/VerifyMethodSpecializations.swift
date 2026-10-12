@@ -164,6 +164,23 @@ struct VerifyMethodSpecializations {
         let copied = try Message(bytes: capDestination.toBytes()).rootStruct().readStruct(0)
         try check(mapped == [7] && (try copied.readCapabilityIndex(0)) == 2 && copied.readUInt64(at: 0) == 42, "erased pointer copying remaps nested capabilities and preserves data")
 
+        // A pointer list stores two independent Text pointers. The allocator
+        // returns their byte location; copying addresses them as word indexes.
+        let listSource = MessageBuilder(), listDestination = MessageBuilder()
+        let texts = listSource.initRoot(dataWords: 0, pointerWords: 1).initTextList(0, count: 2)
+        texts.setTextElement(0, "first"); texts.setTextElement(1, "second")
+        let listTarget = listDestination.initRoot(dataWords: 0, pointerWords: 1)
+        var pointerListCopied = false
+        do {
+            try Message(bytes: listSource.toBytes()).rootStruct().probePointer(0).copy(into: listTarget, index: 0) { $0 }
+            if let output = try Message(bytes: listDestination.toBytes()).rootStruct().readPointerList(0) {
+                pointerListCopied = try output.count == 2 && output.textElement(0) == "first" && output.textElement(1) == "second"
+            }
+        } catch CapnpError.malformed(let reason) {
+            guard reason == "probe pointer destination out of its segment" else { throw CapnpError.malformed(reason) }
+        }
+        try check(pointerListCopied, "erased pointer copying preserves pointer-list element offsets")
+
         // Independent single-/double-far layout: root in segment 0, a
         // two-word pad in segment 1, Text content in segment 2.
         let words: [UInt64] = [

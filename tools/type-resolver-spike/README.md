@@ -195,19 +195,25 @@ open Swift generic declarations, streaming, typed pipelines and public naming
 remain adoption work. Explicit method cases support the same reachable concrete
 subset as the rest of this tool.
 
-The 14 named runtime checks cover an inherited generic method on one capability
+The 15 named runtime checks cover an inherited generic method on one capability
 for Text/Data, enclosing interface bindings and changed field positions, null
 values, integer/struct lists, nested Box arguments, named method brands, two
 reversed arguments, and values inside List(Box(T)). The compiler rejects bare
-List(T) as List(AnyPointer); the fixture uses the legal Box wrapper. Five checks
+List(T) as List(AnyPointer); the fixture uses the legal Box wrapper. Six checks
 exercise the private copier's budget, malformed extent, cyclic depth, nested
-capability remapping/data preservation, and double-far traversal. One negative
+capability remapping/data preservation, double-far traversal, and pointer-list
+element offsets. One negative
 Swift typecheck rejects Data for a Text method argument, and one CLI gate proves
 invalid profiles produce no partial source. Seven new Zig checks reject invalid
 profiles or distinguish a named payload's unrelated unbound declaration parameter.
 The complete Zig suite passes 22/22.
 
-All 23 new checks were ablated individually, each with its intended named failure,
+The added pointer-list check caught a byte/word offset bug in the private
+copier. Both its expectation and the old implementation were ablated with
+the named failure, then restored. Evidence:
+`/tmp/capnp-pointer-private-build/{final-checks,ablations}.log`.
+
+The original 23 new checks were ablated individually, each with its intended named failure,
 and every mutated source was restored byte-for-byte. The restored combined gate
 passes. Evidence: `/tmp/capnp-swift-methods-ablations.log`,
 `/tmp/capnp-swift-methods-ablation-{1..23}.log`,

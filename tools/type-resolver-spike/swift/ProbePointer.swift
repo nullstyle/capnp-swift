@@ -46,6 +46,9 @@ public struct ProbePointer: Sendable {
         }
 
         mutating func pointer(segment: Int, position: Int, target: Int, depth: Int) throws {
+            guard target >= 0, target < destination.segment.count / 8 else {
+                throw CapnpError.malformed("probe pointer destination out of its segment")
+            }
             try charge(1)
             guard let resolved = try source.resolve(segment: segment, pos: position, depth: depth) else {
                 destination.writeWord(target, 0)
@@ -89,7 +92,9 @@ public struct ProbePointer: Sendable {
                 } else if size == ElementSize.pointer.rawValue {
                     _ = try bytes(segment: resolved.segment, start: start, count: count * 8)
                     try charge(count)
-                    let first = destination.allocatePointerList(pointerWord: target, count: count)
+                    // The allocator returns a byte offset; recursive copies
+                    // target pointer-word indexes.
+                    let first = destination.allocatePointerList(pointerWord: target, count: count) / 8
                     for i in 0..<count {
                         try pointer(segment: resolved.segment, position: start + i * 8, target: first + i, depth: depth - 1)
                     }
