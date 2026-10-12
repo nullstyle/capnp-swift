@@ -1,0 +1,106 @@
+[
+  {
+    "interface": ":Parent",
+    "method": "echo",
+    "cases": [
+      {
+        "name": "Text",
+        "arguments": [
+          "text"
+        ]
+      },
+      {
+        "name": "Data",
+        "arguments": [
+          "data"
+        ]
+      },
+      {
+        "name": "Numbers",
+        "arguments": [
+          "numbers"
+        ]
+      },
+      {
+        "name": "Box",
+        "arguments": [
+          "boxed"
+        ]
+      },
+      {
+        "name": "Boxes",
+        "arguments": [
+          "boxes"
+        ]
+      }
+    ]
+  },
+  {
+    "interface": ":Named",
+    "method": "echo",
+    "cases": [
+      {
+        "name": "Text",
+        "arguments": [
+          "text"
+        ]
+      },
+      {
+        "name": "Data",
+        "arguments": [
+          "data"
+        ]
+      },
+      {
+        "name": "Nested",
+        "arguments": [
+          "boxed"
+        ]
+      }
+    ]
+  },
+  {
+    "interface": ":Swap",
+    "method": "swap",
+    "cases": [
+      {
+        "name": "TextData",
+        "arguments": [
+          "text",
+          "data"
+        ]
+      },
+      {
+        "name": "DataText",
+        "arguments": [
+          "data",
+          "text"
+        ]
+      }
+    ]
+  },
+  {
+    "interface": ":Batch",
+    "method": "gather",
+    "cases": [
+      {
+        "name": "Text",
+        "arguments": [
+          "text"
+        ]
+      },
+      {
+        "name": "Data",
+        "arguments": [
+          "data"
+        ]
+      },
+      {
+        "name": "Box",
+        "arguments": [
+          "boxed"
+        ]
+      }
+    ]
+  }
+]

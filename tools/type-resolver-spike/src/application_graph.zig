@@ -3,11 +3,13 @@ const std = @import("std");
 const capnp = @import("capnp");
 const schema = capnp.schema;
 const resolver = capnp.type_resolver;
+const calls = @import("method_applications.zig");
 
 pub const Limits = struct { max_applications: usize = 256 };
-pub const Shape = union(enum) { text, data, structure: usize, integers: []const u8, structures: usize, capability: usize };
+pub const Shape = union(enum) { text, data, structure: usize, integers: []const u8, structures: usize, capability: usize, @"opaque" };
 pub const Field = struct { name: []const u8, offset: u32, shape: Shape };
-pub const Method = struct { name: []const u8, ordinal: u16, params: usize, results: usize };
+pub const MethodCase = struct { name: []const u8, params: usize, results: usize };
+pub const Method = struct { name: []const u8, ordinal: u16, params: usize, results: usize, cases: []const MethodCase = &.{} };
 pub const Application = struct {
     key: []const u8,
     node: *const schema.Node,
@@ -20,7 +22,14 @@ pub const Application = struct {
 /// All returned storage uses allocator; nodes remain borrowed. Caller uses an
 /// arena so partially built graphs and temporary keys share one cleanup point.
 pub fn build(allocator: std.mem.Allocator, nodes: []const schema.Node, root_id: schema.Id, limits: Limits) ![]const Application {
-    var graph = Graph{ .allocator = allocator, .nodes = nodes, .limits = limits };
+    return buildMethods(allocator, nodes, root_id, limits, null);
+}
+
+pub fn buildMethods(allocator: std.mem.Allocator, nodes: []const schema.Node, root_id: schema.Id, limits: Limits, json: ?[]const u8) ![]const Application {
+    const profiles = if (json) |bytes| try calls.parse(allocator, nodes, root_id, bytes) else &.{};
+    const seen = try allocator.alloc(bool, profiles.len);
+    @memset(seen, false);
+    var graph = Graph{ .allocator = allocator, .nodes = nodes, .limits = limits, .profiles = profiles, .seen = seen };
     const root = try graph.node(root_id);
     const context = try resolver.Context.init(nodes, root, .{});
     const expression = schema.TypeExpression{ .type = switch (root.kind) {
@@ -29,12 +38,13 @@ pub fn build(allocator: std.mem.Allocator, nodes: []const schema.Node, root_id: 
         else => return error.UnsupportedType,
     } };
     try context.validate(expression);
-    _ = try graph.register(&context, try context.resolve(expression), &.{});
+    _ = try graph.register(&context, try context.resolve(expression), &.{}, null);
     for (0..graph.applications.items.len) |index| {
         if (graph.applications.items[index].node.kind == .interface) {
             graph.applications.items[index].closure = try graph.interfaceClosure(index);
         }
     }
+    for (seen) |used| if (!used) return error.UnusedMethodApplication;
     return graph.applications.items;
 }
 
@@ -43,6 +53,8 @@ const Graph = struct {
     nodes: []const schema.Node,
     limits: Limits,
     applications: std.ArrayList(Application) = .empty,
+    profiles: []const calls.Profile,
+    seen: []bool,
 
     fn node(self: *const Graph, id: schema.Id) !*const schema.Node {
         for (self.nodes) |*n| if (n.id == id) return n;
@@ -62,7 +74,7 @@ const Graph = struct {
         return null;
     }
 
-    fn register(self: *Graph, parent: *const resolver.Context, value: resolver.Type, inheritance_path: []const schema.Id) anyerror!usize {
+    fn register(self: *Graph, parent: *const resolver.Context, value: resolver.Type, inheritance_path: []const schema.Id, environment: ?calls.Environment) anyerror!usize {
         const id = switch (value.expression.type) {
             .@"struct" => |s| s.type_id,
             .interface => |s| s.type_id,
@@ -71,7 +83,7 @@ const Graph = struct {
         if (inheritance_path.len >= resolver.max_depth) return error.InheritanceCycle;
         for (inheritance_path) |ancestor| if (ancestor == id) return error.InheritanceCycle;
         var key: std.Io.Writer.Allocating = .init(self.allocator);
-        try self.appendKey(&key.writer, parent, value, 0);
+        try self.appendKey(&key.writer, parent, value, 0, environment);
         for (self.applications.items, 0..) |existing, index| {
             if (std.mem.eql(u8, existing.key, key.written())) return index;
         }
@@ -88,19 +100,42 @@ const Graph = struct {
             for (iface.superclasses, 0..) |super_id, ordinal| {
                 const expression = schema.TypeExpression{ .type = .{ .interface = .{ .type_id = super_id } }, .metadata = .{ .named = if (ordinal < iface.superclass_brands.len) iface.superclass_brands[ordinal] else .{} } };
                 try context.validate(expression);
-                try parents.append(self.allocator, try self.register(&context, try context.resolve(expression), path[0 .. inheritance_path.len + 1]));
+                try parents.append(self.allocator, try self.register(&context, try context.resolve(expression), path[0 .. inheritance_path.len + 1], environment));
             }
             self.applications.items[index].parents = try parents.toOwnedSlice(self.allocator);
             var methods: std.ArrayList(Method) = .empty;
             for (iface.methods, 0..) |method, ordinal| {
                 try checkName(method.name);
-                if (method.implicit_parameters.len != 0) return error.UnsupportedMethodGenerics;
+                if (ordinal > std.math.maxInt(u16)) return error.InvalidSchema;
                 if (method.isStreaming()) return error.UnsupportedStreaming;
+                var method_environment = environment;
+                var variants: std.ArrayList(MethodCase) = .empty;
+                if (method.implicit_parameters.len != 0) {
+                    method_environment = try calls.Environment.init(self.nodes, n.id, @intCast(ordinal), method);
+                    var selected: ?calls.Profile = null;
+                    for (self.profiles, 0..) |profile, profile_index| {
+                        if (profile.interface_id == n.id and profile.ordinal == ordinal) {
+                            selected = profile;
+                            self.seen[profile_index] = true;
+                        }
+                    }
+                    const profile = selected orelse return error.UnsupportedMethodGenerics;
+                    for (profile.cases) |call_case| {
+                        const name = try std.fmt.allocPrint(self.allocator, "{s}As{s}", .{ method.name, call_case.name });
+                        for (iface.methods) |other| if (std.mem.eql(u8, other.name, name)) return error.InvalidMethodApplication;
+                        try variants.append(self.allocator, .{
+                            .name = name,
+                            .params = try self.methodPayload(&context, method.param_struct_type, try calls.payloadBrand(self.allocator, try self.node(method.param_struct_type), method.param_brand, call_case.arguments), null),
+                            .results = try self.methodPayload(&context, method.result_struct_type, try calls.payloadBrand(self.allocator, try self.node(method.result_struct_type), method.result_brand, call_case.arguments), null),
+                        });
+                    }
+                }
                 try methods.append(self.allocator, .{
                     .name = method.name,
                     .ordinal = @intCast(ordinal),
-                    .params = try self.methodPayload(&context, method.param_struct_type, method.param_brand),
-                    .results = try self.methodPayload(&context, method.result_struct_type, method.result_brand),
+                    .params = try self.methodPayload(&context, method.param_struct_type, method.param_brand, method_environment),
+                    .results = try self.methodPayload(&context, method.result_struct_type, method.result_brand, method_environment),
+                    .cases = try variants.toOwnedSlice(self.allocator),
                 });
             }
             self.applications.items[index].methods = try methods.toOwnedSlice(self.allocator);
@@ -121,16 +156,16 @@ const Graph = struct {
             const expression = schema.TypeExpression{ .type = slot.type, .metadata = slot.type_metadata };
             try context.validate(expression);
             const resolved = try context.resolve(expression);
-            try fields.append(self.allocator, .{ .name = definition.name, .offset = slot.offset, .shape = try self.shape(&context, resolved) });
+            try fields.append(self.allocator, .{ .name = definition.name, .offset = slot.offset, .shape = try self.shape(&context, resolved, environment) });
         }
         self.applications.items[index].fields = try fields.toOwnedSlice(self.allocator);
         return index;
     }
 
-    fn methodPayload(self: *Graph, context: *const resolver.Context, id: schema.Id, brand: schema.Brand) !usize {
+    fn methodPayload(self: *Graph, context: *const resolver.Context, id: schema.Id, brand: schema.Brand, environment: ?calls.Environment) !usize {
         const expression = schema.TypeExpression{ .type = .{ .@"struct" = .{ .type_id = id } }, .metadata = .{ .named = brand } };
         try context.validate(expression);
-        return self.register(context, try context.resolve(expression), &.{});
+        return self.register(context, try context.resolve(expression), &.{}, environment);
     }
 
     fn interfaceClosure(self: *const Graph, root: usize) ![]const usize {
@@ -153,31 +188,44 @@ const Graph = struct {
         return result.toOwnedSlice(self.allocator);
     }
 
-    fn shape(self: *Graph, context: *const resolver.Context, value: resolver.Type) anyerror!Shape {
-        if (value.unbound) return error.UnboundType;
+    fn shape(self: *Graph, context: *const resolver.Context, value: resolver.Type, environment: ?calls.Environment) anyerror!Shape {
+        if (value.unbound) {
+            if (environment) |env| if (try env.parameter(value) != null) return .@"opaque";
+            return error.UnboundType;
+        }
         return switch (value.expression.type) {
             .text => .text,
             .data => .data,
-            .@"struct" => .{ .structure = try self.register(context, value, &.{}) },
-            .interface => .{ .capability = try self.register(context, value, &.{}) },
+            .@"struct" => .{ .structure = try self.register(context, value, &.{}, environment) },
+            .interface => .{ .capability = try self.register(context, value, &.{}, environment) },
             .list => blk: {
                 const element = try context.listElement(value);
-                if (element.unbound) return error.UnboundType;
+                if (element.unbound) {
+                    if (environment) |env| if (try env.parameter(element) != null) return .@"opaque";
+                    return error.UnboundType;
+                }
                 if (integerName(element.expression.type)) |name| break :blk .{ .integers = name };
-                if (element.expression.type == .@"struct") break :blk .{ .structures = try self.register(context, element, &.{}) };
+                if (element.expression.type == .@"struct") break :blk .{ .structures = try self.register(context, element, &.{}, environment) };
                 return error.UnsupportedList;
             },
             else => error.UnsupportedType,
         };
     }
 
-    fn appendKey(self: *const Graph, w: *std.Io.Writer, context: *const resolver.Context, value: resolver.Type, depth: usize) anyerror!void {
+    fn appendKey(self: *const Graph, w: *std.Io.Writer, context: *const resolver.Context, value: resolver.Type, depth: usize, environment: ?calls.Environment) anyerror!void {
         if (depth >= resolver.max_depth) return error.TypeKeyLimit;
-        if (value.unbound) return error.UnboundType;
+        if (value.unbound) {
+            if (environment) |env| if (try env.parameter(value)) |parameter| {
+                try w.print("method:{x}:{d}:{d}", .{ env.interface_id, env.ordinal, parameter });
+                if (w.end > 16 * 1024) return error.TypeKeyLimit;
+                return;
+            };
+            return error.UnboundType;
+        }
         switch (value.expression.type) {
             .list => {
                 try w.writeAll("list(");
-                try self.appendKey(w, context, try context.listElement(value), depth + 1);
+                try self.appendKey(w, context, try context.listElement(value), depth + 1, environment);
                 try w.writeByte(')');
             },
             inline .@"struct", .interface => |named| {
@@ -190,7 +238,7 @@ const Graph = struct {
                     for (scope.parameters, 0..) |_, parameter_index| {
                         try w.print("{x}:{d}=", .{ scope.id, parameter_index });
                         const parameter = schema.TypeExpression{ .type = .any_pointer, .metadata = .{ .any_pointer = .{ .parameter = .{ .scope_id = scope.id, .parameter_index = @intCast(parameter_index) } } } };
-                        try self.appendKey(w, &entered, try entered.resolve(parameter), depth + 1);
+                        try self.appendKey(w, &entered, try entered.resolve(parameter), depth + 1, environment);
                         try w.writeByte(';');
                     }
                     scope = (try self.logicalParent(scope)) orelse break;

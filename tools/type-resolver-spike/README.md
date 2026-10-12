@@ -44,7 +44,7 @@ contains the reproduction and the proposed public contract.
 just type-resolver-specializations
 ```
 
-This runs the 15-case Zig suite, builds the separate specialization
+This runs the 22-case Zig suite, builds the separate specialization
 executable, checks its committed Swift output for drift, and compiles it
 with the current pure Swift `Capnp` sources in a fresh temporary directory.
 Five Swift cases cover distinct/nested Box applications, integer and
@@ -55,7 +55,7 @@ produces the same fixture values, the Swift reader checks them, and the
 C++ decoder compares the Swift builder's values against that fixture.
 C++ 1.5.0 was used in the recorded run. A missing C++ tool produces an
 explicit skip; the other checks still run.
-The core CI job runs `just type-resolver-rpc`, which includes this gate,
+The core CI job runs `just type-resolver-methods`, which includes this gate,
 on every push and pull request.
 
 The planner keys named applications by node ID **and effective bindings
@@ -161,6 +161,86 @@ the old builder formula reproduces the native refusal in the RPC gate, with
 source restoration verified. Logs:
 `/tmp/capnp-swift-list-count-unit-ablation.log` and
 `/tmp/capnp-swift-rpc-list-count-regression-ablation.log`.
+
+## Explicit method-local applications (2026-10-12)
+
+```sh
+just type-resolver-methods
+```
+
+This includes the original serialization and concrete RPC gates, then generates
+`swift/GeneratedMethodSpecializations.swift` with:
+
+```sh
+tools/type-resolver-spike/zig-out/bin/capnpc-swift-specialize \
+  tools/type-resolver-spike/fixtures/method_generics.request.bin :Root \
+  --methods tools/type-resolver-spike/fixtures/method_generics.profiles.json
+```
+
+Profiles select interface/method declarations and call-site arguments from root
+fields. The generator closes the root's effective argument brands using the
+public resolver, creates concrete payload brands, and keeps an erased server
+view for each method. Case names produce `echoAsText`, `echoAsData`, etc.; calls
+still use one standard wire ID and ordinal on the same capability. There is no
+wire discriminator or type inference. Without a profile, method generics retain
+the default rejection. The design note explains the two compiler representations
+and scope/arity validation. Graph/request metadata is borrowed and never edited.
+
+The Swift gate compiles `swift/ProbePointer.swift` only into a fresh temporary
+Capnp module, alongside the current runtime. This private experiment copies
+opaque pointer values across payload slots without guessing their type, with
+bounds/depth/budget checks and capability-index remapping. The package's shipped
+runtime has no added pointer-codec interface. Local exported-capability copying,
+open Swift generic declarations, streaming, typed pipelines and public naming
+remain adoption work. Explicit method cases support the same reachable concrete
+subset as the rest of this tool.
+
+The 14 named runtime checks cover an inherited generic method on one capability
+for Text/Data, enclosing interface bindings and changed field positions, null
+values, integer/struct lists, nested Box arguments, named method brands, two
+reversed arguments, and values inside List(Box(T)). The compiler rejects bare
+List(T) as List(AnyPointer); the fixture uses the legal Box wrapper. Five checks
+exercise the private copier's budget, malformed extent, cyclic depth, nested
+capability remapping/data preservation, and double-far traversal. One negative
+Swift typecheck rejects Data for a Text method argument, and one CLI gate proves
+invalid profiles produce no partial source. Seven new Zig checks reject invalid
+profiles or distinguish a named payload's unrelated unbound declaration parameter.
+The complete Zig suite passes 22/22.
+
+All 23 new checks were ablated individually, each with its intended named failure,
+and every mutated source was restored byte-for-byte. The restored combined gate
+passes. Evidence: `/tmp/capnp-swift-methods-ablations.log`,
+`/tmp/capnp-swift-methods-ablation-{1..23}.log`,
+`/tmp/capnp-swift-methods-final-gate.log`. Production generate-check and the
+full Swift suite (40/40 plus 9/9 conformance/import/fuzz checks) also pass; logs
+are `/tmp/capnp-swift-methods-production-generate-check.log` and
+`/tmp/capnp-swift-methods-swift-tests.log`.
+
+Regenerate the request with the pinned WasmKit command in the provenance section,
+replacing `lexical_rpc` with `method_generics`, then run:
+
+```sh
+bash scripts/type-resolver-methods.sh --update
+```
+
+The request regenerates byte-identically; its SHA-256 is
+`11ff15863ffb7f4090a72c2365274fed94993f5c64ec8fe6f18bf44a9e991414`.
+Profile SHA-256:
+`58dac7ba59575e3601a1bc0f3876888a87ee5885573136a52e49f4665558b070`.
+The compiler SHA-256 is recorded below. Both inputs are synthetic.
+Generated Swift is regenerated, never hand-edited. Independent C++ 1.5.0
+code generation shows the named server's Box(AnyPointer) context:
+
+```sh
+mkdir -p /tmp/capnp-swift-method-cpp
+capnp compile -oc++:/tmp/capnp-swift-method-cpp \
+  --src-prefix=tools/type-resolver-spike/fixtures \
+  tools/type-resolver-spike/fixtures/method_generics.capnp
+```
+
+This confirms the erased server convention; the new RPC transport evidence is
+Swift loopback, not a C++ RPC pairing. Production pins, Package.swift and release
+0.1.1 stay unchanged. The old committed specialization/RPC outputs have no drift.
 
 ## Generator compatibility (2026-10-10)
 

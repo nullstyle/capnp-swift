@@ -8,10 +8,18 @@ pub const Limits = graph.Limits;
 
 /// Caller owns the returned source. Unsupported features fail atomically.
 pub fn generate(allocator: std.mem.Allocator, nodes: []const schema.Node, root_id: schema.Id, limits: Limits) ![]u8 {
+    return generateMethods(allocator, nodes, root_id, limits, null);
+}
+
+pub fn generateMethods(allocator: std.mem.Allocator, nodes: []const schema.Node, root_id: schema.Id, limits: Limits, json: ?[]const u8) ![]u8 {
     var arena = std.heap.ArenaAllocator.init(allocator);
     defer arena.deinit();
-    const applications = try graph.build(arena.allocator(), nodes, root_id, limits);
+    const applications = try graph.buildMethods(arena.allocator(), nodes, root_id, limits, json);
     var has_rpc = false;
+    var method_generics = false;
+    for (applications) |app| for (app.methods) |method| {
+        if (method.cases.len != 0) method_generics = true;
+    };
     for (applications) |app| if (app.node.kind == .interface) {
         has_rpc = true;
         break;
@@ -23,11 +31,12 @@ pub fn generate(allocator: std.mem.Allocator, nodes: []const schema.Node, root_i
     if (has_rpc) try w.writeAll("import CapnpRPC\n");
     try w.writeAll("\npublic typealias SpecializedRoot = App0\n\n");
     if (has_rpc) try w.writeAll("fileprivate final class SpecializedCapSlots { var slots: [CapSlot] = [] }\n\n");
+    if (method_generics) try rpc.emitPointerSupport(w);
     for (applications, 0..) |app, index| {
         if (!has_rpc) {
             try emit(w, app, index, applications);
         } else {
-            if (app.node.kind == .interface) try rpc.emitInterface(w, app, index, applications) else try rpc.emitStruct(w, app, index, applications);
+            if (app.node.kind == .interface) try rpc.emitInterface(w, app, index, applications, method_generics) else try rpc.emitStruct(w, app, index, applications, method_generics);
             if (index + 1 < applications.len) try w.writeByte('\n');
         }
     }
@@ -41,7 +50,7 @@ fn emit(w: *std.Io.Writer, application: graph.Application, index: usize, applica
     try w.writeAll("    public struct Reader: Sendable {\n        private let _raw: StructReader\n        public init(_ raw: StructReader) { _raw = raw }\n");
     for (application.fields, 0..) |field, ordinal| {
         switch (field.shape) {
-            .capability => unreachable,
+            .capability, .@"opaque" => unreachable,
             .text => try w.print("        public func `{s}`() throws -> String {{ try _raw.readTextOrDefault({d}) }}\n", .{ field.name, field.offset }),
             .data => try w.print("        public func `{s}`() throws -> [UInt8] {{ try _raw.readDataOrDefault({d}) }}\n", .{ field.name, field.offset }),
             .structure => |target| try w.print("        public func `{s}`() -> App{d}.Reader {{ App{d}.Reader(_raw.readStructOrDefault({d})) }}\n", .{ field.name, target, target, field.offset }),
@@ -57,7 +66,7 @@ fn emit(w: *std.Io.Writer, application: graph.Application, index: usize, applica
         const initial = std.ascii.toUpper(field.name[0]);
         const rest = field.name[1..];
         switch (field.shape) {
-            .capability => unreachable,
+            .capability, .@"opaque" => unreachable,
             .text => try w.print("        public func set{c}{s}(_ value: String) {{ _raw.setText({d}, value) }}\n", .{ initial, rest, field.offset }),
             .data => try w.print("        public func set{c}{s}(_ value: [UInt8]) {{ _raw.setData({d}, value) }}\n", .{ initial, rest, field.offset }),
             .structure => |target| {

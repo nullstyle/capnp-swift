@@ -97,6 +97,9 @@ type-resolver-specializations: type-resolver-spike
 type-resolver-rpc: type-resolver-specializations
     bash scripts/type-resolver-rpc.sh
 
+type-resolver-methods: type-resolver-rpc
+    bash scripts/type-resolver-methods.sh
+
 # The pipeline runner: capnp.wasm under WasmKit + the native plugin.
 driver-build:
     swift build --product capnpc-driver

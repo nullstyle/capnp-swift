@@ -260,3 +260,66 @@ test "concrete RPC detects inheritance cycles before application reuse" {
     seed.interface_node.?.superclasses = &parents;
     try std.testing.expectError(error.InheritanceCycle, @import("specialization.zig").generate(allocator, f.request.nodes, (try f.node(":CycleRoot")).id, .{}));
 }
+
+fn methodGenerationError(comptime expected: anyerror, root_suffix: []const u8, json: []const u8) !void {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "method_generics");
+    defer f.deinit();
+    try std.testing.expectError(expected, @import("specialization.zig").generateMethods(allocator, f.request.nodes, (try f.node(root_suffix)).id, .{}, json));
+}
+
+test "method applications reject the wrong argument arity" {
+    try methodGenerationError(error.InvalidMethodApplication, ":Root",
+        \\[{"interface":":Parent","method":"echo","cases":[{"name":"Text","arguments":[]}]}]
+    );
+}
+
+test "method applications reject duplicate case names" {
+    try methodGenerationError(error.InvalidMethodApplication, ":Root",
+        \\[{"interface":":Parent","method":"echo","cases":[{"name":"Text","arguments":["text"]},{"name":"Text","arguments":["data"]}]}]
+    );
+}
+
+test "method applications reject an unknown argument field" {
+    try methodGenerationError(error.InvalidMethodApplication, ":Root",
+        \\[{"interface":":Parent","method":"echo","cases":[{"name":"Text","arguments":["missing"]}]}]
+    );
+}
+
+test "method applications reject an erased argument" {
+    try methodGenerationError(error.InvalidMethodApplication, ":InvalidArgumentRoot",
+        \\[{"interface":":Parent","method":"echo","cases":[{"name":"Text","arguments":["value"]}]}]
+    );
+}
+
+test "method applications reject a profile outside the reachable graph" {
+    try methodGenerationError(error.UnusedMethodApplication, ":UnusedRoot",
+        \\[{"interface":":Parent","method":"echo","cases":[{"name":"Text","arguments":["value"]}]}]
+    );
+}
+
+test "named payload parameters are not implicitly method parameters" {
+    var f = try Fixture.loadFrom(@import("fixtures").local, "method_generics");
+    defer f.deinit();
+    const named = try f.node(":Named");
+    const method = named.interface_node.?.methods[0];
+    const env = try @import("method_applications.zig").Environment.init(f.request.nodes, named.id, 0, method);
+    const box = try f.node(":Box");
+    const context = try resolver.Context.init(f.request.nodes, box, .{});
+    const unbound = try field(&context, box, "value");
+    try std.testing.expect(unbound.unbound);
+    // Only the method brand's implicit reference denotes T here. Plain
+    // Box's unbound declaration parameter must remain an unrelated erasure.
+    try std.testing.expect((try env.parameter(unbound)) == null);
+}
+
+test "method applications enforce the case budget before graph expansion" {
+    var json: std.Io.Writer.Allocating = .init(allocator);
+    defer json.deinit();
+    try json.writer.writeAll("[{\"interface\":\":Parent\",\"method\":\"echo\",\"cases\":[");
+    for (0..65) |index| {
+        if (index != 0) try json.writer.writeByte(',');
+        try json.writer.print("{{\"name\":\"Case{d}\",\"arguments\":[\"text\"]}}", .{index});
+    }
+    try json.writer.writeAll("]}]");
+    try methodGenerationError(error.MethodApplicationLimit, ":Root", json.written());
+}

@@ -1,14 +1,15 @@
 # Concrete Swift generic specializations
 
-Status: **EXECUTED PROTOTYPE 2026-10-10**. The separate tool in
+Status: **EXECUTED PROTOTYPE 2026-10-12**. The separate tool in
 `tools/type-resolver-spike/` generates typed Swift for concrete struct and
 interface applications using capnp-zig v0.23.0's public Experimental resolver.
 The shipping generator remains on v0.21.0, and release 0.1.1 is unchanged.
 
 ## Interface exercised
 
-Run `just type-resolver-rpc` for the combined struct and RPC gate, or `just
-type-resolver-specializations` for the serialization slice. The tool reads a
+Run `just type-resolver-methods` for the complete prototype gate.
+`just type-resolver-rpc` selects the struct and concrete RPC slices;
+`just type-resolver-specializations` selects the serialization slice. The tool reads a
 compiler request and a concrete root, builds the reachable application graph,
 and returns one Swift source file. Generated readers and builders use existing
 public `Capnp` operations; no new runtime protocol or erased pointer codec is
@@ -99,9 +100,70 @@ getter creates a typed client on the supplied connection, retaining its
 `CapRef` independently of the result reader. The runtime still checks
 connection ownership. Null entries return nil; invalid table indexes throw.
 Local capabilities returned as `.exported` entries currently throw an explicit
-unimplemented error. Method-local generics and streaming methods are rejected;
-typed promise/result pipelines and local capability views remain adoption
-work.
+unimplemented error. Method-local generics require explicit method profiles,
+as described below; streaming methods are rejected. Typed promise/result
+pipelines and local capability views remain adoption work.
+
+## Method-local arguments and erased servers
+
+Method-local generics now have an opt-in concrete client path and an erased
+server path. Run the tool with `--methods <profiles.json>`. Each profile selects
+an interface declaration and method by name, then lists named call-site cases
+whose arguments refer to fields of the selected root. For example:
+
+```json
+[
+  {"interface": ":Parent", "method": "echo", "cases": [
+    {"name": "Text", "arguments": ["text"]},
+    {"name": "Data", "arguments": ["data"]}
+  ]}
+]
+```
+
+The root's text and data fields supply schema type expressions. The generator
+materializes their effective lexical bindings into closed brands through the
+public resolver before entering a method payload; a Context token is never
+moved between unrelated contexts. Cases generate `echoAsText`, `echoAsData`,
+etc. with concrete builders and readers. Both call the original interface ID
+and method ordinal. Case labels and bindings are code-generation input only;
+the RPC envelope carries no private type discriminator.
+
+The server implements one `echo` using erased method fields represented by
+`SpecializedPointer`. Its declared structure and any enclosing interface
+bindings remain typed. Anonymous payload parameters are recognized only on
+zero-scope method payload nodes. Named payload brands refer to implicit method
+indexes. Both identities include owner interface ID, ordinal, and argument
+index, so parameter/result views agree without conflating unrelated unbound
+node parameters. For concrete cases, the consumer constructs a scoped payload
+brand or substitutes implicit references in the method brand, then validates
+and resolves it through the public facade. The request graph and wire scope
+IDs are never rewritten.
+
+The inherited `Parent(Outer).echo[T]` fixture keeps Outer = Text while T varies
+across Text, Data, List(UInt16), Box(Text), and List(Box(Text)). Its params and
+results use different pointer positions, proving field copying rather than
+whole-payload reuse. Named Box(T) payloads substitute implicit arguments;
+Swap[A,B] keeps two arguments distinct in reversed results. `List(Box(T))`
+payloads let the erased server traverse the declared Box structure and copy
+its unknown values. The pinned compiler rejects bare List(T), which becomes
+unsupported List(AnyPointer); the fixture uses the legal Box wrapper.
+
+`swift/ProbePointer.swift` is compiled only into the probe's temporary Capnp
+module. It is not part of the package's runtime interface. It borrows immutable
+message storage, follows far/double-far pointers, and copies reachable structs
+and lists while remapping capability indexes. It preserves raw byte lists
+without guessing Text versus Data, bounds-checks contents, and applies depth
+and copy budgets. The generated erased value also retains its received cap
+table. Imported entries can be forwarded; locally exported entries currently
+throw an explicit unimplemented error. This is an experiment in server erasure,
+not a published pointer codec or open Swift generic declaration.
+
+Invalid case arity, duplicate names, missing root fields, erased arguments,
+unreachable profiles, and generated-name collisions fail before writing
+source. Profiles have a total budget of 64 cases, in addition to the existing
+application/depth/key limits. A method with implicit arguments and no selected
+profile retains the default `UnsupportedMethodGenerics` error. No inference
+or new upstream method-binding interface is assumed.
 
 ## Evidence
 
@@ -143,6 +205,18 @@ spec](https://capnproto.org/encoding.html#lists) and excludes the tag. A
 shipping runtime test compares exact independent C++ bytes; reintroducing the
 old formula reproduces the RPC refusal.
 
+The method slice adds 14 named Swift runtime checks: same-capability Text/Data,
+outer binding and changed payload layout, null defaults, integer lists, nested
+structs, struct lists, named brands, two reversed arguments, generic values in
+Box lists, and private copier budget/extent/cycle/capability/double-far checks.
+Two shell gates verify a wrong-binding typecheck and atomic CLI rejection.
+Seven new Zig cases validate profiles and parameter scope isolation, bringing
+the suite to 22/22. All 23 new gates were individually ablated with named
+failures, restored byte-for-byte, and rerun successfully. The original
+struct-only and concrete RPC generated files remain byte-identical. C++ 1.5.0
+code generation independently shows erased AnyPointer method server contexts;
+this slice's transport proof is Swift loopback RPC, not a C++ peer pairing.
+
 ## Decisions still needed for adoption
 
 Concrete specialization gives callers typed operations without first freezing
@@ -153,10 +227,10 @@ callers instantiate with new types in another module.
 
 Before shipping either approach, decide how generic declarations and nested
 applications are named across files, how erased uses remain compatible, and
-what support method-local generic parameters receive. The prototype exercises
+how method cases and erased server values become a stable interface. The prototype exercises
 branded ancestor identity, equal-diamond deduplication, conflict rejection,
 dispatch and capability ownership. Shipping these choices still requires a
 stable application/module naming contract and an explicit compatibility policy
-for erased generic uses, method generics, local capability views, streaming
+for erased generic uses, open method call-site types, local capability views, streaming
 and typed pipelines. The [research](handoffs/type-resolver-research.md) maps
 the existing Swift seams and upstream primary sources for that work.

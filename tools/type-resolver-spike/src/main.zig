@@ -9,6 +9,13 @@ pub fn main(init: std.process.Init) !void {
     _ = args.skip();
     const path = args.next() orelse return error.MissingRequest;
     const suffix = args.next() orelse return error.MissingRoot;
+    const option = args.next();
+    const profiles = if (option) |flag| blk: {
+        if (!std.mem.eql(u8, flag, "--methods")) return error.UnexpectedArgument;
+        const profile_path = args.next() orelse return error.MissingMethodProfiles;
+        break :blk try std.Io.Dir.cwd().readFileAlloc(init.io, profile_path, init.gpa, .limited(1024 * 1024));
+    } else null;
+    defer if (profiles) |json| init.gpa.free(json);
     if (args.next() != null) return error.UnexpectedArgument;
     const bytes = try std.Io.Dir.cwd().readFileAlloc(init.io, path, init.gpa, .limited(64 * 1024 * 1024));
     defer init.gpa.free(bytes);
@@ -20,7 +27,7 @@ pub fn main(init: std.process.Init) !void {
         if (root != null) return error.AmbiguousRoot;
         root = node.id;
     }
-    const source = try specialization.generate(init.gpa, request.nodes, root orelse return error.MissingNode, .{});
+    const source = try specialization.generateMethods(init.gpa, request.nodes, root orelse return error.MissingNode, .{}, profiles);
     defer init.gpa.free(source);
     // Generate completely before writing, so a rejected graph produces no code.
     try std.Io.File.stdout().writeStreamingAll(init.io, source);

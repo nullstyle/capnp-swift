@@ -15,6 +15,17 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- Method-local generic RPC prototype (2026-10-12):
+  `just type-resolver-methods` generates explicit client call-site cases and
+  one erased server handler per method. Anonymous and named payload brands
+  preserve enclosing bindings and distinct method arguments; Text/Data,
+  lists, nested Box arguments and inherited methods pass on real loopback
+  capabilities. The private pointer-copy experiment is compiled only into
+  the probe's temporary Capnp module. Fourteen runtime checks, two shell
+  gates and seven Zig cases pass; all 23 new gates were ablated. Core CI
+  includes the complete prototype gate. Production pins/releases and public
+  runtime interfaces remain unchanged; public naming, open generics, local
+  capability views, streaming and typed pipelines remain adoption work.
 - Concrete generic RPC and inheritance prototype (2026-10-10):
   `just type-resolver-rpc` generates typed clients, server protocols and
   exports with branded ancestor views. Anonymous payload identity includes

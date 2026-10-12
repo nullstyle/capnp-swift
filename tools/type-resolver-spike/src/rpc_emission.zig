@@ -2,7 +2,7 @@
 const std = @import("std");
 const graph = @import("application_graph.zig");
 
-pub fn emitStruct(w: *std.Io.Writer, app: graph.Application, index: usize, applications: []const graph.Application) !void {
+pub fn emitStruct(w: *std.Io.Writer, app: graph.Application, index: usize, applications: []const graph.Application, method_generics: bool) !void {
     const structure = app.node.struct_node.?;
     try w.print("// {s}\npublic enum App{d} {{\n", .{ app.key, index });
     for (app.fields) |field| if (field.shape == .capability) {
@@ -13,10 +13,14 @@ pub fn emitStruct(w: *std.Io.Writer, app: graph.Application, index: usize, appli
         \\    public struct Value: Sendable {
         \\        public let bytes: [UInt8]
         \\        public let caps: [CapSlot]
-        \\        public init(_ body: (Builder) -> Void = { _ in }) {
+    );
+    if (method_generics) try w.writeAll("\n        public init(_ body: (Builder) throws -> Void = { _ in }) rethrows {\n") else try w.writeAll("\n        public init(_ body: (Builder) -> Void = { _ in }) {\n");
+    try w.writeAll(
         \\            let message = MessageBuilder()
         \\            let builder = initRoot(message)
-        \\            body(builder)
+    );
+    if (method_generics) try w.writeAll("\n            try body(builder)\n") else try w.writeAll("\n            body(builder)\n");
+    try w.writeAll(
         \\            bytes = message.toBytes()
         \\            caps = builder.capSlots
         \\        }
@@ -28,6 +32,7 @@ pub fn emitStruct(w: *std.Io.Writer, app: graph.Application, index: usize, appli
         \\
     );
     for (app.fields, 0..) |field, ordinal| switch (field.shape) {
+        .@"opaque" => try w.print("        public func `{s}`() -> SpecializedPointer {{ SpecializedPointer(pointer: _raw.probePointer({d}), caps: caps) }}\n", .{ field.name, field.offset }),
         .text => try w.print("        public func `{s}`() throws -> String {{ try _raw.readTextOrDefault({d}) }}\n", .{ field.name, field.offset }),
         .data => try w.print("        public func `{s}`() throws -> [UInt8] {{ try _raw.readDataOrDefault({d}) }}\n", .{ field.name, field.offset }),
         .structure => |target| try w.print("        public func `{s}`() -> App{d}.Reader {{ App{d}.Reader(_raw.readStructOrDefault({d}), caps: caps) }}\n", .{ field.name, target, target, field.offset }),
@@ -54,6 +59,7 @@ pub fn emitStruct(w: *std.Io.Writer, app: graph.Application, index: usize, appli
         const initial = std.ascii.toUpper(field.name[0]);
         const rest = field.name[1..];
         switch (field.shape) {
+            .@"opaque" => try w.print("        public func set{c}{s}(_ value: SpecializedPointer) throws {{ try value.copy(into: _raw, index: {d}, slots: _caps) }}\n", .{ initial, rest, field.offset }),
             .text => try w.print("        public func set{c}{s}(_ value: String) {{ _raw.setText({d}, value) }}\n", .{ initial, rest, field.offset }),
             .data => try w.print("        public func set{c}{s}(_ value: [UInt8]) {{ _raw.setData({d}, value) }}\n", .{ initial, rest, field.offset }),
             .structure => |target| {
@@ -75,12 +81,15 @@ pub fn emitStruct(w: *std.Io.Writer, app: graph.Application, index: usize, appli
     try w.writeAll("    }\n}\n");
 }
 
-pub fn emitInterface(w: *std.Io.Writer, app: graph.Application, index: usize, applications: []const graph.Application) !void {
+pub fn emitInterface(w: *std.Io.Writer, app: graph.Application, index: usize, applications: []const graph.Application, method_generics: bool) !void {
     try w.print("// {s}\npublic enum App{d} {{\n    public static let interfaceID: UInt64 = 0x{x}\n", .{ app.key, index, app.node.id });
     for (app.parents, 0..) |parent, ordinal| try w.print("    public typealias Super{d} = App{d}\n", .{ ordinal, parent });
     for (app.methods) |method| {
         try w.print("    public typealias {c}{s}Params = App{d}\n    public typealias {c}{s}Results = App{d}\n", .{ std.ascii.toUpper(method.name[0]), method.name[1..], method.params, std.ascii.toUpper(method.name[0]), method.name[1..], method.results });
     }
+    for (app.methods) |method| for (method.cases) |call_case| {
+        try w.print("    public typealias {c}{s}Params = App{d}\n    public typealias {c}{s}Results = App{d}\n", .{ std.ascii.toUpper(call_case.name[0]), call_case.name[1..], call_case.params, std.ascii.toUpper(call_case.name[0]), call_case.name[1..], call_case.results });
+    };
     try w.writeAll("    public protocol Server: Sendable");
     for (app.parents) |parent| try w.print(", App{d}.Server", .{parent});
     try w.writeAll(" {\n");
@@ -97,7 +106,8 @@ pub fn emitInterface(w: *std.Io.Writer, app: graph.Application, index: usize, ap
     );
     for (app.parents, 0..) |parent, ordinal| try w.print("        public var super{d}: App{d}.Client {{ App{d}.Client(target: target, connection: connection) }}\n", .{ ordinal, parent, parent });
     for (app.methods) |method| {
-        try w.print("        public func `{s}`(_ body: (App{d}.Builder) -> Void = {{ _ in }}) async throws -> App{d}.Reader {{\n            let params = App{d}.Value(body)\n            let result = try await connection.call(target, interface: App{d}.interfaceID, method: {d}, params: params.bytes, caps: params.caps)\n            do {{ return try App{d}.Reader(Message(bytes: result.message).rootStruct(), caps: result.caps) }}\n            catch let error as CapnpError {{ throw RPCError.malformed(\"\\(error)\") }}\n        }}\n", .{ method.name, method.params, method.results, method.params, index, method.ordinal, method.results });
+        try emitCall(w, method.name, method.params, method.results, method.ordinal, index, method_generics);
+        for (method.cases) |call_case| try emitCall(w, call_case.name, call_case.params, call_case.results, method.ordinal, index, method_generics);
     }
     try w.writeAll(
         \\    }
@@ -125,4 +135,41 @@ pub fn emitInterface(w: *std.Io.Writer, app: graph.Application, index: usize, ap
         \\}
         \\
     );
+}
+
+fn emitCall(w: *std.Io.Writer, name: []const u8, params: usize, results: usize, ordinal: u16, interface: usize, method_generics: bool) !void {
+    try w.print("        public func `{s}`(_ body: (App{d}.Builder)", .{ name, params });
+    if (method_generics) try w.writeAll(" throws");
+    try w.print(" -> Void = {{ _ in }}) async throws -> App{d}.Reader {{\n            let params = ", .{results});
+    if (method_generics) try w.writeAll("try ");
+    try w.print("App{d}.Value(body)\n            let result = try await connection.call(target, interface: App{d}.interfaceID, method: {d}, params: params.bytes, caps: params.caps)\n            do {{ return try App{d}.Reader(Message(bytes: result.message).rootStruct(), caps: result.caps) }}\n            catch let error as CapnpError {{ throw RPCError.malformed(\"\\(error)\") }}\n        }}\n", .{ params, interface, ordinal, results });
+}
+
+pub fn emitPointerSupport(w: *std.Io.Writer) !void {
+    try w.writeAll(
+        \\// Erased server values retain their message and capability table.
+        \\public struct SpecializedPointer: Sendable {
+        \\    public let pointer: ProbePointer
+        \\    public let caps: [CapTableEntry]
+        \\    fileprivate func copy(into builder: StructBuilder, index: Int, slots: SpecializedCapSlots) throws {
+        \\        var mapped: [UInt32: UInt32] = [:]
+        \\        try pointer.copy(into: builder, index: index) { source in
+        \\            if let index = mapped[source] { return index }
+        \\            guard Int(source) < caps.count else { throw RPCError.malformed("generic pointer capability index out of range") }
+        \\            let slot: CapSlot
+        \\            switch caps[Int(source)] {
+        \\            case .none: slot = .none
+        \\            case .imported(let cap): slot = .imported(cap)
+        \\            case .exported: throw RPCError.unimplemented(reason: "local capability copying is outside the method-generics probe")
+        \\            }
+        \\            let index = UInt32(slots.slots.count)
+        \\            slots.slots.append(slot)
+        \\            mapped[source] = index
+        \\            return index
+        \\        }
+        \\    }
+        \\}
+        \\
+    );
+    try w.writeByte('\n');
 }
