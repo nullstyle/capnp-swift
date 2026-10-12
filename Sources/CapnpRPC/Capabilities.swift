@@ -178,6 +178,9 @@ public struct InboundCall: Sendable {
     public let caps: [CapTableEntry]
     /// The connection the call arrived on (to call back on its caps).
     public let connection: RPCConnection
+    // Captured when the native event is formed, before a later release can
+    // remove the wire export. Kept internal so the erased interface is intact.
+    let pointerLocalHandlers: [UInt32: any ExportHandler]
 
     /// Public so an app can dispatch to one of its own handlers locally (a
     /// capability of ours that came back as `.exported`).
@@ -187,6 +190,16 @@ public struct InboundCall: Sendable {
         self.params = params
         self.caps = caps
         self.connection = connection
+        pointerLocalHandlers = [:]
+    }
+
+    init(interfaceID: UInt64, methodID: UInt16, params: [UInt8], caps: [CapTableEntry], connection: RPCConnection, pointerLocalHandlers: [UInt32: any ExportHandler]) {
+        self.interfaceID = interfaceID
+        self.methodID = methodID
+        self.params = params
+        self.caps = caps
+        self.connection = connection
+        self.pointerLocalHandlers = pointerLocalHandlers
     }
 }
 
@@ -203,10 +216,21 @@ public struct CallResponse: Sendable {
 }
 
 /// The RETURN of a call.
+final class PointerConnectionIdentity: Sendable {}
+
 public struct CallResult: Sendable {
     /// A standalone message whose root is the results struct.
     public let message: [UInt8]
     public let caps: [CapTableEntry]
+    let pointerLocalHandlers: [UInt32: any ExportHandler]
+    let pointerOwner: PointerConnectionIdentity?
+
+    init(message: [UInt8], caps: [CapTableEntry], pointerLocalHandlers: [UInt32: any ExportHandler] = [:], pointerOwner: PointerConnectionIdentity? = nil) {
+        self.message = message
+        self.caps = caps
+        self.pointerLocalHandlers = pointerLocalHandlers
+        self.pointerOwner = pointerOwner
+    }
 }
 
 /// A host object the connection exports. Generated `Server` glue conforms;

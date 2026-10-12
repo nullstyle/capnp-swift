@@ -33,6 +33,13 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- Experimental pointer schema codecs in `Capnp` and capability projection in
+  `CapnpRPC`, preparing open generated schema applications. Readers/values
+  own immutable storage; builders retain mutable storage. Copies preserve
+  unknown fields, enforce traversal budgets and remap opaque capability
+  tokens. Local handlers survive native export release and scoped ID reuse;
+  foreign connections are rejected. Nineteen runtime checks and four public
+  visibility checks passed with deliberate failure checks and exact restore.
 - The simulator lane accepts an opt-in `ios_network_repetitions` count
   (1-16) for repeated processes on the hosted runner. Default scheduling,
   parallel QUIC cases and deadlines are unchanged. Every repetition must

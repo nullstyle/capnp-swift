@@ -100,8 +100,13 @@ public actor RPCConnection: TransportDelegate {
     public nonisolated let streamWindow: StreamWindow
     private let bootstrapHandler: (any ExportHandler)?
     private let releases = ReleaseList()
+    nonisolated let pointerIdentity = PointerConnectionIdentity()
     private var questions: [UInt32: Question] = [:]
     private var exports: [UInt64: Export] = [:]
+    // IDs used only while invoking a local pointer capability. They let
+    // ordinary handlers resolve newly supplied local arguments without
+    // creating wire exports. Retained pointer tokens outlive these aliases.
+    private var pointerLocalHandlers: [UInt32: any ExportHandler] = [:]
     private var nextHostTag: UInt64 = 1
     private var timer: DispatchSourceTimer?
     private var started = false
@@ -309,7 +314,35 @@ public actor RPCConnection: TransportDelegate {
     /// `.exported(id)`: a capability of ours came back to us). Nil once the
     /// remote released it.
     public func localHandler(forExport id: UInt32) -> (any ExportHandler)? {
-        exports.values.first { $0.id == id }?.handler
+        exports.values.first { $0.id == id }?.handler ?? pointerLocalHandlers[id]
+    }
+
+    func pointerCheckOpen() throws {
+        guard !transportIsClosed else { throw closeReason ?? .closed }
+    }
+
+    func pointerRegisterLocal(_ handler: any ExportHandler) throws -> UInt32 {
+        var id = UInt32.max
+        while localHandler(forExport: id) != nil {
+            guard id > 0 else { throw RPCError.overloaded(reason: "local pointer capability aliases exhausted") }
+            id -= 1
+        }
+        pointerLocalHandlers[id] = handler
+        return id
+    }
+
+    func pointerRemoveLocal(_ ids: [UInt32]) {
+        for id in ids { pointerLocalHandlers.removeValue(forKey: id) }
+    }
+
+    var pointerLocalAliasCount: Int { pointerLocalHandlers.count }
+
+    func pointerLocalSnapshot(_ caps: [CapTableEntry]) -> [UInt32: any ExportHandler] {
+        var handlers: [UInt32: any ExportHandler] = [:]
+        for cap in caps {
+            if case .exported(let id) = cap, let handler = localHandler(forExport: id) { handlers[id] = handler }
+        }
+        return handlers
     }
 
     /// Export a promise the remote can call now and this side resolves later.
@@ -665,7 +698,8 @@ public actor RPCConnection: TransportDelegate {
         q.returned = true
         switch Int32(e.return_kind) {
         case CAPNP_RETURN_RESULTS:
-            q.result = CallResult(message: Self.bytes(e.msg, e.msg_len), caps: capTable(e.caps, e.ncaps))
+            let caps = capTable(e.caps, e.ncaps)
+            q.result = CallResult(message: Self.bytes(e.msg, e.msg_len), caps: caps, pointerLocalHandlers: pointerLocalSnapshot(caps), pointerOwner: pointerIdentity)
         case CAPNP_RETURN_EXCEPTION:
             q.failure = RPCError.remote(type: e.exception_type, reason: Self.string(e.reason, e.reason_len))
         case CAPNP_RETURN_CANCELED:
@@ -689,12 +723,14 @@ public actor RPCConnection: TransportDelegate {
             return
         }
         let params = Self.bytes(e.msg, e.msg_len)
+        let caps = capTable(e.caps, e.ncaps)
         let call = InboundCall(
             interfaceID: e.interface_id,
             methodID: e.method_id,
             params: params,
-            caps: capTable(e.caps, e.ncaps),
-            connection: self)
+            caps: caps,
+            connection: self,
+            pointerLocalHandlers: pointerLocalSnapshot(caps))
         inboundInFlight += 1
         inboundBytes += params.count
         applyInboundBackpressure()
