@@ -3,7 +3,8 @@
 Status: **EXECUTED PROTOTYPE 2026-10-12**. The separate tool in
 `tools/type-resolver-spike/` generates typed Swift for concrete struct and
 interface applications using capnp-zig v0.23.0's public Experimental resolver.
-The shipping generator remains on v0.21.0, and release 0.1.1 is unchanged.
+The production generator now also uses v0.23.0, with byte-identical legacy
+output; typed output remains in this optional tool. Release 0.1.1 is unchanged.
 
 ## Interface exercised
 

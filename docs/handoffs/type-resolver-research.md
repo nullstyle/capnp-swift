@@ -2,6 +2,12 @@
 
 Date: 2026-10-10. Evidence: primary source inspection and Git object comparison, with the executed consumer and compatibility probes recorded in [the probe README](../../tools/type-resolver-spike/README.md). No production dependency pins, shipping generated Swift files, upstream checkout, or package-cache files were changed. The isolated concrete-specialization prototype now emits typed Swift; open generic declarations remain unimplemented.
 
+Update 2026-10-12: the production generator dependency has moved to v0.23.0
+after a separate v0.21.0/v0.23.0 comparison of all 28 committed shape/golden
+requests produced 32 byte-identical Swift files. The version comparisons
+below record the original research snapshot; typed public output is not
+enabled by this dependency-only step.
+
 ## Finding
 
 The Swift generator already receives the metadata needed for schema-node generics, but ignores it. Its independent **v0.21.0** generator dependency has the lossless schema model and internal resolver, without a public `type_resolver` export. **v0.23.0** adds an Experimental facade over that same implementation. The separately pinned v0.23.0 RPC core does not make that facade available to the v0.21.0 generator. [Swift pins][swift-pin], [core pin][core-pin], [v0.21 root][root21], [v0.23 facade][facade]

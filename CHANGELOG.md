@@ -4,6 +4,15 @@ All notable changes to capnp-swift are recorded here.
 
 ## [Unreleased]
 
+### Changed
+
+- The production generator now depends on capnp-zig v0.23.0, making its
+  public resolver available for typed generation.
+  A separate compatibility build compared all 28 committed shape/golden
+  requests against the previous v0.21.0 generator: all 32 Swift outputs are
+  byte-identical. This dependency preparation does not enable typed generics
+  or change the separately pinned runtime, interop peer, or release 0.1.1.
+
 ### Fixed
 
 - Struct-list builders now exclude the tag from the inline-composite word
