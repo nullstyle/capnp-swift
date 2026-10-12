@@ -14,6 +14,10 @@ on:
         description: Run only the simulator lane while diagnosing a failure
         type: boolean
         default: false
+      ios_network_repetitions:
+        description: Repeat simulator networking processes to diagnose intermittent failures (1-16)
+        type: number
+        default: 1
 
 permissions:
   contents: read
@@ -228,6 +232,8 @@ jobs:
           mise install
           mise exec -- zig version
       - name: iOS XCFramework + simulator tests (M5)
+        env:
+          CAPNP_IOS_NETWORK_REPETITIONS: ${{ inputs.ios_network_repetitions }}
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           set -euxo pipefail
@@ -244,20 +250,22 @@ jobs:
           sysctl hw.logicalcpu hw.memsize
           xcrun simctl list devices available
           xcodebuild build-for-testing -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID"
-          xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
-            '-skip-testing:CapnpRPCTests/LoopbackTests/manyConnections()' 2>&1 | tee "$LOG_DIR/network.log"
+          # An opt-in repeat loop preserves each process's concurrency and
+          # deadlines while exercising the runner that exhibits the failure.
+          CAPNP_IOS_NETWORK_REPETITIONS="${CAPNP_IOS_NETWORK_REPETITIONS:-1}"
+          case "$CAPNP_IOS_NETWORK_REPETITIONS" in
+            [1-9]|1[0-6]) ;;
+            *) echo "ios_network_repetitions must be an integer from 1 to 16" >&2; exit 2 ;;
+          esac
+          NETWORK_LOGS=()
+          for ((trial=1; trial<=CAPNP_IOS_NETWORK_REPETITIONS; trial++)); do
+            NETWORK_LOGS+=("$LOG_DIR/network-$trial.log")
+            xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
+              '-skip-testing:CapnpRPCTests/LoopbackTests/manyConnections()' 2>&1 | tee "$LOG_DIR/network-$trial.log"
+          done
           xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
             '-only-testing:CapnpRPCTests/LoopbackTests/manyConnections()' 2>&1 | tee "$LOG_DIR/stress.log"
           # Xcode can exit 0 for an empty filter. Require the stress test
           # to run once, and ensure the first process really excluded it.
-          python3 - "$LOG_DIR/network.log" "$LOG_DIR/stress.log" <<'PY'
-          import pathlib, re, sys
-          network, stress = [pathlib.Path(p).read_text() for p in sys.argv[1:]]
-          name = '64 connections x 10k calls, each with a callback (the TSan gate)'
-          if f'Test "{name}" started' in network:
-              raise SystemExit('loopback stress unexpectedly ran with simulator networking')
-          if not re.search(r'Test run with 1 tests? in .* passed', stress) or not re.search(r'Test "' + re.escape(name) + r'" passed', stress):
-              raise SystemExit('loopback stress filter must select and pass exactly one test')
-          print('simulator: networking and 64 x 10k stress both passed')
-          PY
+          python3 scripts/check-ios-simulator-logs.py "${NETWORK_LOGS[@]}" "$LOG_DIR/stress.log"
 

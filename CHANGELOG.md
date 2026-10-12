@@ -24,6 +24,13 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- The simulator lane accepts an opt-in `ios_network_repetitions` count
+  (1-16) for repeated processes on the hosted runner. Default scheduling,
+  parallel QUIC cases and deadlines are unchanged. Every repetition must
+  select the complete baseline and pass all 16 QUIC cases; loopback stress
+  stays in its own process. All four log guards were ablated. The 2026-10-12
+  timeout failure did not recur in four local runs or the hosted retry;
+  no transport repair is claimed.
 - Method-local generic RPC prototype (2026-10-12):
   `just type-resolver-methods` generates explicit client call-site cases and
   one erased server handler per method. Anonymous and named payload brands
