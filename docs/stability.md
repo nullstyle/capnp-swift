@@ -30,11 +30,16 @@ bumps the minor, not the patch).
 
 ## Experimental
 
+- **Open typed generation** (`--typed` on main): `CapnpPointerSchema`,
+  `PointerReader`/`PointerBuilder`, `RPCPointerCapability`, and the generated
+  `.Typed`/`.TypedServer` interface. Use a matching generator and runtime;
+  its Swift surface may change before stabilization. Existing erased
+  generation stays available. See [typed-generics.md](typed-generics.md).
 - **`CapnpNW` QUIC** (`QUICTransport`, `QUICListener`): needs
   macOS 26 / iOS 26 (Network.framework's modern QUIC API) and is
   Experimental in capnp-zig as well. The WIRE shape is frozen (above);
   the Swift surface may change.
-- **The pinned capnp-zig Peer** (v0.21.0, `-Dfd-passing=false`): its
+- **The pinned capnp-zig Peer** (v0.23.0, `-Dfd-passing=false`): its
   sans-IO surface is Experimental upstream, which is why the pin is
   exact and each release reports it in `capnp_core_version()`.
 

@@ -62,6 +62,9 @@ jobs:
           cd tools/capnpc-swift && mise exec -- zig build && cd ../..
           just generate-check
           just type-resolver-methods
+          just typed-structs
+          just typed-rpc
+          just typed-driver
 
   swift:
     runs-on: macos-26

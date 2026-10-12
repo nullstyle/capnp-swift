@@ -5,7 +5,7 @@
 // (the compiler never spawns plugins; the driver does).
 //
 //   capnpc-driver --plugin <capnpc-swift> [--wasm <capnp.wasm>]
-//                 [--include <dir>]... [--output-dir <dir>] [--check]
+//                 [--include <dir>]... [--output-dir <dir>] [--check] [--typed]
 //                 <schema.capnp>...
 //
 // Paths are host paths; the driver computes their common root and maps it
@@ -37,6 +37,7 @@ struct CapnpDriver {
         var srcPrefixes: [String] = []
         var outputDir: String?
         var check = false
+        var typed = false
         var schemas: [String] = []
 
         var args: ArraySlice<String> = Array(CommandLine.arguments.dropFirst())[...]
@@ -52,6 +53,7 @@ struct CapnpDriver {
             case let a where a.hasPrefix("--output-dir="):
                 outputDir = String(a.dropFirst("--output-dir=".count))
             case "--check": check = true
+            case "--typed": typed = true
             case let a where a.hasPrefix("-"): fail("unknown option \(a)")
             default: schemas.append(arg)
             }
@@ -119,9 +121,9 @@ struct CapnpDriver {
 
             // 2. Generate: the native plugin on the request.
             if check {
-                try runPluginCheck(plugin: pluginBin, request: request, outputDir: outputDir.map(absolute))
+                try runPluginCheck(plugin: pluginBin, request: request, outputDir: outputDir.map(absolute), typed: typed)
             } else {
-                try runPlugin(plugin: pluginBin, request: request, outputDir: outputDir.map(absolute))
+                try runPlugin(plugin: pluginBin, request: request, outputDir: outputDir.map(absolute), typed: typed)
             }
         } catch {
             FileHandle.standardError.write(Data("capnpc-driver: \(error)\n".utf8))
@@ -166,13 +168,15 @@ struct CapnpDriver {
         return [UInt8](collected.data)
     }
 
-    static func runPlugin(plugin: String, request: [UInt8], outputDir: String?) throws {
+    static func runPlugin(plugin: String, request: [UInt8], outputDir: String?, typed: Bool = false) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: plugin)
-        process.arguments = outputDir.map { ["--output-dir=\($0)"] } ?? []
+        process.arguments = (outputDir.map { ["--output-dir=\($0)"] } ?? []) + (typed ? ["--typed"] : [])
         let stdin = Pipe()
         process.standardInput = stdin
-        process.standardError = Pipe()
+        // Forward diagnostics directly; an undrained pipe can fill and block
+        // the plugin before it exits.
+        process.standardError = FileHandle.standardError
         try process.run()
         stdin.fileHandleForWriting.write(Data(request))
         try stdin.fileHandleForWriting.close()
@@ -182,13 +186,13 @@ struct CapnpDriver {
         }
     }
 
-    static func runPluginCheck(plugin: String, request: [UInt8], outputDir: String?) throws {
+    static func runPluginCheck(plugin: String, request: [UInt8], outputDir: String?, typed: Bool = false) throws {
         guard let outputDir else { throw DriverError(description: "--check needs --output-dir") }
         let fm = FileManager.default
         let tmp = fm.temporaryDirectory.appendingPathComponent("capnpc-driver-check-\(getpid())")
         try? fm.removeItem(at: tmp)
         try fm.createDirectory(at: tmp, withIntermediateDirectories: true)
-        try runPlugin(plugin: plugin, request: request, outputDir: tmp.path)
+        try runPlugin(plugin: plugin, request: request, outputDir: tmp.path, typed: typed)
         defer { try? fm.removeItem(at: tmp) }
 
         func swiftFiles(under root: String) -> [String] {

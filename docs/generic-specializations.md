@@ -1,10 +1,12 @@
-# Concrete Swift generic specializations
+# Concrete Swift generic specializations (historical prototype)
 
 Status: **EXECUTED PROTOTYPE 2026-10-12**. The separate tool in
 `tools/type-resolver-spike/` generates typed Swift for concrete struct and
 interface applications using capnp-zig v0.23.0's public Experimental resolver.
 The production generator now also uses v0.23.0, with byte-identical legacy
-output; typed output remains in this optional tool. Release 0.1.1 is unchanged.
+output. The production `--typed` interface is documented in
+[typed-generics.md](typed-generics.md); the text below records the separate
+prototype and its limitations. Release 0.1.1 is unchanged.
 
 ## Interface exercised
 

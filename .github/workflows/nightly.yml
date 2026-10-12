@@ -139,7 +139,7 @@ jobs:
       - name: Homebrew C++ deps
         run: |
           export PATH="/opt/homebrew/bin:$PATH"
-          brew install capnp cmake
+          brew install capnp cmake pkg-config
       - name: Fetch the pinned capnp-zig tag
         run: |
           git clone --quiet --depth=1 --branch "$CAPNP_ZIG_TAG" \
@@ -172,6 +172,7 @@ jobs:
           CPP=third_party/capnp-zig/tests/e2e/cpp/build
           scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e_client" game_world chat inventory matchmaking
           scripts/e2e-pair.sh "$CPP/e2e_server" "$BIN/e2e-swift-client" game_world chat inventory matchmaking
+          tools/capnpc-swift/tests/typed/check-rpc-cpp.sh --require-cpp
 
   quic:
     if: ${{ !inputs.ios_only }}

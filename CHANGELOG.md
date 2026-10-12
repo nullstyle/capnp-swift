@@ -33,6 +33,16 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- Production `--typed` generation with open `.Typed<Codec>` struct/interface
+  applications and `.TypedServer` protocols. Method-local generic arguments,
+  erased server handlers, transitive inheritance, nullable capabilities,
+  MainActor build closures, stable module aliases and Text/Data conveniences
+  are supported. The driver and command plugin forward generation/check flags
+  and preserve generator diagnostics. Thirty-two struct/CLI and 31 RPC gates,
+  seven driver guards and 22 independent C++/Swift RPC checks pass; deliberate
+  failure checks prove the new assertions and implementation guards.
+  All 28 legacy requests / 32 outputs remain byte-identical. Typed streaming
+  and generated result pipelines follow separately; release 0.1.1 is unchanged.
 - Experimental pointer schema codecs in `Capnp` and capability projection in
   `CapnpRPC`, preparing open generated schema applications. Readers/values
   own immutable storage; builders retain mutable storage. Copies preserve

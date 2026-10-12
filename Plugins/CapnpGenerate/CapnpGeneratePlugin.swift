@@ -7,6 +7,7 @@
 // vendored capnp.wasm under WasmKit and the capnpc-swift plugin). Add
 // --check for CI: it diffs instead of writing and exits nonzero when the
 // committed code is out of date.
+// --typed adds open typed generic declarations alongside the existing names.
 //
 // The driver binary is found, in order: $CAPNPC_SWIFT_DRIVER, the
 // artifactbundle tool (released packages), or the local build directory

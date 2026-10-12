@@ -22,11 +22,18 @@
 const std = @import("std");
 const capnp = @import("capnp");
 const schema = capnp.schema;
+const typed = @import("typed_emission.zig");
 
 const no_discriminant: u16 = 0xffff;
 
 pub const Generator = struct {
     allocator: std.mem.Allocator,
+    nodes: []schema.Node,
+    typed_generics: bool = false,
+    typed_reference_mode: bool = false,
+    typed_parameter_scopes: []const schema.Id = &.{},
+    typed_parameter_aliases: []const TypedParameterAlias = &.{},
+    typed_method_parameters: []const []const u8 = &.{},
     /// Names, literals and formatted snippets live here; freed wholesale.
     arena: std.heap.ArenaAllocator,
     /// Every schema node in the request, by id (the request outlives the
@@ -43,15 +50,20 @@ pub const Generator = struct {
     /// Top-level names that collide across the requested files (one Swift
     /// module): the later declarations are renamed with their module stem.
     name_overrides: std.AutoHashMapUnmanaged(schema.Id, []const u8) = .{},
+    typed_name_overrides: std.AutoHashMapUnmanaged(schema.Id, []const u8) = .{},
     /// Foreign modules referenced during emission (imports are printed for
     /// these only, not for every schema import).
     referenced_modules: std.ArrayList([]const u8) = .empty,
+
+    pub const TypedParameterAlias = struct { scope_id: schema.Id, index: usize, name: []const u8 };
 
     pub fn setRequestedFiles(self: *Generator, allocator: std.mem.Allocator, files: []const schema.RequestedFile) !void {
         self.requested_file_ids.deinit(allocator);
         self.requested_file_ids = .{};
         self.name_overrides.deinit(allocator);
         self.name_overrides = .{};
+        self.typed_name_overrides.deinit(allocator);
+        self.typed_name_overrides = .{};
         try self.requested_file_ids.ensureTotalCapacity(allocator, @intCast(files.len));
         for (files) |f| {
             self.requested_file_ids.put(allocator, f.id, {}) catch {};
@@ -59,7 +71,7 @@ pub const Generator = struct {
         // Two requested files may declare the same top-level name (one Swift
         // module): keep the first verbatim, rename later ones with the
         // module stem (`First` in a second file -> `First_External`).
-        var seen: std.StringHashMapUnmanaged(void) = .{};
+        var seen: std.StringHashMapUnmanaged(schema.Id) = .{};
         defer seen.deinit(self.scratch());
         for (files) |f| {
             const file_node = self.getNode(f.id) orelse continue;
@@ -70,12 +82,18 @@ pub const Generator = struct {
                     else => continue,
                 }
                 const plain = self.swiftIdentifierAlloc(lastSegment(child.display_name)) catch continue;
-                if (seen.contains(plain)) {
+                const stable_alias = try std.fmt.allocPrint(self.scratch(), "{s}_Node{x}", .{ self.unescaped(plain), child.id });
+                try self.typed_name_overrides.put(allocator, child.id, stable_alias);
+                if (seen.get(plain)) |first_id| {
+                    const first_alias = try std.fmt.allocPrint(self.scratch(), "{s}_Node{x}", .{ self.unescaped(plain), first_id });
+                    const alias = try std.fmt.allocPrint(self.scratch(), "{s}_Node{x}", .{ self.unescaped(plain), child.id });
+                    try self.typed_name_overrides.put(allocator, first_id, first_alias);
+                    try self.typed_name_overrides.put(allocator, child.id, alias);
                     const module = self.moduleName(file_node);
                     const renamed = std.fmt.allocPrint(self.scratch(), "{s}_{s}", .{ self.unescaped(plain), self.unescaped(module) }) catch continue;
                     self.name_overrides.put(allocator, child.id, renamed) catch {};
                 } else {
-                    seen.put(self.scratch(), plain, {}) catch {};
+                    seen.put(self.scratch(), plain, child.id) catch {};
                 }
             }
         }
@@ -149,7 +167,7 @@ pub const Generator = struct {
     }
 
     pub fn init(allocator: std.mem.Allocator, nodes: []schema.Node) !Generator {
-        var self = Generator{ .allocator = allocator, .arena = std.heap.ArenaAllocator.init(allocator) };
+        var self = Generator{ .allocator = allocator, .nodes = nodes, .arena = std.heap.ArenaAllocator.init(allocator) };
         try self.node_map.ensureTotalCapacity(allocator, @intCast(nodes.len));
         for (nodes) |*node| {
             self.node_map.put(allocator, node.id, node) catch {};
@@ -161,11 +179,12 @@ pub const Generator = struct {
         self.node_map.deinit(self.allocator);
         self.requested_file_ids.deinit(self.allocator);
         self.name_overrides.deinit(self.allocator);
+        self.typed_name_overrides.deinit(self.allocator);
         self.arena.deinit();
     }
 
     /// The arena allocator: everything the emitters allocate.
-    fn scratch(self: *Generator) std.mem.Allocator {
+    pub fn scratch(self: *Generator) std.mem.Allocator {
         return self.arena.allocator();
     }
 
@@ -181,6 +200,15 @@ pub const Generator = struct {
             node = self.getNode(node.scope_id) orelse return null;
         }
         return node;
+    }
+
+    fn typeHasInterface(t: schema.Type, depth: usize) bool {
+        if (depth >= 64) return false;
+        return switch (t) {
+            .interface => true,
+            .list => |list| typeHasInterface(list.element_type.*, depth + 1),
+            else => false,
+        };
     }
 
     pub fn generateFile(self: *Generator, requested_file: schema.RequestedFile) ![]u8 {
@@ -199,6 +227,18 @@ pub const Generator = struct {
             const node = self.getNode(nested.id) orelse continue;
             if (node.kind == .interface) has_interfaces = true;
         }
+        if (self.typed_generics) {
+            for (self.nodes) |*candidate| {
+                const candidate_file = self.getFileNode(candidate.id) orelse continue;
+                if (candidate_file.id != file_node.id) continue;
+                if (candidate.kind == .interface) has_interfaces = true;
+                if (candidate.struct_node) |structure| {
+                    for (structure.fields) |field| if (field.slot) |slot| {
+                        if (typeHasInterface(slot.type, 0)) has_interfaces = true;
+                    };
+                }
+            }
+        }
         try w.writeAll("import Capnp\n");
         if (has_interfaces) try w.writeAll("import CapnpRPC\n");
         try w.writeAll("\n");
@@ -212,19 +252,21 @@ pub const Generator = struct {
                 .@"const", .annotation, .file => {},
             }
         }
+        if (self.typed_generics) try typed.emitFile(self, w, file_node);
         // Imports go on top: the emission above recorded which foreign
         // modules were actually referenced.
-        const body = aw.written();
+        const body = if (self.typed_generics) std.mem.trimEnd(u8, aw.written(), "\n") else aw.written();
         const out = try self.allocator.alloc(u8, 256 + body.len);
         var h = std.Io.Writer.fixed(out);
         try h.print("// Generated by capnpc-swift from {s}. DO NOT EDIT.\n\n", .{requested_file.filename});
-        try h.writeAll("import Capnp\n");
-        if (has_interfaces) try h.writeAll("import CapnpRPC\n");
+        try h.writeAll(if (self.typed_generics) "@_spi(Generated) import Capnp\n" else "import Capnp\n");
+        if (has_interfaces) try h.writeAll(if (self.typed_generics) "@_spi(Generated) import CapnpRPC\n" else "import CapnpRPC\n");
         for (self.referenced_modules.items) |module| {
             try h.print("import {s}\n", .{module});
         }
         try h.writeAll("\n");
         try h.writeAll(body);
+        if (self.typed_generics) try h.writeAll("\n");
         aw.deinit();
         const final = try self.allocator.realloc(out, h.end);
         return final;
@@ -339,7 +381,7 @@ pub const Generator = struct {
         try w.print("{s}}}\n\n", .{pad});
     }
 
-    fn emitWhichEnum(self: *Generator, w: *std.Io.Writer, struct_node: *const schema.StructNode, indent: usize) !void {
+    pub fn emitWhichEnum(self: *Generator, w: *std.Io.Writer, struct_node: *const schema.StructNode, indent: usize) !void {
         const pad = indentation(indent);
         try w.print("{s}public enum Which: Equatable, Sendable {{\n", .{pad});
         for (struct_node.fields) |field| {
@@ -533,6 +575,7 @@ pub const Generator = struct {
         // ancestors may share a name (`extends(First, External.First)`):
         // later properties get a numeric suffix.
         var used_props: std.ArrayList([]const u8) = .empty;
+        if (self.typed_generics) try used_props.appendSlice(self.scratch(), &.{ "target", "connection" });
         for (iface.superclasses) |super_id| {
             const sup = self.getNode(super_id) orelse continue;
             const sup_ref = self.swiftRef(sup);
@@ -695,7 +738,7 @@ pub const Generator = struct {
 
     // ------------------------------------------------ fields
 
-    fn emitFieldReader(self: *Generator, w: *std.Io.Writer, parent: *schema.Node, field: schema.Field, indent: usize) !void {
+    pub fn emitFieldReader(self: *Generator, w: *std.Io.Writer, parent: *schema.Node, field: schema.Field, indent: usize) !void {
         const pad = indentation(indent);
         const name = try self.fieldAccessorName(parent, field);
         if (field.group) |group| {
@@ -782,9 +825,21 @@ pub const Generator = struct {
         }
     }
 
+    /// Public request Value.message_bytes contains one raw cloned segment,
+    /// including its root word. Add the standard segment table for Swift Message.
+    pub fn framedPointerDefault(self: *Generator, segment: []const u8) ![]const u8 {
+        if (segment.len < 8 or segment.len % 8 != 0 or segment.len / 8 > std.math.maxInt(u32)) return error.InvalidPointerDefault;
+        const bytes = try self.scratch().alloc(u8, segment.len + 8);
+        @memset(bytes[0..8], 0);
+        const words: u32 = @intCast(segment.len / 8);
+        for (0..4) |byte| bytes[4 + byte] = @truncate(words >> @intCast(byte * 8));
+        @memcpy(bytes[8..], segment);
+        return bytes;
+    }
+
     /// `private static let <Field>Default[Bytes]` for every struct field
     /// with a non-empty pointer default, at Reader scope.
-    fn emitReaderDefaultStatics(self: *Generator, w: *std.Io.Writer, node: *schema.Node, indent: usize) !void {
+    pub fn emitReaderDefaultStatics(self: *Generator, w: *std.Io.Writer, node: *schema.Node, indent: usize) !void {
         const struct_node = node.struct_node.?;
         const pad = indentation(indent);
         for (struct_node.fields) |field| {
@@ -929,7 +984,7 @@ pub const Generator = struct {
         }
     }
 
-    fn emitFieldBuilder(self: *Generator, w: *std.Io.Writer, parent: *schema.Node, field: schema.Field, indent: usize, is_results: bool) !void {
+    pub fn emitFieldBuilder(self: *Generator, w: *std.Io.Writer, parent: *schema.Node, field: schema.Field, indent: usize, is_results: bool) !void {
         const pad = indentation(indent);
         const name = try self.fieldAccessorName(parent, field);
         if (field.group) |group| {
@@ -999,22 +1054,22 @@ pub const Generator = struct {
                 if (self.in_params_struct) {
                     if (self.getNode(i.type_id)) |inode| {
                         {
-                        const iref = self.swiftRef(inode);
-                        const cap = try self.capitalized(name);
-                        try w.print("{s}/// Export `server` and point the field at it.\n", .{pad});
-                        try w.print("{s}public mutating func set{s}(_ server: any {s}.Server) {{\n", .{ pad, cap, iref });
-                        try w.print("{s}    root.setCapability({d}, capIndex: UInt32(caps.count))\n", .{ pad, slot.offset });
-                        try w.print("{s}    caps.append(.export({s}.Export(server)))\n", .{ pad, iref });
-                        try w.print("{s}}}\n\n", .{pad});
-                        if (is_results) {
-                            try w.print("{s}/// Point the field at an unresolved promise export (resolved later).\n", .{pad});
-                            try w.print("{s}public mutating func set{s}(promise: PromiseExport) {{\n", .{ pad, cap });
+                            const iref = self.swiftRef(inode);
+                            const cap = try self.capitalized(name);
+                            try w.print("{s}/// Export `server` and point the field at it.\n", .{pad});
+                            try w.print("{s}public mutating func set{s}(_ server: any {s}.Server) {{\n", .{ pad, cap, iref });
                             try w.print("{s}    root.setCapability({d}, capIndex: UInt32(caps.count))\n", .{ pad, slot.offset });
-                            try w.print("{s}    caps.append(.promise(promise))\n", .{pad});
+                            try w.print("{s}    caps.append(.export({s}.Export(server)))\n", .{ pad, iref });
                             try w.print("{s}}}\n\n", .{pad});
+                            if (is_results) {
+                                try w.print("{s}/// Point the field at an unresolved promise export (resolved later).\n", .{pad});
+                                try w.print("{s}public mutating func set{s}(promise: PromiseExport) {{\n", .{ pad, cap });
+                                try w.print("{s}    root.setCapability({d}, capIndex: UInt32(caps.count))\n", .{ pad, slot.offset });
+                                try w.print("{s}    caps.append(.promise(promise))\n", .{pad});
+                                try w.print("{s}}}\n\n", .{pad});
+                            }
+                            return;
                         }
-                        return;
-                    }
                     }
                 }
                 try w.print("{s}public func set{s}(capIndex: UInt32) {{ root.setCapability({d}, capIndex: capIndex) }}\n\n", .{ pad, try self.capitalized(name), slot.offset });
@@ -1168,7 +1223,7 @@ pub const Generator = struct {
     /// escaped for Swift.
     /// The declaration name: the last display-name segment, escaped. A
     /// top-level node renamed for a cross-file collision keeps its new name.
-    fn swiftTypeName(self: *Generator, node: *schema.Node) []const u8 {
+    pub fn swiftTypeName(self: *Generator, node: *schema.Node) []const u8 {
         if (self.name_overrides.get(node.id)) |override| {
             return self.swiftIdentifierAlloc(override) catch "BadName";
         }
@@ -1177,7 +1232,8 @@ pub const Generator = struct {
 
     /// A type reference, qualified from the file root so it resolves from
     /// any scope in the generated file.
-    fn swiftRef(self: *Generator, node: *schema.Node) []const u8 {
+    pub fn swiftRef(self: *Generator, node: *schema.Node) []const u8 {
+        if (self.typed_reference_mode) return typed.erasedReference(self, node) catch "BadName";
         return self.swiftQualifiedTypeName(node) catch "BadName";
     }
 
@@ -1186,7 +1242,7 @@ pub const Generator = struct {
     /// The node's Swift name qualified from the file root (`Outer.Inner`),
     /// so references resolve from any scope in the generated file. Every
     /// piece is named as declared (collision renames included).
-    fn swiftQualifiedTypeName(self: *Generator, node: *schema.Node) ![]const u8 {
+    pub fn swiftQualifiedTypeName(self: *Generator, node: *schema.Node) ![]const u8 {
         var prefix: []const u8 = "";
         if (self.current_file) |cur| {
             const ref_file = self.getFileNode(node.id) orelse cur;
@@ -1224,27 +1280,25 @@ pub const Generator = struct {
         return buf.toOwnedSlice(self.scratch());
     }
 
-/// A lexical (declaration) child: its display name extends the parent's.
-/// Brand applications name their application site instead, so they fail
-/// this check (v1 erases brands).
-fn lexicalChild(parent: *schema.Node, child: *schema.Node) bool {
-    return child.display_name.len > parent.display_name.len + 1
-        and std.mem.startsWith(u8, child.display_name, parent.display_name)
-        and child.display_name[parent.display_name.len] == '.';
-}
-
-fn lastSegment(display_name: []const u8) []const u8 {
-    if (std.mem.lastIndexOfScalar(u8, display_name, ':')) |i| {
-        return display_name[i + 1 ..];
+    /// A lexical (declaration) child: its display name extends the parent's.
+    /// Brand applications name their application site instead, so they fail
+    /// this check (v1 erases brands).
+    fn lexicalChild(parent: *schema.Node, child: *schema.Node) bool {
+        return child.display_name.len > parent.display_name.len + 1 and std.mem.startsWith(u8, child.display_name, parent.display_name) and child.display_name[parent.display_name.len] == '.';
     }
-    return display_name;
-}
 
-    fn swiftMemberName(self: *Generator, name: []const u8) ![]const u8 {
+    fn lastSegment(display_name: []const u8) []const u8 {
+        if (std.mem.lastIndexOfScalar(u8, display_name, ':')) |i| {
+            return display_name[i + 1 ..];
+        }
+        return display_name;
+    }
+
+    pub fn swiftMemberName(self: *Generator, name: []const u8) ![]const u8 {
         return self.swiftIdentifierAlloc(name);
     }
 
-    fn fieldAccessorName(self: *Generator, parent: *schema.Node, field: schema.Field) ![]const u8 {
+    pub fn fieldAccessorName(self: *Generator, parent: *schema.Node, field: schema.Field) ![]const u8 {
         var name = try self.swiftMemberName(field.name);
         // `which` collides with the generated union accessor.
         if (parent.struct_node != null and parent.struct_node.?.discriminant_count > 0 and std.mem.eql(u8, field.name, "which")) {
@@ -1262,7 +1316,7 @@ fn lastSegment(display_name: []const u8) []const u8 {
         return std.fmt.allocPrint(self.scratch(), "{s}{s}", .{ name, suffix });
     }
 
-    fn lowerFirst(self: *Generator, name: []const u8) ![]const u8 {
+    pub fn lowerFirst(self: *Generator, name: []const u8) ![]const u8 {
         if (name.len == 0 or !std.ascii.isUpper(name[0])) return name;
         var buf: std.ArrayList(u8) = .empty;
         try buf.append(self.scratch(), std.ascii.toLower(name[0]));
@@ -1270,18 +1324,18 @@ fn lastSegment(display_name: []const u8) []const u8 {
         return buf.toOwnedSlice(self.scratch());
     }
 
-    fn groupTypeName(self: *Generator, field: schema.Field) ![]const u8 {
+    pub fn groupTypeName(self: *Generator, field: schema.Field) ![]const u8 {
         return self.capitalized(try self.swiftMemberName(field.name));
     }
 
-    fn staticDefaultName(self: *Generator, accessor: []const u8) ![]const u8 {
+    pub fn staticDefaultName(self: *Generator, accessor: []const u8) ![]const u8 {
         const cap = try self.capitalized(accessor);
         return std.fmt.allocPrint(self.scratch(), "{s}Default", .{cap});
     }
 
     /// `fooBar` -> `FooBar`, unescaped (the result is a plain identifier;
     /// keyword-ness is re-checked when the final name is assembled).
-    fn capitalized(self: *Generator, name: []const u8) ![]const u8 {
+    pub fn capitalized(self: *Generator, name: []const u8) ![]const u8 {
         if (name.len == 0) return name;
         const inner = if (name[0] == '`') name[1 .. name.len - 1] else name;
         if (inner.len == 0) return name;
@@ -1298,13 +1352,13 @@ fn lastSegment(display_name: []const u8) []const u8 {
         return self.swiftIdentifierAlloc(try std.fmt.allocPrint(self.scratch(), "{s}{s}", .{ base, suffix }));
     }
 
-    fn unescaped(self: *Generator, name: []const u8) []const u8 {
+    pub fn unescaped(self: *Generator, name: []const u8) []const u8 {
         _ = self;
         if (name.len > 1 and name[0] == '`') return name[1 .. name.len - 1];
         return name;
     }
 
-    fn swiftIdentifierAlloc(self: *Generator, name: []const u8) ![]const u8 {
+    pub fn swiftIdentifierAlloc(self: *Generator, name: []const u8) ![]const u8 {
         var buf: std.ArrayList(u8) = .empty;
         errdefer buf.deinit(self.scratch());
         for (name) |c| {
@@ -1356,7 +1410,7 @@ fn lastSegment(display_name: []const u8) []const u8 {
         return buf.toOwnedSlice(self.scratch());
     }
 
-    fn swiftByteArrayLiteral(self: *Generator, bytes: []const u8) ![]const u8 {
+    pub fn swiftByteArrayLiteral(self: *Generator, bytes: []const u8) ![]const u8 {
         var buf: std.ArrayList(u8) = .empty;
         errdefer buf.deinit(self.scratch());
         try buf.appendSlice(self.scratch(), "[UInt8]([");
@@ -1380,21 +1434,21 @@ fn indentation(level: usize) []const u8 {
 }
 
 const swift_keywords = std.StaticStringMap(void).initComptime(.{
-    .{"associatedtype"}, .{"class"},      .{"deinit"},        .{"enum"},          .{"extension"},
-    .{"fileprivate"},     .{"func"},      .{"import"},        .{"init"},          .{"inout"},
-    .{"internal"},        .{"let"},       .{"open"},          .{"operator"},      .{"private"},
-    .{"precedencegroup"}, .{"protocol"},  .{"public"},        .{"rethrows"},      .{"static"},
-    .{"struct"},          .{"subscript"}, .{"typealias"},     .{"var"},           .{"where"},
-    .{"actor"},           .{"any"},       .{"as"},            .{"await"},         .{"async"},
-    .{"break"},           .{"case"},      .{"catch"},         .{"continue"},      .{"default"},
-    .{"defer"},           .{"do"},        .{"else"},          .{"fallthrough"},   .{"false"},
-    .{"for"},             .{"guard"},     .{"if"},            .{"in"},            .{"is"},
-    .{"nil"},             .{"repeat"},    .{"return"},        .{"self"},          .{"Self"},
-    .{"super"},           .{"switch"},    .{"throw"},         .{"throws"},        .{"true"},
-    .{"try"},             .{"while"},     .{"some"},          .{"each"},          .{"package"},
-    .{"lazy"},            .{"weak"},      .{"unowned"},       .{"mutating"},      .{"override"},
-    .{"final"},           .{"required"},  .{"convenience"},   .{"borrowing"},     .{"consuming"},
-    .{"copying"},         .{"macro"},     .{"nonisolated"},   .{"distributed"},   .{"sending"},
+    .{"associatedtype"},  .{"class"},     .{"deinit"},      .{"enum"},        .{"extension"},
+    .{"fileprivate"},     .{"func"},      .{"import"},      .{"init"},        .{"inout"},
+    .{"internal"},        .{"let"},       .{"open"},        .{"operator"},    .{"private"},
+    .{"precedencegroup"}, .{"protocol"},  .{"public"},      .{"rethrows"},    .{"static"},
+    .{"struct"},          .{"subscript"}, .{"typealias"},   .{"var"},         .{"where"},
+    .{"actor"},           .{"any"},       .{"as"},          .{"await"},       .{"async"},
+    .{"break"},           .{"case"},      .{"catch"},       .{"continue"},    .{"default"},
+    .{"defer"},           .{"do"},        .{"else"},        .{"fallthrough"}, .{"false"},
+    .{"for"},             .{"guard"},     .{"if"},          .{"in"},          .{"is"},
+    .{"nil"},             .{"repeat"},    .{"return"},      .{"self"},        .{"Self"},
+    .{"super"},           .{"switch"},    .{"throw"},       .{"throws"},      .{"true"},
+    .{"try"},             .{"while"},     .{"some"},        .{"each"},        .{"package"},
+    .{"lazy"},            .{"weak"},      .{"unowned"},     .{"mutating"},    .{"override"},
+    .{"final"},           .{"required"},  .{"convenience"}, .{"borrowing"},   .{"consuming"},
+    .{"copying"},         .{"macro"},     .{"nonisolated"}, .{"distributed"}, .{"sending"},
 });
 
 fn isSwiftKeyword(name: []const u8) bool {
@@ -1443,6 +1497,7 @@ test "node map resolves nested nodes by id" {
 }
 
 test "swift identifier escaping" {
+    std.testing.refAllDecls(@import("typed_rpc_emission.zig"));
     const a = std.testing.allocator;
     var gen = try Generator.init(a, &.{});
     defer gen.deinit();

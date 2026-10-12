@@ -6,7 +6,7 @@
 //! files:  one .swift per requested schema file, written relative to the
 //!         cwd, or to `--output-dir=<dir>` when driven by a build step.
 //!
-//! Options: `--output-dir=<dir>`. Everything else is an error (no env
+//! Options: `--output-dir=<dir>`, `--typed` (additive open typed bindings). Everything else is an error (no env
 //! options: build cache keys must stay honest).
 
 const std = @import("std");
@@ -21,6 +21,7 @@ pub fn main(init: std.process.Init) !void {
     const io = init.io;
 
     var output_dir: ?[]const u8 = null;
+    var typed_generics = false;
     {
         var iter = try std.process.Args.Iterator.initAllocator(init.minimal.args, init.arena.allocator());
         defer iter.deinit();
@@ -28,6 +29,8 @@ pub fn main(init: std.process.Init) !void {
         while (iter.next()) |arg| {
             if (std.mem.startsWith(u8, arg, output_dir_option)) {
                 output_dir = arg[output_dir_option.len..];
+            } else if (std.mem.eql(u8, arg, "--typed")) {
+                typed_generics = true;
             } else {
                 std.debug.print("capnpc-swift: unknown argument '{s}'\n", .{arg});
                 return error.InvalidArgument;
@@ -64,6 +67,44 @@ pub fn main(init: std.process.Init) !void {
     var gen = try generator.Generator.init(allocator, request.nodes);
     defer gen.deinit();
     try gen.setRequestedFiles(allocator, request.requested_files);
+    gen.typed_generics = typed_generics;
+
+    if (typed_generics) {
+        // Validate and generate the entire request before writing any source.
+        const Output = struct { name: []const u8, code: []const u8 };
+        var outputs: std.ArrayList(Output) = .empty;
+        defer {
+            for (outputs.items) |output| {
+                allocator.free(output.name);
+                allocator.free(output.code);
+            }
+            outputs.deinit(allocator);
+        }
+        var ids: std.AutoHashMapUnmanaged(u64, void) = .{};
+        defer ids.deinit(allocator);
+        var paths: std.StringHashMapUnmanaged(void) = .{};
+        defer paths.deinit(allocator);
+        for (request.requested_files) |requested_file| {
+            if (ids.contains(requested_file.id)) return error.DuplicateRequestedFile;
+            try ids.put(allocator, requested_file.id, {});
+            const name = try getOutputFilename(allocator, requested_file.filename);
+            errdefer allocator.free(name);
+            if (paths.contains(name)) return error.DuplicateOutputPath;
+            try paths.put(allocator, name, {});
+            const code = gen.generateFile(requested_file) catch |err| {
+                std.debug.print("capnpc-swift: error generating typed '{s}': {}\n", .{ requested_file.filename, err });
+                return err;
+            };
+            errdefer allocator.free(code);
+            try outputs.append(allocator, .{ .name = name, .code = code });
+        }
+        for (outputs.items) |output| {
+            const file = try createOutputFileInDir(output_root, io, output.name);
+            defer file.close(io);
+            try file.writeStreamingAll(io, output.code);
+        }
+        return;
+    }
 
     for (request.requested_files) |requested_file| {
         const output_code = gen.generateFile(requested_file) catch |err| {

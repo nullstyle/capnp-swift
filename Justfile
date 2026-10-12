@@ -87,6 +87,22 @@ gates: core-test xcframework
 
 # ---- M3 codegen (D6 option A) -------------------------------------------
 
+# Open codec generation; legacy erased output remains the default.
+codegen-build:
+    cd tools/capnpc-swift && mise exec -- zig build
+
+typed-structs:
+    tools/capnpc-swift/tests/typed/check.sh
+
+typed-rpc:
+    tools/capnpc-swift/tests/typed/check-rpc.sh
+
+typed-driver:
+    tools/capnpc-swift/tests/typed/check-driver.sh
+
+typed-rpc-cpp:
+    tools/capnpc-swift/tests/typed/check-rpc-cpp.sh
+
 # Optional consumer probe for the Experimental generics resolver facade.
 type-resolver-spike:
     cd tools/type-resolver-spike && mise exec -- zig build test --summary all
