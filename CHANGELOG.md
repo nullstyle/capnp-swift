@@ -41,12 +41,13 @@ All notable changes to capnp-swift are recorded here.
   foreign connections are rejected. Nineteen runtime checks and four public
   visibility checks passed with deliberate failure checks and exact restore.
 - The simulator lane accepts an opt-in `ios_network_repetitions` count
-  (1-16) for repeated processes on the hosted runner. Default scheduling,
-  parallel QUIC cases and deadlines are unchanged. Every repetition must
-  select the complete baseline and pass all 16 QUIC cases; loopback stress
-  stays in its own process. All four log guards were ablated. The 2026-10-12
-  timeout failure did not recur in four local runs or the hosted retry;
-  no transport repair is claimed.
+  (1-16) for repeated real-network processes on the hosted runner. Pure RPC,
+  conformance and loopback stress each run separately; every baseline test
+  remains selected. Parallel QUIC cases and deadlines are unchanged.
+  Nineteen coverage counterexamples prove the log guards fail as intended.
+  All 66 current simulator tests passed locally across the four selections.
+  The earlier hosted eight-run attempt timed out before this separation;
+  this is a harness isolation change, with no transport repair claimed.
 - Method-local generic RPC prototype (2026-10-12):
   `just type-resolver-methods` generates explicit client call-site cases and
   one erased server handler per method. Anonymous and named payload brands
