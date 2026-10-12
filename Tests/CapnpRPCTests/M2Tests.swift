@@ -207,33 +207,69 @@ struct M2Tests {
         _ = await server.waitClosed()
     }
 
-    @Test("outbound backpressure: send suspends while the transport holds too many bytes")
-    func outboundBackpressure() async throws {
+    @Test("outbound backpressure: send suspends while the transport holds too many bytes",
+          arguments: [Duration.zero, .milliseconds(120)])
+    func outboundBackpressure(_ bootstrapDelay: Duration) async throws {
         let stall = StallTransport()
         var options = RPCConnection.Options()
-        options.outboundHighWaterBytes = 64
+        options.outboundHighWaterBytes = 1
         let client = try await RPCConnection.connect(transport: stall, options: options)
-        // The bootstrap frame (small) goes out; a call's frame pushes past 64
-        // bytes, so the next send suspends until the transport completes.
-        let bootstrapTask = Task { try await client.bootstrap() }
-        try await Task.sleep(for: .milliseconds(30))
-        #expect(stall.pendingCount() >= 1)
-        let suspended = Task {
-            _ = try await client.send(.cap(CapRefFactory.fake(on: client)), interface: 1, method: 0, params: MessageBuilder.emptyStruct())
+        let bootstrapTask = Task {
+            // The delayed case reproduces a task starting after the former
+            // 30 ms observation. Correctness depends on frame arrival.
+            if bootstrapDelay != .zero { try await Task.sleep(for: bootstrapDelay) }
+            return try await client.bootstrap()
         }
-        _ = suspended
-        try await Task.sleep(for: .milliseconds(30))
-        stall.completeAll()
-        try await Task.sleep(for: .milliseconds(30))
+        let probe = OutboundSendProbe()
+        var suspended: Task<Void, any Error>?
+        do {
+            try await outboundObservation("bootstrap frame reached the stalled transport") {
+                stall.pendingCount() > 0
+            }
+            try #require(stall.pendingBytes() >= options.outboundHighWaterBytes,
+                         "stalled transport fills the outbound byte window")
+            suspended = Task { try await probe.send(on: client) }
+            try await outboundObservation("second send entered the connection actor") { probe.entered }
+            // send(on:) enters on this actor. Its job reaches either send's
+            // suspension or its return before a later queue marker can run.
+            client.queue.async { probe.markQueueReached() }
+            try await outboundObservation("connection queue passed the second send") { probe.queueReached }
+            try #require(!probe.finished && stall.pendingCount() == 1,
+                         "second send stays blocked while transport retains the frame")
+            stall.completeAll()
+            try await outboundObservation("second send resumes after transport completion") { probe.finished }
+            if let suspended {
+                let result = await suspended.result
+                // The intentionally nonexistent import is checked by the
+                // core only after the outbound window opens.
+                guard case .failure(let error as RPCError) = result else {
+                    Issue.record("the released send must reach the core's invalid import check")
+                    throw TestTimeout()
+                }
+                #expect(error == .core(code: -2, operation: "capnp_call"),
+                        "released send reaches the core's invalid import check")
+            }
+        } catch {
+            bootstrapTask.cancel()
+            await client.close()
+            _ = await bootstrapTask.result
+            _ = await suspended?.result
+            throw error
+        }
         bootstrapTask.cancel()
         await client.close()
         _ = await bootstrapTask.result
     }
+
 }
 
 /// A transport whose sends never complete until `completeAll()`.
 final class StallTransport: Transport, @unchecked Sendable {
-    private let pending = Mutex<[@Sendable () -> Void]>([])
+    private struct Frame: Sendable {
+        let bytes: Int
+        let completion: @Sendable () -> Void
+    }
+    private let pending = Mutex<[Frame]>([])
     private var delegate: (any TransportDelegate)?
     private var queue: DispatchSerialQueue?
 
@@ -245,17 +281,18 @@ final class StallTransport: Transport, @unchecked Sendable {
     func open() async throws {}
 
     func send(_ bytes: [UInt8], completion: @escaping @Sendable () -> Void) {
-        pending.withLock { $0.append(completion) }
+        pending.withLock { $0.append(Frame(bytes: bytes.count, completion: completion)) }
     }
 
     func pendingCount() -> Int { pending.withLock { $0.count } }
+    func pendingBytes() -> Int { pending.withLock { $0.reduce(0) { $0 + $1.bytes } } }
 
     func completeAll() {
-        let done = pending.withLock { p -> [@Sendable () -> Void] in
+        let done = pending.withLock { p -> [Frame] in
             defer { p.removeAll() }
             return p
         }
-        queue?.async { for c in done { c() } }
+        queue?.async { for frame in done { frame.completion() } }
     }
 
     func pauseReceiving() {}
@@ -264,6 +301,38 @@ final class StallTransport: Transport, @unchecked Sendable {
     func cancel() {
         let delegate = self.delegate
         queue?.async { delegate?.transportDidClose(error: nil) }
+    }
+}
+
+/// Each wait observes state; the deadline bounds a broken prerequisite.
+private func outboundObservation(_ name: String, _ condition: @escaping @Sendable () -> Bool) async throws {
+    do {
+        try await withTimeout(.seconds(5)) {
+            while !condition() { try await Task.sleep(for: .milliseconds(1)) }
+        }
+    } catch {
+        Issue.record("outbound backpressure observation timed out: \(name)")
+        throw error
+    }
+}
+
+private final class OutboundSendProbe: Sendable {
+    private struct State: Sendable {
+        var entered = false
+        var finished = false
+        var queueReached = false
+    }
+    private let state = Mutex(State())
+    var entered: Bool { state.withLock { $0.entered } }
+    var finished: Bool { state.withLock { $0.finished } }
+    var queueReached: Bool { state.withLock { $0.queueReached } }
+    func markQueueReached() { state.withLock { $0.queueReached = true } }
+
+    func send(on connection: isolated RPCConnection) async throws {
+        state.withLock { $0.entered = true }
+        defer { state.withLock { $0.finished = true } }
+        _ = try await connection.send(.cap(CapRefFactory.fake(on: connection)),
+                                      interface: 1, method: 0, params: MessageBuilder.emptyStruct())
     }
 }
 

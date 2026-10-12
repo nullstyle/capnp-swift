@@ -15,6 +15,11 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- The outbound backpressure test now waits for observable transport and actor
+  state. Its old 30 ms sleep could fail before bootstrap started, and its
+  byte threshold never filled the window. Immediate and delayed bootstrap
+  cases now prove suspension and resumption after send completion; 100 normal
+  and 50 Address Sanitizer repetitions passed, with seven named ablations.
 - The private method-generic probe copier now converts pointer-list allocation
   offsets from bytes to words before walking the elements. A two-Text-element
   regression proves copying and readback; both its expectation and the old
