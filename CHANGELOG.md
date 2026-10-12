@@ -15,6 +15,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Ordinary generated clients now reserve their `target` and `connection`
+  members when naming ancestor views. Interfaces with those names previously
+  produced duplicate Swift declarations. A generated loopback regression,
+  old-implementation ablation and assertion ablation verify the correction.
 - Pointer copying now counts inline-composite lists by pointer edges, matching
   reader depth limits. Valid deeply nested lists and retained scalar elements
   at the depth boundary copy successfully; non-null children beyond the budget

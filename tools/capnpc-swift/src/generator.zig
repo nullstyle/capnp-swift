@@ -575,7 +575,7 @@ pub const Generator = struct {
         // ancestors may share a name (`extends(First, External.First)`):
         // later properties get a numeric suffix.
         var used_props: std.ArrayList([]const u8) = .empty;
-        if (self.typed_generics) try used_props.appendSlice(self.scratch(), &.{ "target", "connection" });
+        try used_props.appendSlice(self.scratch(), &.{ "target", "connection" });
         for (iface.superclasses) |super_id| {
             const sup = self.getNode(super_id) orelse continue;
             const sup_ref = self.swiftRef(sup);

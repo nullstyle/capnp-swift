@@ -97,6 +97,9 @@ typed-structs:
 typed-rpc:
     tools/capnpc-swift/tests/typed/check-rpc.sh
 
+legacy-rpc:
+    tools/capnpc-swift/tests/typed/check-legacy-rpc.sh
+
 typed-driver:
     tools/capnpc-swift/tests/typed/check-driver.sh
 

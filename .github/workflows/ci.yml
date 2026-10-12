@@ -64,6 +64,7 @@ jobs:
           just type-resolver-methods
           just typed-structs
           just typed-rpc
+          just legacy-rpc
           just typed-driver
 
   swift:
