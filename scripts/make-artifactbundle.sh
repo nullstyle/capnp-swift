@@ -3,7 +3,8 @@
 #   - capnpc-driver: universal (arm64 + x86_64) release Swift binary with
 #     WasmKit statically linked (it runs capnp.wasm itself).
 #   - capnpc-swift: the universal native Zig plugin (ReleaseSafe).
-#   - capnp.wasm + include/: the vendored schema compiler (sha256-pinned).
+#   - capnp.wasm + include/: the vendored schema compiler (sha256-pinned)
+#     and this repository's Swift annotations.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -37,6 +38,7 @@ rm "$TRIPLE_DIR/capnpc-swift.arm64" "$TRIPLE_DIR/capnpc-swift.x86_64"
 echo "== compiler (wasm) + schema include tree"
 cp tools/capnpc-swift/wasm/capnp.wasm "$TRIPLE_DIR/"
 cp -R tools/capnpc-swift/wasm/include "$TRIPLE_DIR/include"
+cp tools/capnpc-swift/swift.capnp "$TRIPLE_DIR/include/swift.capnp"
 
 echo "== the wasm pin"
 EXPECTED=5429b7277b18b6e3f65430068ac41ac327ef8dd359603955f16ec576e0c3a14a
@@ -63,11 +65,7 @@ cat > "$OUT/info.json" <<'JSON'
 }
 JSON
 
-echo "== smoke: the bundle regenerates mvp.capnp"
-BIN="$TRIPLE_DIR/capnpc-driver"
-rm -rf /tmp/bundle-smoke
-"$BIN" --output-dir /tmp/bundle-smoke interop/schemas/mvp.capnp
-diff /tmp/bundle-smoke/mvp.swift interop/mvp-swift-gen/mvp.swift
-rm -rf /tmp/bundle-smoke
+echo "== smoke: standalone bundle generation and typed modules"
+scripts/check-codegen-bundle.sh "$TRIPLE_DIR"
 
 echo "OK: $OUT"

@@ -26,6 +26,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Codegen artifactbundles now include the repository's `swift.capnp`
+  annotations. Standalone typed module generation and check mode are exercised
+  alongside the exact MVP comparison; thirteen smoke guards and removal of
+  the annotation file were ablated and restored.
 - Pointer copying now uses an iterative depth-first traversal, avoiding stack
   exhaustion for valid deeply nested messages under Address Sanitizer.
   Sibling cursors keep temporary storage proportional to depth. A branching
