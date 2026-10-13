@@ -579,12 +579,57 @@
     "core_source": "released remote URL/checksum",
     "explicit_local_dependency_name": true,
     "original_failure": "unknown package capnp-swift; valid package source",
-    "original_red_log": "/tmp/capnp-workbench-release-consumer-t61la1q0/build.log"
+    "original_red_log": "/tmp/capnp-workbench-release-consumer-t61la1q0/build.log",
+    "committed_source_verification": {
+      "commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
+      "directory": "/tmp/capnp-workbench-archive.dG0F06",
+      "log": "/tmp/capnp-workbench-archive-final.log",
+      "log_sha256": "daa9d85b21d0a2eaf2adc7f3e269904f7291a3ce79df4b106d4e7cf100e8577f",
+      "public_network_checks": 21,
+      "core_source": "released remote URL/checksum"
+    }
   },
   "native_sample_hosted_ci": {
     "source_commit": "53aac84906c1d3c22f730bf5a3d9a6dcf1c8956f",
     "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38360495998",
     "lanes": 4,
     "conclusion": "success"
+  },
+  "archive_consumer_hosted_ci": {
+    "commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
+    "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703",
+    "status": "completed",
+    "conclusion": "success",
+    "lanes": 4,
+    "jobs": [
+      {
+        "name": "core",
+        "conclusion": "success",
+        "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183580869"
+      },
+      {
+        "name": "swift",
+        "conclusion": "success",
+        "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183580968"
+      },
+      {
+        "name": "sanitizers",
+        "conclusion": "success",
+        "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183581033"
+      },
+      {
+        "name": "ios",
+        "conclusion": "success",
+        "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183581103"
+      }
+    ],
+    "swift_tests_per_mode": 72,
+    "typed_rpc_checks_per_mode": 84,
+    "consumer_checks": 21,
+    "renamed_archive_consumer_checks": 21,
+    "native_mac_and_ios_builds": true,
+    "released_remote_core_verified_by_archive_gate": true,
+    "log": "/tmp/capnp-workbench-archive-final-ci.log",
+    "log_sha256": "0861c7e0bf9b022a078f8392a4a887314d997e1019c5f12028e507f882b2acd8"
   }
 }

@@ -16,6 +16,11 @@ All notable changes to capnp-swift are recorded here.
 
 ### Documentation
 
+- Completed the native integration and targeted repair sprints; assembled a
+  proposed 0.1.2 release with retained phone/simulator evidence, clean-archive
+  consumer checks and current CI/nightly source identities. The existing
+  generator candidate still matches all 147 build-input entries. Core and
+  published 0.1.1 assets remain unchanged; publication requires owner approval.
 - Verified the existing universal codegen candidate against main `b19b7fe`:
   all 147 compared build-input entries match `75f2bb5` and `49b2a32` after
   excluding the single documented test-harness change. Candidate ZIP and

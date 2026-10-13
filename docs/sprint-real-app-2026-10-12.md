@@ -64,3 +64,21 @@ CI adds the 21-check sample gate and native Mac/iOS app builds. Release
 preparation follows these gates. Candidate codegen bytes and the published
 0.1.1 core remain unchanged; a new package version and publication still need
 the owner.
+
+The scheduled [nightly 38359897878](https://github.com/nullstyle/capnp-swift/actions/runs/38359897878)
+passed all five lanes at `d72c407`: 70 simulator tests and 1800 seconds of
+ABI fuzz (3,851,980 sessions, 337,258,277 operations, zero live bytes at exit).
+The later sample commits preserve every runtime/core/generator/test/interop
+and nightly-script input plus the existing Just recipes. This is recorded
+source equivalence, with the nightly's actual revision retained.
+
+The renamed clean-archive consumer passes all 21 checks at `c5fdf1d` using
+the released remote core. The [proposed 0.1.2 readiness sheet](release-readiness-2026-10-13.md)
+assembles artifacts, exact validation scope and remaining owner choices.
+No publication was performed.
+
+[Final CI 38363670703](https://github.com/nullstyle/capnp-swift/actions/runs/38363670703)
+passed all four lanes at `c5fdf1d`. Logs retain 72 Swift tests and 84 typed
+checks per normal/TSan/ASan mode, both 21-check consumer gates and successful
+native Mac/iOS builds. The following evidence update changes documentation
+and JSON records only.

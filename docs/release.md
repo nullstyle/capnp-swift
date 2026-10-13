@@ -4,15 +4,18 @@ Every step runs from a clean working tree on the release commit. Steps 5
 and 6 need the owner; nothing is tagged or uploaded before the owner
 says so.
 
-## Current release and candidate (2026-10-12)
+## Current release and candidate (2026-10-13)
 
 Release [0.1.1](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.1)
 was published on 2026-10-10 at `808a90440c4560e7f3a705170b66b3ac969388a6`.
 Its tag and assets are immutable. H7's core pin upgrade and the 0.1.1
 ceremony are complete; the newer typed generator candidate is for a future
-release. See the [readiness sheet](release-readiness-2026-10-12.md) for
-candidate identity, source comparisons, lane evidence and owner choices.
-Select a new version before preparing any further tag or asset upload.
+release. The real app sprint is complete; 0.1.2 is the proposed next version,
+pending owner approval. See the [current readiness sheet](release-readiness-2026-10-13.md)
+for candidate identity, native consumer evidence, source comparisons and
+publication choices. The [previous sheet](release-readiness-2026-10-12.md)
+retains the earlier snapshot. Confirm the version and signing policy before
+any further tag or asset upload.
 
 ## 0. What ships
 

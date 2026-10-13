@@ -56,6 +56,16 @@ checkout directory's name. Naming the local package explicitly makes the
 renamed archive compile and pass all 21 checks with the released remote core.
 Both archive selection and core-source guards failed by name and restored.
 
+[Final CI 38363670703](https://github.com/nullstyle/capnp-swift/actions/runs/38363670703)
+passed all four lanes at `c5fdf1d`: each full Swift mode passes 72 tests,
+each typed mode passes 84 checks, both sample and renamed-archive gates pass
+21 checks, and native Mac/iOS builds succeed. The scheduled
+[nightly 38359897878](https://github.com/nullstyle/capnp-swift/actions/runs/38359897878)
+passed five lanes at `d72c407`, including 70 simulator tests and 1800 seconds
+of ABI fuzz with zero live bytes at exit. Runtime and existing nightly gate
+sources are byte-identical across the subsequent sample commits; the actual
+nightly revision remains recorded.
+
 ## Evidence
 
 Local files may expire. The checked-in [evidence manifest](evidence/results.json)
