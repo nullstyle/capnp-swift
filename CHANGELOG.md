@@ -4,6 +4,20 @@ All notable changes to capnp-swift are recorded here.
 
 ## [Unreleased]
 
+### Fixed
+
+- The QUIC client transport starts its `NetworkConnection` exactly once,
+  synchronously, before `openStream()`. The previous `queue.async`-deferred
+  start raced `openStream()`'s implicit auto-start (WWDC25 session 250) and
+  could double-start the underlying `NWConnection`. The hosted Xcode 26.6
+  teardown trap (`Neither nw nor nwGroup is initialized`) was captured three
+  more times around this change and is not cured by it: the crashing job is
+  Network.framework's own state-delivery task reading a torn-down backing,
+  with no capnp frame involved. The full diagnosis, falsified hypotheses,
+  rate table and reproduction recipe are recorded as an upstream SDK handoff
+  in `docs/handoffs/apple-network-quic-teardown-race.md`; the intermittent
+  trap remains tracked there, not claimed fixed.
+
 ### Changed
 
 - A manual Network diagnostic pins Xcode 26.6 and repeats QUIC-only, mixed
