@@ -109,7 +109,7 @@ public struct TestAllTypes {
 
         public var enumField: TestEnum { TestEnum(rawValue: root.readUInt16(at: 36)) }
 
-        public func voidList() throws -> PointerListReader? { try root.readPointerListOrDefault(3) }
+        public func voidList() throws -> VoidListReader? { try root.readVoidListOrDefault(3) }
 
         public func boolList() throws -> BitListReader? { try root.readBoolListOrDefault(4) }
 
@@ -156,7 +156,7 @@ public struct TestAllTypes {
             return out
         }
 
-        public func interfaceList() throws -> PointerListReader? { try root.readPointerListOrDefault(19) }
+        public func interfaceList() throws -> VoidListReader? { try root.readVoidListOrDefault(19) }
 
     }
 
@@ -231,7 +231,7 @@ public struct TestAllTypes {
             set { root.setEnum16(at: 36, newValue.rawValue) }
         }
 
-        public func initVoidList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(3, count: count) }
+        public func initVoidList(_ count: Int) -> VoidListBuilder { root.initVoidList(3, count: count) }
 
         public func initBoolList(_ count: Int) -> BitListBuilder { root.initBoolList(4, count: count) }
 
@@ -265,7 +265,7 @@ public struct TestAllTypes {
 
         public func initEnumList(_ count: Int) -> FixedSizeListBuilder<UInt16> { root.initFixedSizeList(18, count: count, as: UInt16.self) }
 
-        public func initInterfaceList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(19, count: count) }
+        public func initInterfaceList(_ count: Int) -> VoidListBuilder { root.initVoidList(19, count: count) }
 
     }
 
@@ -372,7 +372,7 @@ public struct TestDefaults {
             return TestEnum(rawValue: root.readUInt16(at: 36) ^ 5)
         }
 
-        public func voidList() throws -> PointerListReader? { try (root.isPointerNull(3) ? Self.VoidListDefault.rootStruct() : root).readPointerListOrDefault((root.isPointerNull(3) ? 0 : 3)) }
+        public func voidList() throws -> VoidListReader? { try (root.isPointerNull(3) ? Self.VoidListDefault.rootStruct() : root).readVoidListOrDefault((root.isPointerNull(3) ? 0 : 3)) }
 
         public func boolList() throws -> BitListReader? { try (root.isPointerNull(4) ? Self.BoolListDefault.rootStruct() : root).readBoolListOrDefault((root.isPointerNull(4) ? 0 : 4)) }
 
@@ -419,7 +419,7 @@ public struct TestDefaults {
             return out
         }
 
-        public func interfaceList() throws -> PointerListReader? { try root.readPointerListOrDefault(19) }
+        public func interfaceList() throws -> VoidListReader? { try root.readVoidListOrDefault(19) }
 
     }
 
@@ -505,7 +505,7 @@ public struct TestDefaults {
             set { root.setEnum16(at: 36, newValue.rawValue) }
         }
 
-        public func initVoidList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(3, count: count) }
+        public func initVoidList(_ count: Int) -> VoidListBuilder { root.initVoidList(3, count: count) }
 
         public func initBoolList(_ count: Int) -> BitListBuilder { root.initBoolList(4, count: count) }
 
@@ -539,7 +539,7 @@ public struct TestDefaults {
 
         public func initEnumList(_ count: Int) -> FixedSizeListBuilder<UInt16> { root.initFixedSizeList(18, count: count, as: UInt16.self) }
 
-        public func initInterfaceList(_ count: Int) -> PointerListBuilderSlice { root.initTextList(19, count: count) }
+        public func initInterfaceList(_ count: Int) -> VoidListBuilder { root.initVoidList(19, count: count) }
 
     }
 

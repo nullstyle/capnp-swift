@@ -46,8 +46,12 @@ vendor schema's explicit values and its compiler-produced message fixture. Its
 11 named checks cover nested struct pointers, supported list element kinds,
 nonfinite float values, nested lists, explicit null, and explicit wire overrides.
 `--update` regenerates the Widget golden, vendor bindings, and the synthetic
-`legacy_list_defaults` golden. Legacy `List(Void)` reader repair is a separate
-runtime milestone.
+`legacy_list_defaults` golden.
+
+`check-legacy-void.sh` verifies the `VoidListReader` and `VoidListBuilder` APIs:
+compiler-produced defaults, element-free storage, explicit empty overrides,
+null and wrong-kind pointers, and malformed offsets. Its six runtime checks
+and generated API compile guard use the same synthetic list fixture.
 
 ## Request provenance and reproduction
 

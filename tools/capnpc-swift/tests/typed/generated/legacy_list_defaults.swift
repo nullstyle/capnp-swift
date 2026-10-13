@@ -16,7 +16,7 @@ public struct LegacyListDefaults {
         static let VoidsDefault = CapnpDefaultMessage(bytes: VoidsDefaultBytes)
         public func nesting() throws -> PointerListReader? { try (root.isPointerNull(0) ? Self.NestingDefault.rootStruct() : root).readPointerListOrDefault((root.isPointerNull(0) ? 0 : 0)) }
 
-        public func voids() throws -> PointerListReader? { try (root.isPointerNull(1) ? Self.VoidsDefault.rootStruct() : root).readPointerListOrDefault((root.isPointerNull(1) ? 0 : 1)) }
+        public func voids() throws -> VoidListReader? { try (root.isPointerNull(1) ? Self.VoidsDefault.rootStruct() : root).readVoidListOrDefault((root.isPointerNull(1) ? 0 : 1)) }
 
     }
 
@@ -25,7 +25,7 @@ public struct LegacyListDefaults {
         public init(_ root: StructBuilder) { self.root = root }
         public func initNesting(_ count: Int) -> PointerListBuilderSlice { root.initTextList(0, count: count) }
 
-        public func initVoids(_ count: Int) -> PointerListBuilderSlice { root.initTextList(1, count: count) }
+        public func initVoids(_ count: Int) -> VoidListBuilder { root.initVoidList(1, count: count) }
 
     }
 

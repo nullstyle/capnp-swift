@@ -965,7 +965,8 @@ pub const Generator = struct {
         const root = if (has_default) try std.fmt.allocPrint(self.scratch(), "(root.isPointerNull({d}) ? Self.{s}.rootStruct() : root)", .{ slot.offset, try self.staticDefaultName(name) }) else "root";
         const offset = if (has_default) try std.fmt.allocPrint(self.scratch(), "(root.isPointerNull({d}) ? 0 : {d})", .{ slot.offset, slot.offset }) else try std.fmt.allocPrint(self.scratch(), "{d}", .{slot.offset});
         switch (element.*) {
-            .void, .interface => try w.print("{s}public func {s}() throws -> PointerListReader? {{ try {s}.readPointerListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
+            .void => try w.print("{s}public func {s}() throws -> VoidListReader? {{ try {s}.readVoidListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
+            .interface => try w.print("{s}public func {s}() throws -> PointerListReader? {{ try {s}.readPointerListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
             .bool => try w.print("{s}public func {s}() throws -> BitListReader? {{ try {s}.readBoolListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
             .int8 => try fixedListReader(w, pad, name, "Int8", root, offset),
             .int16 => try fixedListReader(w, pad, name, "Int16", root, offset),
@@ -1209,7 +1210,8 @@ pub const Generator = struct {
     fn emitListBuilder(self: *Generator, w: *std.Io.Writer, pad: []const u8, name: []const u8, slot: schema.FieldSlot, element: *schema.Type) !void {
         const cap = try self.capitalized(name);
         switch (element.*) {
-            .void, .interface => try w.print("{s}public func init{s}(_ count: Int) -> PointerListBuilderSlice {{ root.initTextList({d}, count: count) }}\n\n", .{ pad, cap, slot.offset }),
+            .void => try w.print("{s}public func init{s}(_ count: Int) -> VoidListBuilder {{ root.initVoidList({d}, count: count) }}\n\n", .{ pad, cap, slot.offset }),
+            .interface => try w.print("{s}public func init{s}(_ count: Int) -> PointerListBuilderSlice {{ root.initTextList({d}, count: count) }}\n\n", .{ pad, cap, slot.offset }),
             .bool => try w.print("{s}public func init{s}(_ count: Int) -> BitListBuilder {{ root.initBoolList({d}, count: count) }}\n\n", .{ pad, cap, slot.offset }),
             .int8 => try self.buildList(w, pad, name, slot, "Int8"),
             .int16 => try self.buildList(w, pad, name, slot, "Int16"),

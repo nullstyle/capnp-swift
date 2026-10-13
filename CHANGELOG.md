@@ -21,6 +21,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Ordinary `List(Void)` fields now generate matching `VoidListReader` and
+  `VoidListBuilder` APIs. Lists retain their count without allocating element
+  storage, and explicit empty values override schema defaults. Six runtime
+  checks and a generated API guard passed their individual failure checks.
 - Ordinary struct defaults now contain standalone-message framing; ordinary
   list defaults retain their original relative pointer offsets. Unset/null
   fields read their schema defaults and stored values take precedence. Eleven

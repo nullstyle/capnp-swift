@@ -103,6 +103,9 @@ legacy-rpc:
 legacy-defaults:
     tools/capnpc-swift/tests/typed/check-legacy-defaults.sh
 
+legacy-void:
+    tools/capnpc-swift/tests/typed/check-legacy-void.sh
+
 typed-driver:
     tools/capnpc-swift/tests/typed/check-driver.sh
 
