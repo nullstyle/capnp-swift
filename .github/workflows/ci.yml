@@ -170,7 +170,18 @@ jobs:
       - name: Test process crash reports
         if: failure()
         run: scripts/print-test-crashes.sh
-      - name: ASan debugger diagnosis
+      - name: Sanitizer debugger diagnosis
         if: failure()
         run: python3 scripts/diagnose-sanitizer-crash.py
+      - name: Network QUIC startup diagnosis
+        if: failure()
+        continue-on-error: true
+        run: |
+          probe_status=0
+          for mode in concurrent queued-start inline-start open-only; do
+            repetitions=3
+            if [ "$mode" = concurrent ]; then repetitions=16; fi
+            scripts/diagnose-network-quic-order.sh thread "$mode" "$repetitions" || probe_status=1
+          done
+          exit "$probe_status"
 

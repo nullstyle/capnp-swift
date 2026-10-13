@@ -7,14 +7,16 @@ All notable changes to capnp-swift are recorded here.
 ### Changed
 
 - The sanitizer job installs ripgrep for its typed gates. The stream race
-  harness uses a Sendable counter object compatible with Swift 6.3, preserving
+  harness uses Sendable counter and activity objects compatible with Swift 6.3, preserving
   all sixteen workers, eight rounds and permit assertions. Its 84 checks pass
   in normal, TSan and ASan builds; the race assertion was ablated and restored.
 - Core CI installs ripgrep for the typed generation gates. Sanitizer failures
   print matching OS crash reports and run a bounded debugger diagnosis when
   SwiftPM reports only a signal; the original failure status is retained.
   The diagnosis supports both executable tests and Swift 6.4 helper-loaded
-  test bundles, with their matching framework and sanitizer search paths.
+  test bundles, with matching TSan/ASan framework and runtime search paths.
+  A separate bounded Network-only QUIC startup probe distinguishes concurrent
+  explicit/automatic startup from sequential controls after a sanitizer failure.
 - Simulator diagnostics can compare `ios_network_layout=combined` with
   `separate`, which places QUIC in its own process while retaining all sixteen
   parallel cases. Eight hosted split repetitions passed; scheduled runs now

@@ -22,6 +22,14 @@ final class PipelineCompletionCounter: Sendable {
     func increment() { count.withLock { $0 += 1 } }
     var value: Int { count.withLock { $0 } }
 }
+final class PipelinePermitActivity: Sendable {
+    private struct State { var active = 0; var maximum = 0; var unexpectedError = false }
+    private let state = Mutex(State())
+    func enter() { state.withLock { $0.active += 1; $0.maximum = max($0.maximum, $0.active) } }
+    func leave() { state.withLock { $0.active -= 1 } }
+    func recordUnexpectedError() { state.withLock { $0.unexpectedError = true } }
+    var isBalanced: Bool { state.withLock { $0.maximum == 1 && $0.active == 0 && !$0.unexpectedError } }
+}
 final class PipelineGate: Sendable {
     private struct State { var open = false; var waiters: [CheckedContinuation<Void, Never>] = [] }
     private let state = Mutex(State())
@@ -429,8 +437,7 @@ struct PipelineNamed: PNamed.TypedServer {
         followerGate.release(); try await follower.value; window.release(bytes: 40)
         guard window.usageSnapshot().calls == 0 && window.usageSnapshot().bytes == 0 else { throw PipelineFailure(name: "follower window permits leaked") }
 
-        struct Activity { var active = 0; var maximum = 0; var unexpectedError = false }
-        let activity = Mutex(Activity())
+        let activity = PipelinePermitActivity()
         let raced = StreamWindow(maxCalls: 1, maxBytes: 8)
         for _ in 0..<8 {
             try await raced.acquireThrowing(bytes: 8)
@@ -440,12 +447,12 @@ struct PipelineNamed: PNamed.TypedServer {
                 do {
                     try await raced.acquireThrowing(bytes: 8)
                     defer { raced.release(bytes: 8) }
-                    activity.withLock { $0.active += 1; $0.maximum = max($0.maximum, $0.active) }
-                    defer { activity.withLock { $0.active -= 1 } }
+                    activity.enter()
+                    defer { activity.leave() }
                     try await Task.sleep(for: .milliseconds(1))
                 } catch let error as RPCError {
-                    if error != .canceled { activity.withLock { $0.unexpectedError = true } }
-                } catch is CancellationError {} catch { activity.withLock { $0.unexpectedError = true } }
+                    if error != .canceled { activity.recordUnexpectedError() }
+                } catch is CancellationError {} catch { activity.recordUnexpectedError() }
             } }
             try await pipelineObserve("grant cancellation race workers queued") { raced.usageSnapshot().waiters == 16 }
             let canceler = Task { for index in stride(from: 0, to: workers.count, by: 2) { workers[index].cancel(); await Task.yield() } }
@@ -455,7 +462,7 @@ struct PipelineNamed: PNamed.TypedServer {
             for worker in workers { await worker.value }
         }
         let balanced = raced.usageSnapshot()
-        try pipelineCheck(activity.withLock { $0.maximum == 1 && $0.active == 0 && !$0.unexpectedError } && balanced.calls == 0 && balanced.bytes == 0 && balanced.waiters == 0, "stream grant and cancellation races preserve one permit owner")
+        try pipelineCheck(activity.isBalanced && balanced.calls == 0 && balanced.bytes == 0 && balanced.waiters == 0, "stream grant and cancellation races preserve one permit owner")
     }
     static func streamWindow(_ mode: String) async throws {
         let gate = PipelineGate(), factory = PipelineFactory(streamGate: gate)
