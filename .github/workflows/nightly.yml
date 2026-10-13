@@ -21,8 +21,8 @@ on:
       ios_network_layout:
         description: Compare mixed networking with QUIC in a separate process
         type: choice
-        options: [combined, separate]
-        default: combined
+        options: [separate, combined]
+        default: separate
 
 permissions:
   contents: read
@@ -267,7 +267,7 @@ jobs:
           esac
           NETWORK_LOGS=()
           QUIC_LOGS=()
-          CAPNP_IOS_NETWORK_LAYOUT="${CAPNP_IOS_NETWORK_LAYOUT:-combined}"
+          CAPNP_IOS_NETWORK_LAYOUT="${CAPNP_IOS_NETWORK_LAYOUT:-separate}"
           case "$CAPNP_IOS_NETWORK_LAYOUT" in
             combined|separate) ;;
             *) echo "ios_network_layout must be combined or separate" >&2; exit 2 ;;

@@ -11,10 +11,10 @@ All notable changes to capnp-swift are recorded here.
   when SwiftPM reports only a signal.
 - Simulator diagnostics can compare `ios_network_layout=combined` with
   `separate`, which places QUIC in its own process while retaining all sixteen
-  parallel cases. The hosted combined attempt passed once and timed out TCP/
-  TLS on its second run; this comparison keeps the cause under investigation.
-  Default layout and deadlines are unchanged. Seven new coverage guards were
-  ablated, and all nineteen existing guards still pass their failure checks.
+  parallel cases. Eight hosted split repetitions passed; scheduled runs now
+  use that layout. The combined layout remains available for diagnosis.
+  Deadlines are unchanged. Seven new coverage guards were ablated, and all
+  nineteen existing guards still pass their failure checks.
 - The production generator now depends on capnp-zig v0.23.0, making its
   public resolver available for typed generation.
   A separate compatibility build compared all 28 committed shape/golden
