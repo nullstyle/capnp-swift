@@ -41,6 +41,7 @@ jobs:
             curl -fsSL https://mise.run | sh
           fi
           command -v just >/dev/null 2>&1 || brew install just
+          command -v rg >/dev/null 2>&1 || brew install ripgrep
           mise install
           mise exec -- zig version
       - name: Core tests + macOS XCFramework + gates
@@ -160,4 +161,7 @@ jobs:
           scripts/use-local-core.sh
           just tsan
           just asan
+      - name: Test process crash reports
+        if: failure()
+        run: scripts/print-test-crashes.sh
 
