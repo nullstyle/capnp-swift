@@ -610,7 +610,7 @@ pub const Generator = struct {
                 try w.print("{s}        var params = {s}.Builder(mb.initRoot(dataWords: {d}, pointerWords: {d}))\n", .{ pad, mcap, dw, pw });
                 try w.print("{s}        body(&params)\n", .{pad});
                 try w.print("{s}        let bytes = mb.toBytes().count\n", .{pad});
-                try w.print("{s}        try await connection.streamWindow.acquire(bytes: bytes)\n", .{pad});
+                try w.print("{s}        await connection.streamWindow.acquire(bytes: bytes)\n", .{pad});
                 try w.print("{s}        defer {{ connection.streamWindow.release(bytes: bytes) }}\n", .{pad});
                 try w.print("{s}        _ = try await connection.call(target, interface: {s}.interfaceID, method: Method.{s}.rawValue, params: mb.toBytes(), caps: params.caps)\n", .{ pad, iname, mname });
                 try w.print("{s}    }}\n\n", .{pad});

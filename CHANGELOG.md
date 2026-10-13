@@ -23,6 +23,8 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Erased streaming clients omit `try` when awaiting the nonthrowing stream
+  window API, allowing generated code to compile with warnings as errors.
 - Ordinary `List(Void)` fields now generate matching `VoidListReader` and
   `VoidListBuilder` APIs. Lists retain their count without allocating element
   storage, and explicit empty values override schema defaults. Six runtime

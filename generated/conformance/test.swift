@@ -7012,7 +7012,7 @@ public enum TestStreaming {
             var params = TestStreaming.DoStreamIParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
             body(&params)
             let bytes = mb.toBytes().count
-            try await connection.streamWindow.acquire(bytes: bytes)
+            await connection.streamWindow.acquire(bytes: bytes)
             defer { connection.streamWindow.release(bytes: bytes) }
             _ = try await connection.call(target, interface: TestStreaming.interfaceID, method: Method.doStreamI.rawValue, params: mb.toBytes(), caps: params.caps)
         }
@@ -7024,7 +7024,7 @@ public enum TestStreaming {
             var params = TestStreaming.DoStreamJParams.Builder(mb.initRoot(dataWords: 1, pointerWords: 0))
             body(&params)
             let bytes = mb.toBytes().count
-            try await connection.streamWindow.acquire(bytes: bytes)
+            await connection.streamWindow.acquire(bytes: bytes)
             defer { connection.streamWindow.release(bytes: bytes) }
             _ = try await connection.call(target, interface: TestStreaming.interfaceID, method: Method.doStreamJ.rawValue, params: mb.toBytes(), caps: params.caps)
         }
