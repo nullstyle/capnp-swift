@@ -17,6 +17,11 @@ func pipelineObserve(_ name: String, _ condition: @Sendable () async -> Bool) as
         try await Task.sleep(for: .milliseconds(1))
     }
 }
+final class PipelineCompletionCounter: Sendable {
+    private let count = Mutex<Int>(0)
+    func increment() { count.withLock { $0 += 1 } }
+    var value: Int { count.withLock { $0 } }
+}
 final class PipelineGate: Sendable {
     private struct State { var open = false; var waiters: [CheckedContinuation<Void, Never>] = [] }
     private let state = Mutex(State())
@@ -429,9 +434,9 @@ struct PipelineNamed: PNamed.TypedServer {
         let raced = StreamWindow(maxCalls: 1, maxBytes: 8)
         for _ in 0..<8 {
             try await raced.acquireThrowing(bytes: 8)
-            let finished = Mutex(0)
+            let finished = PipelineCompletionCounter()
             let workers = (0..<16).map { _ in Task {
-                defer { finished.withLock { $0 += 1 } }
+                defer { finished.increment() }
                 do {
                     try await raced.acquireThrowing(bytes: 8)
                     defer { raced.release(bytes: 8) }
@@ -446,7 +451,7 @@ struct PipelineNamed: PNamed.TypedServer {
             let canceler = Task { for index in stride(from: 0, to: workers.count, by: 2) { workers[index].cancel(); await Task.yield() } }
             raced.release(bytes: 8)
             await canceler.value
-            try await pipelineObserve("stream grant and cancellation races preserve one permit owner") { finished.withLock { $0 == 16 } }
+            try await pipelineObserve("stream grant and cancellation races preserve one permit owner") { finished.value == 16 }
             for worker in workers { await worker.value }
         }
         let balanced = raced.usageSnapshot()

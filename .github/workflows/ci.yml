@@ -154,6 +154,7 @@ jobs:
             curl -fsSL https://mise.run | sh
           fi
           command -v just >/dev/null 2>&1 || brew install just
+          command -v rg >/dev/null 2>&1 || brew install ripgrep
           mise install
           mise exec -- zig version
       - name: TSan + ASan

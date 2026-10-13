@@ -6,6 +6,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Changed
 
+- The sanitizer job installs ripgrep for its typed gates. The stream race
+  harness uses a Sendable counter object compatible with Swift 6.3, preserving
+  all sixteen workers, eight rounds and permit assertions. Its 84 checks pass
+  in normal, TSan and ASan builds; the race assertion was ablated and restored.
 - Core CI installs ripgrep for the typed generation gates. Sanitizer failures
   print matching OS crash reports and run a bounded debugger diagnosis when
   SwiftPM reports only a signal; the original failure status is retained.
