@@ -39,7 +39,13 @@ bumps the minor, not the patch).
 - **`CapnpNW` QUIC** (`QUICTransport`, `QUICListener`): needs
   macOS 26 / iOS 26 (Network.framework's modern QUIC API) and is
   Experimental in capnp-zig as well. The WIRE shape is frozen (above);
-  the Swift surface may change.
+  the Swift surface may change. Hosted Xcode 26.6 / macOS SDK 26.5 runs
+  intermittently trap during Network.framework teardown with
+  `Neither nw nor nwGroup is initialized`. The client single-start fix
+  does not cure this SDK race. It remains unfixed and was not reported to
+  Apple, by owner decision on 2026-10-12. The investigation is closed;
+  [the evidence](handoffs/apple-network-quic-teardown-race.md) is local
+  reference only. Local Xcode 27 passes do not establish older SDK behavior.
 - **The pinned capnp-zig Peer** (v0.23.0, `-Dfd-passing=false`): its
   sans-IO surface is Experimental upstream, which is why the pin is
   exact and each release reports it in `capnp_core_version()`.

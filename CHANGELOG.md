@@ -4,6 +4,20 @@ All notable changes to capnp-swift are recorded here.
 
 ## [Unreleased]
 
+### Documentation
+
+- Verified the existing universal codegen candidate against main `b19b7fe`:
+  all 147 compared build-input entries match `75f2bb5` and `49b2a32` after
+  excluding the single documented test-harness change. Candidate ZIP and
+  published 0.1.1 hashes match; extracted smoke and a fresh HEAD consumer
+  pass using the released core URL/checksum. Provenance and the release
+  readiness sheet now record exact CI/nightly revisions and their limits.
+- H7's native move and typed adoption are complete. The Network.framework
+  teardown investigation is closed by owner decision (2026-10-12); the
+  unfixed SDK race stays documented as a QUIC limitation and local evidence.
+  No Apple report is authorized. Published 0.1.1 remains immutable; any
+  future version, tag and asset upload require a separate owner decision.
+
 ### Fixed
 
 - The QUIC client transport starts its `NetworkConnection` exactly once,
@@ -14,9 +28,9 @@ All notable changes to capnp-swift are recorded here.
   more times around this change and is not cured by it: the crashing job is
   Network.framework's own state-delivery task reading a torn-down backing,
   with no capnp frame involved. The full diagnosis, falsified hypotheses,
-  rate table and reproduction recipe are recorded as an upstream SDK handoff
-  in `docs/handoffs/apple-network-quic-teardown-race.md`; the intermittent
-  trap remains tracked there, not claimed fixed.
+  rate table and reproduction recipe are retained as local reference in
+  `docs/handoffs/apple-network-quic-teardown-race.md`; the owner closed the
+  investigation without an Apple report. The intermittent trap is not fixed.
 
 ### Changed
 

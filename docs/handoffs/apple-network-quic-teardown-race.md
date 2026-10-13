@@ -1,6 +1,11 @@
 # Apple SDK handoff: Network.framework QUIC teardown race (macOS 26.x)
 
-Audience: Apple Network.framework engineering (Feedback Assistant style).
+Status: closed on the capnp-swift side by owner decision, 2026-10-12:
+"dont report anything". Local reference only. The SDK race is not fixed
+and has not been reported to Apple. Do not submit this document or resume
+the investigation without a new owner instruction.
+
+Original format: Apple Network.framework engineering / Feedback Assistant.
 Prepared from capnp-swift hosted reproductions, 2026-10-12/13. All stacks,
 logs and disassembly below come from the referenced artifacts.
 

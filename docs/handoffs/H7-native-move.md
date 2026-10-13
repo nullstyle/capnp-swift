@@ -8,11 +8,16 @@ closed as B.
 The second clause is also exported in v0.23.0: the Experimental
 `type_resolver` facade. The capnp-swift consumer spike completed on
 2026-10-10 (eight ablated cases; all 26 requests produce byte-identical
-Swift in a separate v0.21.0/v0.23.0 compatibility build). The shipping
-generator retains v0.21.0. [H12](H12-type-resolver-lexical-lookup.md)
-records the lookup-only nested RPC defect; full request-node contexts
-work. See [the probe](../../tools/type-resolver-spike/README.md) and
-[research](type-resolver-research.md) for the remaining adoption decisions.
+Swift in a separate v0.21.0/v0.23.0 compatibility build). The production
+generator adopted v0.23.0 on 2026-10-12 after a separate comparison of
+28 requests / 32 byte-identical erased outputs. Open typed generation,
+pipelines and streaming are complete and Experimental on main; published
+0.1.1 stays unchanged. [H12](H12-type-resolver-lexical-lookup.md) records
+the lookup-only nested RPC defect; production uses full request-node
+contexts. See [typed-generics](../typed-generics.md) and the
+[readiness sheet](../release-readiness-2026-10-12.md). The spike
+[probe](../../tools/type-resolver-spike/README.md) and
+[research](type-resolver-research.md) retain their original evidence.
 
 ## Collaboration mechanics (settled this sprint)
 
@@ -20,9 +25,9 @@ work. See [the probe](../../tools/type-resolver-spike/README.md) and
   session. capnp-swift-side work happens in a worktree:
   `git -C ~/prj/zig/capnp-zig worktree add ~/prj/zig/capnp-zig-zcode <branch>`.
 - Branches only; the owner merges and tags. Never push capnp-zig main.
-- Base for the move: capnp-zig main (≥ 72d6d7f, i.e. v0.22.0 + the
-  ProvisionIndex commit). Note capnp-swift still pins v0.21.0; the H11
-  QUIC matrix rides the `e2e-quic-modes` branch until the owner tags.
+- Original base for the move: capnp-zig main (≥ 72d6d7f, i.e. v0.22.0 +
+  the ProvisionIndex commit). Core and generator now pin v0.23.0;
+  independent interop peers retain v0.21.0 and their documented H11 limits.
 
 ## What moves
 
@@ -62,9 +67,10 @@ against. On a pin bump: regenerate the snapshot, update the expected
   refresh the header snapshot + version string, full gates, then the
   release ceremony's `--verify` double build.
 - The public `type_resolver` export shipped in v0.23.0 (plan H7's
-  second clause). Its consumer spike is complete; adopting it in the
-  shipping generator still requires a Swift generic pointer-value design
-  and separate generator pin validation.
+  second clause). Its consumer spike, Swift pointer-schema design,
+  separate generator pin validation and production typed adoption are
+  complete. Native H9 and lookup-only H12 remain documented upstream
+  boundaries; they do not block the shipped awaited/full-node workarounds.
 
 ## Order of work
 
