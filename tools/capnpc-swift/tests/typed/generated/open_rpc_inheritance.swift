@@ -1925,6 +1925,10 @@ public struct IRoot {
 
 }
 
+#if canImport(CapnpRPC)
+@_spi(Generated) import CapnpRPC
+#endif
+
 // Open typed schema applications (opt-in --typed).
 
 public typealias IBox_Noded2c5acee2843dd0c = IBox
@@ -2024,6 +2028,126 @@ extension IReserved_Nodec2c58a193fc0b9e9 {
     }
 }
 
+#if canImport(CapnpRPC)
+extension IBox_Noded2c5acee2843dd0c.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IBase_Nodef85893b89a0bad68.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IBase_Nodef85893b89a0bad68.Typed.EchoParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IBase_Nodef85893b89a0bad68.Typed.EchoResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension ILeft_Nodeb417a318764120c9.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension ILeft_Nodeb417a318764120c9.Typed.LeftParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension ILeft_Nodeb417a318764120c9.Typed.LeftResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IRight_Node9bdb0e5cdf7a1d59.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IRight_Node9bdb0e5cdf7a1d59.Typed.RightParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IRight_Node9bdb0e5cdf7a1d59.Typed.RightResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IDiamond_Nodea6558b359c8301f0.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IDiamond_Nodea6558b359c8301f0.Typed.LocalParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IDiamond_Nodea6558b359c8301f0.Typed.LocalResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IOther_Node99496bc73a30baf2.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IOther_Node99496bc73a30baf2.Typed.EchoParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IOther_Node99496bc73a30baf2.Typed.EchoResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IJoined_Node83c36a18023773ee.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IOuter_Nodee8c6aecd25e3b3d9.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IOuter_Nodee8c6aecd25e3b3d9.Typed.Inner: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IOuter_Nodee8c6aecd25e3b3d9.Typed.Inner.EchoParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IOuter_Nodee8c6aecd25e3b3d9.Typed.Inner.EchoResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension ISink_Node8511b2a1e9faa1ac.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension ISink_Node8511b2a1e9faa1ac.Typed.PushParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension ISink_Node8511b2a1e9faa1ac.Typed.PushResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IFactory_Nodea9a678f8dabae716.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IFactory_Nodea9a678f8dabae716.Typed.RelayParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IFactory_Nodea9a678f8dabae716.Typed.RelayResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IFactory_Nodea9a678f8dabae716.Typed.MakeParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IFactory_Nodea9a678f8dabae716.Typed.MakeResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IFactory_Nodea9a678f8dabae716.Typed.NestedParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IFactory_Nodea9a678f8dabae716.Typed.NestedResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension Connection_Nodeddab110f520a2bb9.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension Connection_Nodeddab110f520a2bb9.Typed.PingParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension Connection_Nodeddab110f520a2bb9.Typed.PingResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension Capability_Node9a8b169699664ddb.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension Capability_Node9a8b169699664ddb.Typed.PongParams: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension Capability_Node9a8b169699664ddb.Typed.PongResults: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IUnboundPayload_Node9a6af97bbe8e620e.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IReserved_Nodec2c58a193fc0b9e9.Typed: CapnpPipelineSchema {}
+#endif
+#if canImport(CapnpRPC)
+extension IRoot_Noded33daf2e872fc42f.Typed: CapnpPipelineSchema {}
+#endif
 extension IBox {
     public enum Typed<IBox_T_d2c5acee2843dd0c_0: CapnpPointerSchema>: CapnpStructSchema {
         public static var dataWords: UInt16 { 0 }
@@ -2069,6 +2193,14 @@ extension IBox {
                 return IBox_T_d2c5acee2843dd0c_0.initialize(at: pointer.field(root, index: 0))
             }
         }
+        #if canImport(CapnpRPC)
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+        public struct Pipeline: Sendable {
+            private let _capnpPipeline: RPCPointerPipeline
+            public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+            public func value() -> IBox_T_d2c5acee2843dd0c_0.Pipeline where IBox_T_d2c5acee2843dd0c_0: CapnpPipelineSchema { IBox_T_d2c5acee2843dd0c_0.pipeline(_capnpPipeline.field(0)) }
+        }
+        #endif
     }
 }
 
@@ -2118,6 +2250,14 @@ extension IBase {
                     return IBase_T_f85893b89a0bad68_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IBase_T_f85893b89a0bad68_0.Pipeline where IBase_T_f85893b89a0bad68_0: CapnpPipelineSchema { IBase_T_f85893b89a0bad68_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
         public enum EchoResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -2162,7 +2302,17 @@ extension IBase {
                     return IBase_T_f85893b89a0bad68_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IBase_T_f85893b89a0bad68_0.Pipeline where IBase_T_f85893b89a0bad68_0: CapnpPipelineSchema { IBase_T_f85893b89a0bad68_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -2180,9 +2330,19 @@ extension IBase {
             public init(pipelined: PipelinedCap, connection: RPCConnection) throws { capability = try RPCPointerCapability(pipelined: pipelined, connection: connection) }
             public init(server: any IBase_Nodef85893b89a0bad68.TypedServer<IBase_T_f85893b89a0bad68_0>, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
             public func echo(isolation: isolated (any Actor)? = #isolation, _ build: (IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoParams.Builder) throws -> Void = { _ in }) async throws -> IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoResults.Reader {
+                let pending = try await sendEcho(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct EchoCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoResults.Pipeline { IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoResults.pipeline(pending.pipeline) }
+                public func value() async throws -> IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoResults.Reader { try IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoResults.read(from: await pending.value()) }
+            }
+            public func sendEcho(isolation: isolated (any Actor)? = #isolation, _ build: (IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoParams.Builder) throws -> Void = { _ in }) async throws -> EchoCall {
                 let params = try IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoParams.Value(build)
-                let result = try await capability.call(interface: 0xf85893b89a0bad68, method: 0, params: params.pointer)
-                return try IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoResults.read(from: result)
+                return EchoCall(try await capability.send(interface: 0xf85893b89a0bad68, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -2197,7 +2357,7 @@ extension IBase {
                             let params = try IBase_Nodef85893b89a0bad68.Typed<IBase_T_f85893b89a0bad68_0>.EchoParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.echo(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -2254,6 +2414,14 @@ extension ILeft {
                     return ILeft_T_b417a318764120c9_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> ILeft_T_b417a318764120c9_0.Pipeline where ILeft_T_b417a318764120c9_0: CapnpPipelineSchema { ILeft_T_b417a318764120c9_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
         public enum LeftResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -2298,7 +2466,17 @@ extension ILeft {
                     return ILeft_T_b417a318764120c9_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> ILeft_T_b417a318764120c9_0.Pipeline where ILeft_T_b417a318764120c9_0: CapnpPipelineSchema { ILeft_T_b417a318764120c9_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -2317,9 +2495,19 @@ extension ILeft {
             public init(server: any ILeft_Nodeb417a318764120c9.TypedServer<ILeft_T_b417a318764120c9_0>, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
             public var iBase: IBase_Nodef85893b89a0bad68.Typed<ILeft_T_b417a318764120c9_0>.Client { IBase_Nodef85893b89a0bad68.Typed<ILeft_T_b417a318764120c9_0>.Client(capability: capability) }
             public func left(isolation: isolated (any Actor)? = #isolation, _ build: (ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftParams.Builder) throws -> Void = { _ in }) async throws -> ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftResults.Reader {
+                let pending = try await sendLeft(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct LeftCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftResults.Pipeline { ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftResults.pipeline(pending.pipeline) }
+                public func value() async throws -> ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftResults.Reader { try ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftResults.read(from: await pending.value()) }
+            }
+            public func sendLeft(isolation: isolated (any Actor)? = #isolation, _ build: (ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftParams.Builder) throws -> Void = { _ in }) async throws -> LeftCall {
                 let params = try ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftParams.Value(build)
-                let result = try await capability.call(interface: 0xb417a318764120c9, method: 0, params: params.pointer)
-                return try ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftResults.read(from: result)
+                return LeftCall(try await capability.send(interface: 0xb417a318764120c9, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -2334,7 +2522,7 @@ extension ILeft {
                             let params = try ILeft_Nodeb417a318764120c9.Typed<ILeft_T_b417a318764120c9_0>.LeftParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.left(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     case 0xf85893b89a0bad68:
@@ -2343,7 +2531,7 @@ extension ILeft {
                             let params = try IBase_Nodef85893b89a0bad68.Typed<ILeft_T_b417a318764120c9_0>.EchoParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.echo(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -2400,6 +2588,14 @@ extension IRight {
                     return IRight_T_9bdb0e5cdf7a1d59_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IRight_T_9bdb0e5cdf7a1d59_0.Pipeline where IRight_T_9bdb0e5cdf7a1d59_0: CapnpPipelineSchema { IRight_T_9bdb0e5cdf7a1d59_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
         public enum RightResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -2444,7 +2640,17 @@ extension IRight {
                     return IRight_T_9bdb0e5cdf7a1d59_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IRight_T_9bdb0e5cdf7a1d59_0.Pipeline where IRight_T_9bdb0e5cdf7a1d59_0: CapnpPipelineSchema { IRight_T_9bdb0e5cdf7a1d59_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -2463,9 +2669,19 @@ extension IRight {
             public init(server: any IRight_Node9bdb0e5cdf7a1d59.TypedServer<IRight_T_9bdb0e5cdf7a1d59_0>, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
             public var iBase: IBase_Nodef85893b89a0bad68.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.Client { IBase_Nodef85893b89a0bad68.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.Client(capability: capability) }
             public func right(isolation: isolated (any Actor)? = #isolation, _ build: (IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightParams.Builder) throws -> Void = { _ in }) async throws -> IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightResults.Reader {
+                let pending = try await sendRight(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct RightCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightResults.Pipeline { IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightResults.pipeline(pending.pipeline) }
+                public func value() async throws -> IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightResults.Reader { try IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightResults.read(from: await pending.value()) }
+            }
+            public func sendRight(isolation: isolated (any Actor)? = #isolation, _ build: (IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightParams.Builder) throws -> Void = { _ in }) async throws -> RightCall {
                 let params = try IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightParams.Value(build)
-                let result = try await capability.call(interface: 0x9bdb0e5cdf7a1d59, method: 0, params: params.pointer)
-                return try IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightResults.read(from: result)
+                return RightCall(try await capability.send(interface: 0x9bdb0e5cdf7a1d59, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -2480,7 +2696,7 @@ extension IRight {
                             let params = try IRight_Node9bdb0e5cdf7a1d59.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.RightParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.right(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     case 0xf85893b89a0bad68:
@@ -2489,7 +2705,7 @@ extension IRight {
                             let params = try IBase_Nodef85893b89a0bad68.Typed<IRight_T_9bdb0e5cdf7a1d59_0>.EchoParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.echo(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -2546,6 +2762,14 @@ extension IDiamond {
                     return IDiamond_T_a6558b359c8301f0_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IDiamond_T_a6558b359c8301f0_0.Pipeline where IDiamond_T_a6558b359c8301f0_0: CapnpPipelineSchema { IDiamond_T_a6558b359c8301f0_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
         public enum LocalResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -2590,7 +2814,17 @@ extension IDiamond {
                     return IDiamond_T_a6558b359c8301f0_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IDiamond_T_a6558b359c8301f0_0.Pipeline where IDiamond_T_a6558b359c8301f0_0: CapnpPipelineSchema { IDiamond_T_a6558b359c8301f0_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -2610,9 +2844,19 @@ extension IDiamond {
             public var iLeft: ILeft_Nodeb417a318764120c9.Typed<IDiamond_T_a6558b359c8301f0_0>.Client { ILeft_Nodeb417a318764120c9.Typed<IDiamond_T_a6558b359c8301f0_0>.Client(capability: capability) }
             public var iRight: IRight_Node9bdb0e5cdf7a1d59.Typed<IDiamond_T_a6558b359c8301f0_0>.Client { IRight_Node9bdb0e5cdf7a1d59.Typed<IDiamond_T_a6558b359c8301f0_0>.Client(capability: capability) }
             public func local(isolation: isolated (any Actor)? = #isolation, _ build: (IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalParams.Builder) throws -> Void = { _ in }) async throws -> IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalResults.Reader {
+                let pending = try await sendLocal(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct LocalCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalResults.Pipeline { IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalResults.pipeline(pending.pipeline) }
+                public func value() async throws -> IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalResults.Reader { try IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalResults.read(from: await pending.value()) }
+            }
+            public func sendLocal(isolation: isolated (any Actor)? = #isolation, _ build: (IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalParams.Builder) throws -> Void = { _ in }) async throws -> LocalCall {
                 let params = try IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalParams.Value(build)
-                let result = try await capability.call(interface: 0xa6558b359c8301f0, method: 0, params: params.pointer)
-                return try IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalResults.read(from: result)
+                return LocalCall(try await capability.send(interface: 0xa6558b359c8301f0, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -2627,7 +2871,7 @@ extension IDiamond {
                             let params = try IDiamond_Nodea6558b359c8301f0.Typed<IDiamond_T_a6558b359c8301f0_0>.LocalParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.local(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     case 0xb417a318764120c9:
@@ -2636,7 +2880,7 @@ extension IDiamond {
                             let params = try ILeft_Nodeb417a318764120c9.Typed<IDiamond_T_a6558b359c8301f0_0>.LeftParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.left(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     case 0xf85893b89a0bad68:
@@ -2645,7 +2889,7 @@ extension IDiamond {
                             let params = try IBase_Nodef85893b89a0bad68.Typed<IDiamond_T_a6558b359c8301f0_0>.EchoParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.echo(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     case 0x9bdb0e5cdf7a1d59:
@@ -2654,7 +2898,7 @@ extension IDiamond {
                             let params = try IRight_Node9bdb0e5cdf7a1d59.Typed<IDiamond_T_a6558b359c8301f0_0>.RightParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.right(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -2711,6 +2955,14 @@ extension IOther {
                     return IOther_T_99496bc73a30baf2_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IOther_T_99496bc73a30baf2_0.Pipeline where IOther_T_99496bc73a30baf2_0: CapnpPipelineSchema { IOther_T_99496bc73a30baf2_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
         public enum EchoResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -2755,7 +3007,17 @@ extension IOther {
                     return IOther_T_99496bc73a30baf2_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IOther_T_99496bc73a30baf2_0.Pipeline where IOther_T_99496bc73a30baf2_0: CapnpPipelineSchema { IOther_T_99496bc73a30baf2_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -2773,9 +3035,19 @@ extension IOther {
             public init(pipelined: PipelinedCap, connection: RPCConnection) throws { capability = try RPCPointerCapability(pipelined: pipelined, connection: connection) }
             public init(server: any IOther_Node99496bc73a30baf2.TypedServer<IOther_T_99496bc73a30baf2_0>, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
             public func echo(isolation: isolated (any Actor)? = #isolation, _ build: (IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoParams.Builder) throws -> Void = { _ in }) async throws -> IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoResults.Reader {
+                let pending = try await sendEcho(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct EchoCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoResults.Pipeline { IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoResults.pipeline(pending.pipeline) }
+                public func value() async throws -> IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoResults.Reader { try IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoResults.read(from: await pending.value()) }
+            }
+            public func sendEcho(isolation: isolated (any Actor)? = #isolation, _ build: (IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoParams.Builder) throws -> Void = { _ in }) async throws -> EchoCall {
                 let params = try IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoParams.Value(build)
-                let result = try await capability.call(interface: 0x99496bc73a30baf2, method: 0, params: params.pointer)
-                return try IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoResults.read(from: result)
+                return EchoCall(try await capability.send(interface: 0x99496bc73a30baf2, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -2790,7 +3062,7 @@ extension IOther {
                             let params = try IOther_Node99496bc73a30baf2.Typed<IOther_T_99496bc73a30baf2_0>.EchoParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.echo(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -2804,6 +3076,8 @@ extension IOther {
 extension IJoined {
     public enum Typed<IJoined_T_83c36a18023773ee_0: CapnpPointerSchema>: CapnpPointerSchema {
         public static var interfaceID: UInt64 { 0x83c36a18023773ee }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -2839,7 +3113,7 @@ extension IJoined {
                             let params = try IBase_Nodef85893b89a0bad68.Typed<IJoined_T_83c36a18023773ee_0>.EchoParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.echo(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     case 0x99496bc73a30baf2:
@@ -2848,7 +3122,7 @@ extension IJoined {
                             let params = try IOther_Node99496bc73a30baf2.Typed<IJoined_T_83c36a18023773ee_0>.EchoParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.echo(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -2906,6 +3180,14 @@ extension IOuter {
                         return IOuter_T_e8c6aecd25e3b3d9_0.initialize(at: pointer.field(root, index: 0))
                     }
                 }
+                #if canImport(CapnpRPC)
+                public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+                public struct Pipeline: Sendable {
+                    private let _capnpPipeline: RPCPointerPipeline
+                    public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                    public func value() -> IOuter_T_e8c6aecd25e3b3d9_0.Pipeline where IOuter_T_e8c6aecd25e3b3d9_0: CapnpPipelineSchema { IOuter_T_e8c6aecd25e3b3d9_0.pipeline(_capnpPipeline.field(0)) }
+                }
+                #endif
             }
             public enum EchoResults: CapnpStructSchema {
                 public static var dataWords: UInt16 { 0 }
@@ -2950,7 +3232,17 @@ extension IOuter {
                         return IOuter_T_e8c6aecd25e3b3d9_0.initialize(at: pointer.field(root, index: 0))
                     }
                 }
+                #if canImport(CapnpRPC)
+                public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+                public struct Pipeline: Sendable {
+                    private let _capnpPipeline: RPCPointerPipeline
+                    public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                    public func value() -> IOuter_T_e8c6aecd25e3b3d9_0.Pipeline where IOuter_T_e8c6aecd25e3b3d9_0: CapnpPipelineSchema { IOuter_T_e8c6aecd25e3b3d9_0.pipeline(_capnpPipeline.field(0)) }
+                }
+                #endif
             }
+            public typealias Pipeline = Client
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
             public typealias Reader = Client?
             public typealias Value = Client?
             public static func read(from pointer: PointerReader) throws -> Reader {
@@ -2968,9 +3260,19 @@ extension IOuter {
                 public init(pipelined: PipelinedCap, connection: RPCConnection) throws { capability = try RPCPointerCapability(pipelined: pipelined, connection: connection) }
                 public init(server: any IOuter_Nodee8c6aecd25e3b3d9.IOuter_Inner.TypedServer<IOuter_T_e8c6aecd25e3b3d9_0>, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
                 public func echo(isolation: isolated (any Actor)? = #isolation, _ build: (IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoParams.Builder) throws -> Void = { _ in }) async throws -> IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoResults.Reader {
+                    let pending = try await sendEcho(isolation: isolation, build)
+                    return try await pending.value()
+                }
+                public struct EchoCall: Sendable {
+                    public let pending: RPCPointerCall
+                    public init(_ pending: RPCPointerCall) { self.pending = pending }
+                    public var connection: RPCConnection { pending.connection }
+                    public var pipeline: IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoResults.Pipeline { IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoResults.pipeline(pending.pipeline) }
+                    public func value() async throws -> IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoResults.Reader { try IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoResults.read(from: await pending.value()) }
+                }
+                public func sendEcho(isolation: isolated (any Actor)? = #isolation, _ build: (IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoParams.Builder) throws -> Void = { _ in }) async throws -> EchoCall {
                     let params = try IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoParams.Value(build)
-                    let result = try await capability.call(interface: 0xc49cddde006feef8, method: 0, params: params.pointer)
-                    return try IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoResults.read(from: result)
+                    return EchoCall(try await capability.send(interface: 0xc49cddde006feef8, method: 0, params: params.pointer))
                 }
             }
             public struct Export: ExportHandler {
@@ -2985,7 +3287,7 @@ extension IOuter {
                                 let params = try IOuter_Nodee8c6aecd25e3b3d9.Typed<IOuter_T_e8c6aecd25e3b3d9_0>.Inner.EchoParams.read(from: connection.pointerPayload(call: call))
                                 let results = try await server.echo(params: params, on: connection)
                                 let payload = try results.pointer.serialized()
-                                return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                                return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                             default: throw RPCError.unimplemented(reason: "unknown typed method")
                             }
                         default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -3028,6 +3330,13 @@ extension IOuter {
             public let pointer: PointerBuilder
             fileprivate init(_ root: StructBuilder, pointer: PointerBuilder) { self.root = root; self.pointer = pointer }
         }
+        #if canImport(CapnpRPC)
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+        public struct Pipeline: Sendable {
+            private let _capnpPipeline: RPCPointerPipeline
+            public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+        }
+        #endif
     }
 }
 
@@ -3077,6 +3386,14 @@ extension ISink {
                     return ISink_T_8511b2a1e9faa1ac_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> ISink_T_8511b2a1e9faa1ac_0.Pipeline where ISink_T_8511b2a1e9faa1ac_0: CapnpPipelineSchema { ISink_T_8511b2a1e9faa1ac_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
         public enum PushResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -3121,7 +3438,17 @@ extension ISink {
                     return ISink_T_8511b2a1e9faa1ac_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> ISink_T_8511b2a1e9faa1ac_0.Pipeline where ISink_T_8511b2a1e9faa1ac_0: CapnpPipelineSchema { ISink_T_8511b2a1e9faa1ac_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -3139,9 +3466,19 @@ extension ISink {
             public init(pipelined: PipelinedCap, connection: RPCConnection) throws { capability = try RPCPointerCapability(pipelined: pipelined, connection: connection) }
             public init(server: any ISink_Node8511b2a1e9faa1ac.TypedServer<ISink_T_8511b2a1e9faa1ac_0>, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
             public func push(isolation: isolated (any Actor)? = #isolation, _ build: (ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushParams.Builder) throws -> Void = { _ in }) async throws -> ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushResults.Reader {
+                let pending = try await sendPush(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct PushCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushResults.Pipeline { ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushResults.pipeline(pending.pipeline) }
+                public func value() async throws -> ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushResults.Reader { try ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushResults.read(from: await pending.value()) }
+            }
+            public func sendPush(isolation: isolated (any Actor)? = #isolation, _ build: (ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushParams.Builder) throws -> Void = { _ in }) async throws -> PushCall {
                 let params = try ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushParams.Value(build)
-                let result = try await capability.call(interface: 0x8511b2a1e9faa1ac, method: 0, params: params.pointer)
-                return try ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushResults.read(from: result)
+                return PushCall(try await capability.send(interface: 0x8511b2a1e9faa1ac, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -3156,7 +3493,7 @@ extension ISink {
                             let params = try ISink_Node8511b2a1e9faa1ac.Typed<ISink_T_8511b2a1e9faa1ac_0>.PushParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.push(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -3219,6 +3556,15 @@ extension IFactory {
                     try ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>.write(value, to: pointer.field(root, index: 1))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IFactory_T_a9a678f8dabae716_0.Pipeline where IFactory_T_a9a678f8dabae716_0: CapnpPipelineSchema { IFactory_T_a9a678f8dabae716_0.pipeline(_capnpPipeline.field(0)) }
+                public var callback: ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>.Pipeline { ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>.pipeline(_capnpPipeline.field(1)) }
+            }
+            #endif
         }
         public enum RelayResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -3263,6 +3609,14 @@ extension IFactory {
                     return IFactory_T_a9a678f8dabae716_0.initialize(at: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public func value() -> IFactory_T_a9a678f8dabae716_0.Pipeline where IFactory_T_a9a678f8dabae716_0: CapnpPipelineSchema { IFactory_T_a9a678f8dabae716_0.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
         public enum MakeParams: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -3298,6 +3652,13 @@ extension IFactory {
                 public let pointer: PointerBuilder
                 fileprivate init(_ root: StructBuilder, pointer: PointerBuilder) { self.root = root; self.pointer = pointer }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+            }
+            #endif
         }
         public enum MakeResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -3339,6 +3700,14 @@ extension IFactory {
                     try ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>.write(value, to: pointer.field(root, index: 0))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public var sink: ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>.Pipeline { ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>.pipeline(_capnpPipeline.field(0)) }
+            }
+            #endif
         }
         public enum NestedParams: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -3374,6 +3743,13 @@ extension IFactory {
                 public let pointer: PointerBuilder
                 fileprivate init(_ root: StructBuilder, pointer: PointerBuilder) { self.root = root; self.pointer = pointer }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+            }
+            #endif
         }
         public enum NestedResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -3440,7 +3816,18 @@ extension IFactory {
                     try CapnpList<IBox_Noded2c5acee2843dd0c.Typed<ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>>>.write(value, to: pointer.field(root, index: 2))
                 }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+                public var boxed: IBox_Noded2c5acee2843dd0c.Typed<ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>>.Pipeline { IBox_Noded2c5acee2843dd0c.Typed<ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>>.pipeline(_capnpPipeline.field(0)) }
+                public var direct: ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>.Pipeline { ISink_Node8511b2a1e9faa1ac.Typed<IFactory_T_a9a678f8dabae716_0>.pipeline(_capnpPipeline.field(1)) }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -3458,19 +3845,49 @@ extension IFactory {
             public init(pipelined: PipelinedCap, connection: RPCConnection) throws { capability = try RPCPointerCapability(pipelined: pipelined, connection: connection) }
             public init(server: any IFactory_Nodea9a678f8dabae716.TypedServer<IFactory_T_a9a678f8dabae716_0>, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
             public func relay(isolation: isolated (any Actor)? = #isolation, _ build: (IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayParams.Builder) throws -> Void = { _ in }) async throws -> IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayResults.Reader {
+                let pending = try await sendRelay(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct RelayCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayResults.Pipeline { IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayResults.pipeline(pending.pipeline) }
+                public func value() async throws -> IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayResults.Reader { try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayResults.read(from: await pending.value()) }
+            }
+            public func sendRelay(isolation: isolated (any Actor)? = #isolation, _ build: (IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayParams.Builder) throws -> Void = { _ in }) async throws -> RelayCall {
                 let params = try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayParams.Value(build)
-                let result = try await capability.call(interface: 0xa9a678f8dabae716, method: 0, params: params.pointer)
-                return try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayResults.read(from: result)
+                return RelayCall(try await capability.send(interface: 0xa9a678f8dabae716, method: 0, params: params.pointer))
             }
             public func make(isolation: isolated (any Actor)? = #isolation, _ build: (IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeParams.Builder) throws -> Void = { _ in }) async throws -> IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeResults.Reader {
+                let pending = try await sendMake(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct MakeCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeResults.Pipeline { IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeResults.pipeline(pending.pipeline) }
+                public func value() async throws -> IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeResults.Reader { try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeResults.read(from: await pending.value()) }
+            }
+            public func sendMake(isolation: isolated (any Actor)? = #isolation, _ build: (IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeParams.Builder) throws -> Void = { _ in }) async throws -> MakeCall {
                 let params = try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeParams.Value(build)
-                let result = try await capability.call(interface: 0xa9a678f8dabae716, method: 1, params: params.pointer)
-                return try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeResults.read(from: result)
+                return MakeCall(try await capability.send(interface: 0xa9a678f8dabae716, method: 1, params: params.pointer))
             }
             public func nested(isolation: isolated (any Actor)? = #isolation, _ build: (IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedParams.Builder) throws -> Void = { _ in }) async throws -> IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedResults.Reader {
+                let pending = try await sendNested(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct NestedCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedResults.Pipeline { IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedResults.pipeline(pending.pipeline) }
+                public func value() async throws -> IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedResults.Reader { try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedResults.read(from: await pending.value()) }
+            }
+            public func sendNested(isolation: isolated (any Actor)? = #isolation, _ build: (IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedParams.Builder) throws -> Void = { _ in }) async throws -> NestedCall {
                 let params = try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedParams.Value(build)
-                let result = try await capability.call(interface: 0xa9a678f8dabae716, method: 2, params: params.pointer)
-                return try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedResults.read(from: result)
+                return NestedCall(try await capability.send(interface: 0xa9a678f8dabae716, method: 2, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -3485,17 +3902,17 @@ extension IFactory {
                             let params = try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.RelayParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.relay(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         case 1:
                             let params = try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.MakeParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.make(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         case 2:
                             let params = try IFactory_Nodea9a678f8dabae716.Typed<IFactory_T_a9a678f8dabae716_0>.NestedParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.nested(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -3543,6 +3960,13 @@ extension Connection {
                 public let pointer: PointerBuilder
                 fileprivate init(_ root: StructBuilder, pointer: PointerBuilder) { self.root = root; self.pointer = pointer }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+            }
+            #endif
         }
         public enum PingResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -3584,7 +4008,16 @@ extension Connection {
                 public func setValue(_ v: String) { root.setText(0, v) }
 
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -3602,9 +4035,19 @@ extension Connection {
             public init(pipelined: PipelinedCap, connection: RPCConnection) throws { capability = try RPCPointerCapability(pipelined: pipelined, connection: connection) }
             public init(server: any Connection_Nodeddab110f520a2bb9.TypedServer, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
             public func ping(isolation: isolated (any Actor)? = #isolation, _ build: (Connection_Nodeddab110f520a2bb9.Typed.PingParams.Builder) throws -> Void = { _ in }) async throws -> Connection_Nodeddab110f520a2bb9.Typed.PingResults.Reader {
+                let pending = try await sendPing(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct PingCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: Connection_Nodeddab110f520a2bb9.Typed.PingResults.Pipeline { Connection_Nodeddab110f520a2bb9.Typed.PingResults.pipeline(pending.pipeline) }
+                public func value() async throws -> Connection_Nodeddab110f520a2bb9.Typed.PingResults.Reader { try Connection_Nodeddab110f520a2bb9.Typed.PingResults.read(from: await pending.value()) }
+            }
+            public func sendPing(isolation: isolated (any Actor)? = #isolation, _ build: (Connection_Nodeddab110f520a2bb9.Typed.PingParams.Builder) throws -> Void = { _ in }) async throws -> PingCall {
                 let params = try Connection_Nodeddab110f520a2bb9.Typed.PingParams.Value(build)
-                let result = try await capability.call(interface: 0xddab110f520a2bb9, method: 0, params: params.pointer)
-                return try Connection_Nodeddab110f520a2bb9.Typed.PingResults.read(from: result)
+                return PingCall(try await capability.send(interface: 0xddab110f520a2bb9, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -3619,7 +4062,7 @@ extension Connection {
                             let params = try Connection_Nodeddab110f520a2bb9.Typed.PingParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.ping(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -3667,6 +4110,13 @@ extension Capability {
                 public let pointer: PointerBuilder
                 fileprivate init(_ root: StructBuilder, pointer: PointerBuilder) { self.root = root; self.pointer = pointer }
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+            }
+            #endif
         }
         public enum PongResults: CapnpStructSchema {
             public static var dataWords: UInt16 { 0 }
@@ -3708,7 +4158,16 @@ extension Capability {
                 public func setValue(_ v: String) { root.setText(0, v) }
 
             }
+            #if canImport(CapnpRPC)
+            public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+            public struct Pipeline: Sendable {
+                private let _capnpPipeline: RPCPointerPipeline
+                public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+            }
+            #endif
         }
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -3726,9 +4185,19 @@ extension Capability {
             public init(pipelined: PipelinedCap, connection: RPCConnection) throws { capability = try RPCPointerCapability(pipelined: pipelined, connection: connection) }
             public init(server: any Capability_Node9a8b169699664ddb.TypedServer, connection: RPCConnection) { capability = RPCPointerCapability(server: Export(server), connection: connection) }
             public func pong(isolation: isolated (any Actor)? = #isolation, _ build: (Capability_Node9a8b169699664ddb.Typed.PongParams.Builder) throws -> Void = { _ in }) async throws -> Capability_Node9a8b169699664ddb.Typed.PongResults.Reader {
+                let pending = try await sendPong(isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct PongCall: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: Capability_Node9a8b169699664ddb.Typed.PongResults.Pipeline { Capability_Node9a8b169699664ddb.Typed.PongResults.pipeline(pending.pipeline) }
+                public func value() async throws -> Capability_Node9a8b169699664ddb.Typed.PongResults.Reader { try Capability_Node9a8b169699664ddb.Typed.PongResults.read(from: await pending.value()) }
+            }
+            public func sendPong(isolation: isolated (any Actor)? = #isolation, _ build: (Capability_Node9a8b169699664ddb.Typed.PongParams.Builder) throws -> Void = { _ in }) async throws -> PongCall {
                 let params = try Capability_Node9a8b169699664ddb.Typed.PongParams.Value(build)
-                let result = try await capability.call(interface: 0x9a8b169699664ddb, method: 0, params: params.pointer)
-                return try Capability_Node9a8b169699664ddb.Typed.PongResults.read(from: result)
+                return PongCall(try await capability.send(interface: 0x9a8b169699664ddb, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -3743,7 +4212,7 @@ extension Capability {
                             let params = try Capability_Node9a8b169699664ddb.Typed.PongParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.pong(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -3802,6 +4271,13 @@ extension IUnboundPayload {
             public func setFixedData(_ v: [UInt8]) { root.setData(1, v) }
 
         }
+        #if canImport(CapnpRPC)
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+        public struct Pipeline: Sendable {
+            private let _capnpPipeline: RPCPointerPipeline
+            public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+        }
+        #endif
     }
 }
 
@@ -3810,6 +4286,8 @@ extension IReserved {
         public static var interfaceID: UInt64 { 0xc2c58a193fc0b9e9 }
         public typealias UnusedParams<M_0: CapnpPointerSchema> = IUnboundPayload_Node9a6af97bbe8e620e.Typed
         public typealias UnusedResults<M_0: CapnpPointerSchema> = IUnboundPayload_Node9a6af97bbe8e620e.Typed
+        public typealias Pipeline = Client
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Client(capability: projection.capability()) }
         public typealias Reader = Client?
         public typealias Value = Client?
         public static func read(from pointer: PointerReader) throws -> Reader {
@@ -3829,9 +4307,19 @@ extension IReserved {
             public var connection2: Connection_Nodeddab110f520a2bb9.Typed.Client { Connection_Nodeddab110f520a2bb9.Typed.Client(capability: capability) }
             public var capability2: Capability_Node9a8b169699664ddb.Typed.Client { Capability_Node9a8b169699664ddb.Typed.Client(capability: capability) }
             public func unused<M_0: CapnpPointerSchema>(as schema: M_0.Type, isolation: isolated (any Actor)? = #isolation, _ build: (IUnboundPayload_Node9a6af97bbe8e620e.Typed.Builder) throws -> Void = { _ in }) async throws -> IUnboundPayload_Node9a6af97bbe8e620e.Typed.Reader {
+                let pending = try await sendUnused(as: schema, isolation: isolation, build)
+                return try await pending.value()
+            }
+            public struct UnusedCall<M_0: CapnpPointerSchema>: Sendable {
+                public let pending: RPCPointerCall
+                public init(_ pending: RPCPointerCall) { self.pending = pending }
+                public var connection: RPCConnection { pending.connection }
+                public var pipeline: IUnboundPayload_Node9a6af97bbe8e620e.Typed.Pipeline { IUnboundPayload_Node9a6af97bbe8e620e.Typed.pipeline(pending.pipeline) }
+                public func value() async throws -> IUnboundPayload_Node9a6af97bbe8e620e.Typed.Reader { try IUnboundPayload_Node9a6af97bbe8e620e.Typed.read(from: await pending.value()) }
+            }
+            public func sendUnused<M_0: CapnpPointerSchema>(as schema: M_0.Type, isolation: isolated (any Actor)? = #isolation, _ build: (IUnboundPayload_Node9a6af97bbe8e620e.Typed.Builder) throws -> Void = { _ in }) async throws -> UnusedCall<M_0> {
                 let params = try IUnboundPayload_Node9a6af97bbe8e620e.Typed.Value(build)
-                let result = try await capability.call(interface: 0xc2c58a193fc0b9e9, method: 0, params: params.pointer)
-                return try IUnboundPayload_Node9a6af97bbe8e620e.Typed.read(from: result)
+                return UnusedCall(try await capability.send(interface: 0xc2c58a193fc0b9e9, method: 0, params: params.pointer))
             }
         }
         public struct Export: ExportHandler {
@@ -3846,7 +4334,7 @@ extension IReserved {
                             let params = try IUnboundPayload_Node9a6af97bbe8e620e.Typed.read(from: connection.pointerPayload(call: call))
                             let results = try await server.unused(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     case 0xddab110f520a2bb9:
@@ -3855,7 +4343,7 @@ extension IReserved {
                             let params = try Connection_Nodeddab110f520a2bb9.Typed.PingParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.ping(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     case 0x9a8b169699664ddb:
@@ -3864,7 +4352,7 @@ extension IReserved {
                             let params = try Capability_Node9a8b169699664ddb.Typed.PongParams.read(from: connection.pointerPayload(call: call))
                             let results = try await server.pong(params: params, on: connection)
                             let payload = try results.pointer.serialized()
-                            return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))
+                            return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))
                         default: throw RPCError.unimplemented(reason: "unknown typed method")
                         }
                     default: throw RPCError.unimplemented(reason: "unknown typed interface")
@@ -3947,5 +4435,18 @@ extension IRoot {
                 try IReserved_Nodec2c58a193fc0b9e9.Typed.write(value, to: pointer.field(root, index: 5))
             }
         }
+        #if canImport(CapnpRPC)
+        public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline { Pipeline(projection) }
+        public struct Pipeline: Sendable {
+            private let _capnpPipeline: RPCPointerPipeline
+            public init(_ projection: RPCPointerPipeline) { _capnpPipeline = projection }
+            public var textDiamond: IDiamond_Nodea6558b359c8301f0.Typed<CapnpText>.Pipeline { IDiamond_Nodea6558b359c8301f0.Typed<CapnpText>.pipeline(_capnpPipeline.field(0)) }
+            public var dataBase: IBase_Nodef85893b89a0bad68.Typed<CapnpData>.Pipeline { IBase_Nodef85893b89a0bad68.Typed<CapnpData>.pipeline(_capnpPipeline.field(1)) }
+            public var joined: IJoined_Node83c36a18023773ee.Typed<CapnpText>.Pipeline { IJoined_Node83c36a18023773ee.Typed<CapnpText>.pipeline(_capnpPipeline.field(2)) }
+            public var lexical: IOuter_Nodee8c6aecd25e3b3d9.Typed<CapnpText>.Inner.Pipeline { IOuter_Nodee8c6aecd25e3b3d9.Typed<CapnpText>.Inner.pipeline(_capnpPipeline.field(3)) }
+            public var factory: IFactory_Nodea9a678f8dabae716.Typed<CapnpText>.Pipeline { IFactory_Nodea9a678f8dabae716.Typed<CapnpText>.pipeline(_capnpPipeline.field(4)) }
+            public var reserved: IReserved_Nodec2c58a193fc0b9e9.Typed.Pipeline { IReserved_Nodec2c58a193fc0b9e9.Typed.pipeline(_capnpPipeline.field(5)) }
+        }
+        #endif
     }
 }

@@ -10,6 +10,7 @@ Run from the repository root:
 ```sh
 mise exec -- just typed-structs
 mise exec -- just typed-rpc
+mise exec -- just typed-names
 mise exec -- just typed-driver
 mise exec -- just typed-rpc-cpp
 ```
@@ -26,15 +27,33 @@ pure Swift `Capnp` module in an isolated temporary directory and verifies:
 - A wrong generic binding rejected by Swift and duplicate requested files
   rejected before the generator writes any source file.
 
-There are 32 distinct named checks in the struct/CLI gate. Repeating a collision
+There are 34 distinct named checks in the struct/CLI gate. Repeating a collision
 check against the opposite producer order exercises the same check again.
 
 `check-rpc.sh` uses the immutable macOS core archive and real loopback transports.
-It regenerates and compares the two Swift fixtures in `generated/`; use
+It regenerates and compares five Swift fixtures in `generated/`; use
 `check-rpc.sh --update` when deliberately updating those expected sources.
+The pipeline harness proves that native promised-answer CALLs reach the peer
+while the producing RETURN is held, retains parent questions and returned local
+handlers, and preserves the H9 wait-then-pass workaround for future arguments.
+Separate producer builds verify foreign fields and named results with Capnp
+alone and with optional typed RPC projections. Streaming checks cover both
+window bounds, acknowledgement, cancellation races, queued followers, closure,
+caller actor isolation, and native-compatible local call deadlines.
+Set `CAPNP_TYPED_RPC_SANITIZER=thread` or `address` to instrument every Swift
+module and executable in this harness; unsupported values fail before building.
 `check-rpc-cpp.sh` builds an independent C++ peer and checks Swift/C++ calls in
-both directions. `check-driver.sh` exercises the compiler host's public `--typed`
+both directions: 32 assertions cover generic methods, inherited capabilities,
+direct/nested result pipelines, and inherited/method-generic streaming. The
+`cpp_streams` fixture follows each streaming send with an ordinary `seen` call
+that verifies both payload and receipt count; a stream acknowledgement alone
+does not prove the handler observed the expected value. `check-driver.sh`
+exercises the compiler host's public `--typed`
 generate and check path.
+
+`check-names.sh` verifies nested declarations named Reader, Builder, Value,
+Pipeline, Client and Export. Thirteen checks include strict generated-library
+compilation, references from another module and eleven runtime assertions.
 
 `check-legacy-rpc.sh` checks ordinary generation without `--typed`. Its synthetic
 `legacy_reserved` fixture inherits interfaces named `Target` and `Connection`,
@@ -79,6 +98,7 @@ it, and the duplicate request intentionally supplies one file twice.
 
 ```bash
 fixture_dir=tools/capnpc-swift/tests/typed
+driver_path="$(swift build --product capnpc-driver --show-bin-path)/capnpc-driver"
 request() {
   request_name=$1
   shift
@@ -86,9 +106,10 @@ request() {
   for source in "$@"; do
     request_sources+=("$fixture_dir/$source.capnp")
   done
-  .build/debug/capnpc-driver --plugin /bin/cat \
+  "$driver_path" --plugin /bin/cat \
     --wasm tools/capnpc-swift/wasm/capnp.wasm \
-    --include tools/capnpc-swift --src-prefix "$fixture_dir" \
+    --include tools/capnpc-swift --include tools/capnpc-swift/wasm/include \
+    --src-prefix "$fixture_dir" \
     "${request_sources[@]}" > "$fixture_dir/$request_name.request.bin"
 }
 request open_structs open_structs
@@ -102,6 +123,11 @@ request consumer_collision consumer_collision
 request duplicate open_structs open_structs
 request open_rpc_inheritance open_rpc_inheritance
 request open_rpc_conflict open_rpc_conflict
+request open_rpc_pipeline open_rpc_pipeline
+request pipeline_producer pipeline_producer
+request pipeline_consumer pipeline_consumer
+request nested_reserved nested_reserved
+request cpp_streams cpp_streams
 request legacy_reserved legacy_reserved
 request legacy_list_defaults legacy_list_defaults
 request empty_composite empty_composite
@@ -124,6 +150,7 @@ requests in `tools/type-resolver-spike/fixtures`; their provenance is recorded i
 that directory. Stable `Node<id>` aliases are the generated cross-module
 contract, while `Box.Typed<T>` remains the convenient public facade.
 
-Typed streaming methods and conflicting inherited applications of the same
-interface are explicitly rejected before source output. Ordinary generation
-retains its existing behavior for those schemas.
+Conflicting inherited applications of the same interface are rejected before
+typed source output. Typed streaming methods use the existing RPC window and
+acknowledgement seam. Native pipelines follow struct pointer fields; list
+indices, union discriminants, and scalar arguments require awaited typed reads.

@@ -9,7 +9,8 @@ Cap'n Proto RPC for Swift apps on Apple platforms.
 Platforms: macOS 15+ and iOS 18+ (QUIC needs 26+).
 
 Main also includes Experimental open generic bindings with `--typed`, such as
-`Box.Typed<CapnpText>` and inherited RPC clients. See
+`Box.Typed<CapnpText>`, inherited RPC clients, typed result pipelines and
+streaming methods. See
 [typed generics](docs/typed-generics.md) for generation, client/server examples
 and the matching runtime/tool requirement. Release 0.1.1 remains unchanged.
 

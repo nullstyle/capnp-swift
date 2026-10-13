@@ -11,12 +11,14 @@ pub fn emitFile(gen: *Generator, w: *std.Io.Writer, file: *schema.Node) !void {
     const previous_mode = gen.typed_reference_mode;
     defer gen.typed_reference_mode = previous_mode;
     gen.typed_reference_mode = true;
+    try w.writeAll("#if canImport(CapnpRPC)\n@_spi(Generated) import CapnpRPC\n#endif\n\n");
     try w.writeAll("// Open typed schema applications (opt-in --typed).\n\n");
     for (file.nested_nodes) |nested| if (gen.typed_name_overrides.get(nested.id)) |alias| {
         const node = gen.getNode(nested.id) orelse return error.MissingNode;
         try w.print("public typealias {s} = {s}\n", .{ alias, gen.swiftTypeName(node) });
     };
     for (file.nested_nodes) |nested| try emitServerDeclarations(gen, w, gen.getNode(nested.id) orelse return error.MissingNode, 0);
+    for (file.nested_nodes) |nested| try rpc.emitPipelineConformances(gen, w, gen.getNode(nested.id) orelse return error.MissingNode);
     for (file.nested_nodes) |nested| {
         const node = gen.getNode(nested.id) orelse return error.MissingNode;
         if (node.kind != .@"struct" and node.kind != .interface) continue;
@@ -45,8 +47,33 @@ pub fn parameterName(gen: *Generator, scope: schema.Id, index: usize) ![]const u
 pub fn declarationName(gen: *Generator, node: *schema.Node) ![]const u8 {
     const parent = gen.getNode(node.scope_id) orelse return gen.swiftTypeName(node);
     if (parent.kind == .file) return gen.swiftTypeName(node);
-    for (parent.nested_nodes) |nested| if (nested.id == node.id) return gen.swiftIdentifierAlloc(nested.name);
+    for (parent.nested_nodes) |nested| if (nested.id == node.id) {
+        return nestedDeclarationName(gen, try gen.swiftIdentifierAlloc(nested.name), node.id, parent.kind == .interface);
+    };
     return error.MissingDeclarationName;
+}
+
+fn nestedDeclarationName(gen: *Generator, name: []const u8, id: schema.Id, interface_parent: bool) ![]const u8 {
+    // These names belong to the generated schema codec and pipeline views.
+    // A node ID gives the schema child one spelling across files and brands.
+    for ([_][]const u8{ "Reader", "Builder", "Value", "Pipeline" }) |reserved| {
+        if (std.mem.eql(u8, gen.unescaped(name), reserved)) {
+            return std.fmt.allocPrint(gen.scratch(), "{s}_Node{x}", .{ gen.unescaped(name), id });
+        }
+    }
+    if (interface_parent) {
+        for ([_][]const u8{ "Client", "Export" }) |reserved| {
+            if (std.mem.eql(u8, gen.unescaped(name), reserved)) {
+                return std.fmt.allocPrint(gen.scratch(), "{s}_Node{x}", .{ gen.unescaped(name), id });
+            }
+        }
+    }
+    return name;
+}
+
+pub fn groupDeclarationName(gen: *Generator, field: schema.Field) ![]const u8 {
+    const group = field.group orelse return error.MissingGroup;
+    return nestedDeclarationName(gen, try gen.groupTypeName(field), group.type_id, false);
 }
 
 fn genericParameters(gen: *Generator, node: *schema.Node, constraints: bool) ![]const u8 {
@@ -155,7 +182,7 @@ pub fn emitDeclaration(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, c
         for (s.fields) |field| if (field.group) |group| {
             const child = gen.getNode(group.type_id) orelse return error.MissingNode;
             const child_context = try resolver.Context.init(gen.nodes, child, .{});
-            try emitDeclaration(gen, w, child, &child_context, try gen.groupTypeName(field), indent + 1);
+            try emitDeclaration(gen, w, child, &child_context, try groupDeclarationName(gen, field), indent + 1);
         };
         try emitStruct(gen, w, node, context, indent + 1);
     }
@@ -302,6 +329,7 @@ fn emitStruct(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, context: *
     if (s.discriminant_count != 0) try w.print("{s}    public var which: Which {{ Which(discriminant: root.readUInt16(at: {d})) }}\n", .{ pad, s.discriminant_offset * 2 });
     for (s.fields, 0..) |field, i| try emitBuilderField(gen, w, node, context, field, i, indent + 1);
     try w.print("{s}}}\n", .{pad});
+    try rpc.emitStructPipeline(gen, w, node, context, indent);
 }
 
 fn renamedField(gen: *Generator, field: schema.Field) !schema.Field {
@@ -331,7 +359,7 @@ fn emitReaderField(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, conte
     _ = ordinal;
     const name = try accessorName(gen, node, field);
     if (field.group != null) {
-        const group = try gen.groupTypeName(field);
+        const group = try groupDeclarationName(gen, field);
         try w.print("{s}public var {s}: {s}.Reader {{ {s}.Reader(root, pointer: pointer) }}\n", .{ pad, name, group, group });
         return;
     }
@@ -380,7 +408,7 @@ fn emitBuilderField(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, cont
     const pad = padding(indent);
     const name = try accessorName(gen, node, field);
     if (field.group != null) {
-        const group = try gen.groupTypeName(field);
+        const group = try groupDeclarationName(gen, field);
         try w.print("{s}public var {s}: {s}.Builder {{ {s}.Builder(root, pointer: pointer) }}\n", .{ pad, name, group, group });
         return;
     }

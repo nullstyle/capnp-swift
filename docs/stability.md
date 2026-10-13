@@ -32,7 +32,8 @@ bumps the minor, not the patch).
 
 - **Open typed generation** (`--typed` on main): `CapnpPointerSchema`,
   `PointerReader`/`PointerBuilder`, `RPCPointerCapability`, and the generated
-  `.Typed`/`.TypedServer` interface. Use a matching generator and runtime;
+  `.Typed`/`.TypedServer` interface, pending result pipelines and typed streams.
+  Use a matching generator and runtime;
   its Swift surface may change before stabilization. Existing erased
   generation stays available. See [typed-generics.md](typed-generics.md).
 - **`CapnpNW` QUIC** (`QUICTransport`, `QUICListener`): needs

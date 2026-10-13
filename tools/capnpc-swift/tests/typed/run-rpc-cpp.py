@@ -42,10 +42,11 @@ def pair(server_path, client_path, kind, expected):
 def main():
     swift, cpp = map(pathlib.Path, sys.argv[1:])
     for server, client in [(cpp, swift), (swift, cpp)]:
-        for kind, count in [('child', 6), ('named', 3), ('swap', 1), ('batch', 1)]:
+        for kind, count in [('child', 8), ('named', 3), ('swap', 1), ('batch', 1),
+                            ('stream-child', 1), ('stream-method', 2)]:
             print(f'PAIR: {client.name} client -> {server.name} server ({kind})', flush=True)
             pair(server, client, kind, count)
-    print('PASS: 22 open generic RPC checks across both C++/Swift directions')
+    print('PASS: 32 open generic RPC checks across both C++/Swift directions')
 
 
 if __name__ == '__main__':

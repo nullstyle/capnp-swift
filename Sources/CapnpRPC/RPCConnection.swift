@@ -308,6 +308,27 @@ public actor RPCConnection: TransportDelegate {
         return try await awaitReturn(of: promise.lifetime.qid)
     }
 
+    // Pointer adapters use the captured result table instead of resolving a
+    // returned local export through a native import. The question lifetime is
+    // held by the projection passed here.
+    func pointerPipelinedResult(_ capability: PipelinedCap) throws -> CallResult? {
+        guard capability.lifetime.owner == ObjectIdentifier(self) else { throw RPCError.foreignCapability }
+        guard let question = questions[capability.lifetime.qid] else { throw closeReason ?? .closed }
+        guard question.returned else {
+            if question.canceled { throw question.failure ?? .canceled }
+            return nil
+        }
+        guard let result = question.result else { throw question.failure ?? .closed }
+        return result
+    }
+
+    func pointerAwaitPipelinedResult(_ capability: PipelinedCap) async throws -> CallResult {
+        guard capability.lifetime.owner == ObjectIdentifier(self) else { throw RPCError.foreignCapability }
+        return try await awaitReturn(of: capability.lifetime.qid)
+    }
+
+    func pointerQuestionWaiterCount(_ id: UInt32) -> Int { questions[id]?.waiters.count ?? 0 }
+
     // MARK: Server side
 
     /// The handler behind one of this connection's exports (a cap table entry
@@ -336,6 +357,8 @@ public actor RPCConnection: TransportDelegate {
     }
 
     var pointerLocalAliasCount: Int { pointerLocalHandlers.count }
+    var pointerCloseWaiterCount: Int { closeWaiters.count }
+    var pointerCallTimeoutMilliseconds: UInt32 { options.callTimeout.map { UInt32(clamping: Self.milliseconds($0)) } ?? 0 }
 
     func pointerLocalSnapshot(_ caps: [CapTableEntry]) -> [UInt32: any ExportHandler] {
         var handlers: [UInt32: any ExportHandler] = [:]
@@ -912,6 +935,7 @@ public actor RPCConnection: TransportDelegate {
         capnp_conn_transport_closed(core.raw)
         drain()
         let cause = closeReason ?? .closed
+        streamWindow.close(cause)
         for (qid, var q) in questions where !q.returned {
             q.returned = true
             q.failure = cause

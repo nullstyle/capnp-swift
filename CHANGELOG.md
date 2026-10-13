@@ -72,6 +72,17 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- Open typed result pipelines and streaming. Generated `sendMethod` helpers
+  expose owned pending calls and capability projections that send before the
+  producing result arrives. Foreign struct modules retain an awaited fallback
+  when built with Capnp alone. Typed streams preserve inherited and method-local
+  generic bindings, caller isolation and acknowledgement-based window limits.
+  Local calls now wake on cancellation, connection closure and deadlines even
+  when handlers ignore cancellation. Nested generated-member name collisions
+  receive stable aliases. The RPC gate passes 84 checks in normal, TSan and
+  ASan builds; 13 naming checks and 32 independent C++/Swift checks also pass.
+  New assertions, implementation guards and compiler refusals were ablated
+  with named failures and restored. Release 0.1.1 and the core ABI are unchanged.
 - Production `--typed` generation with open `.Typed<Codec>` struct/interface
   applications and `.TypedServer` protocols. Method-local generic arguments,
   erased server handlers, transitive inheritance, nullable capabilities,
@@ -81,8 +92,8 @@ All notable changes to capnp-swift are recorded here.
   seven driver guards and 22 independent C++/Swift RPC checks pass; deliberate
   failure checks prove the new assertions and implementation guards.
   The feature addition preserved all 28 legacy requests / 32 outputs before
-  the separate correctness repairs listed above. Typed streaming
-  and generated result pipelines follow separately; release 0.1.1 is unchanged.
+  the separate correctness repairs listed above. The streaming and pipeline
+  addition is recorded separately; release 0.1.1 is unchanged.
 - Experimental pointer schema codecs in `Capnp` and capability projection in
   `CapnpRPC`, preparing open generated schema applications. Readers/values
   own immutable storage; builders retain mutable storage. Copies preserve

@@ -97,6 +97,9 @@ typed-structs:
 typed-rpc:
     tools/capnpc-swift/tests/typed/check-rpc.sh
 
+typed-names:
+    tools/capnpc-swift/tests/typed/check-names.sh
+
 legacy-rpc:
     tools/capnpc-swift/tests/typed/check-legacy-rpc.sh
 

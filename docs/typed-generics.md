@@ -56,6 +56,11 @@ Generated cross-file references use that alias, including when producers are
 generated in a different request order. The shorter schema name remains
 convenient when it is unique within its Swift module.
 
+Nested schema names that collide with generated `Reader`, `Builder`, `Value`
+or `Pipeline` members receive the same stable node-ID suffix. Interfaces also
+reserve `Client` and `Export`. Declarations and references share that spelling;
+nested `Typed`, root names and erased declarations retain their names.
+
 ## Generic RPC and inheritance
 
 For `Child extends(Parent(Text))`, where Parent declares
@@ -117,13 +122,69 @@ wrapped using `Client(server:connection:)`. Foreign connection capabilities
 are rejected before sending. Serialization keeps opaque capability tokens;
 only CapnpRPC interprets them.
 
-At this milestone, typed streaming schemas fail with
-`UnsupportedTypedStreaming`; typed result-pipeline wrappers are still pending.
-Existing erased streaming and low-level `RemotePromise` APIs remain available.
+## Pending calls and result pipelines
+
+Every ordinary typed method also has a `sendMethod` helper. It returns an owned
+call with `value()` and a typed `pipeline`, allowing a capability call before
+the original result arrives:
+
+```swift
+let pending = try await child.parent.sendEcho(as: Child.Typed.self) {
+    try $0.setScope("pipeline")
+    try $0.setValue(child)
+}
+let projected = pending.pipeline.value()
+let reply = try await projected.parent.echo(as: CapnpText.self) {
+    try $0.setScope("callback")
+    try $0.setValue("hello")
+}
+let result = try await pending.value()
+```
+
+Generated struct pipelines compose pointer-field paths. Generic fields expose
+their projection when their codec conforms to `CapnpPipelineSchema`; generated
+interfaces project to clients. Scalars, lists and union selection use the
+awaited reader. A future null capability reports an error when called.
+Sender helpers reserve real schema method names: an interface declaring both
+`echo` and `sendEcho` receives a distinct helper such as `sendEcho2`.
+
+Pending calls and projected clients share ownership of the result. Keeping a
+projection retains its parent call; dropping its last owner cancels unfinished
+local work or releases the native question. Cancellation and connection closure
+wake local value waiters even when a handler ignores cancellation. Local handler
+entry preserves connection ordering. `Options.callTimeout` applies to local
+and remote calls alike; nil, zero and durations below one millisecond disable
+the deadline, matching the native millisecond representation.
+Passing a future as an argument or result
+awaits and materializes it, including capabilities returning to their own vat.
+Remote target pipelines still send before RETURN.
+
+A struct producer can build with `Capnp` alone. Foreign struct fields and named
+foreign result calls then expose `RPCStructPipeline<Schema>`, whose `value()`
+returns the awaited reader. A producer built with `CapnpRPC` also makes
+`typed()` available for native typed projection. This keeps the producer's RPC
+dependency optional while preserving a usable consumer fallback.
+
+## Streaming
+
+Typed `-> stream` methods return `Void` after acknowledgement. Method-local
+arguments use the same metatype selection as ordinary calls. For
+`push @0 [T] (value :T) -> stream`:
+
+```swift
+try await sink.push(as: CapnpData.self) { try $0.setValue([0, 1, 255]) }
+```
+
+Servers keep one erased method handler with typed enclosing bindings and no
+results value. Inherited streaming methods retain their ancestor wire ID.
+Caller actor isolation is preserved. The connection's call/byte stream window
+holds each permit through acknowledgement and releases it on success or error.
+Oversized payloads fail promptly; queued cancellation and connection closure
+wake waiters without leaking permits.
 
 ## Verification
 
-`just typed-structs`, `just typed-rpc`, `just typed-driver` and
+`just typed-structs`, `just typed-rpc`, `just typed-names`, `just typed-driver` and
 `just typed-rpc-cpp` exercise these paths. The C++ gate runs both RPC
 directions against the independent reference implementation and explicitly
 skips if the compiler is absent; its nightly invocation requires C++.

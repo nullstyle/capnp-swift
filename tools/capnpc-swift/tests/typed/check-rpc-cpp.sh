@@ -25,13 +25,16 @@ if [[ ! -f "$core/libcapnp_core.a" ]]; then
 fi
 (cd tools/capnpc-swift && mise exec -- zig build)
 tools/capnpc-swift/zig-out/bin/capnpc-swift --typed --output-dir="$scratch" < tools/type-resolver-spike/fixtures/method_generics.request.bin
+tools/capnpc-swift/zig-out/bin/capnpc-swift --typed --output-dir="$scratch" < "$script_dir/cpp_streams.request.bin"
 capnp compile -oc++:"$scratch" --src-prefix=tools/type-resolver-spike/fixtures tools/type-resolver-spike/fixtures/method_generics.capnp
+capnp compile -oc++:"$scratch" --src-prefix="$script_dir" "$script_dir/cpp_streams.capnp"
 python3 - "$scratch" "$script_dir" <<'PY'
 import pathlib, shlex, subprocess, sys
 scratch, source = map(pathlib.Path, sys.argv[1:])
 flags = shlex.split(subprocess.check_output(['pkg-config', '--cflags', '--libs', 'capnp-rpc'], text=True))
 subprocess.run(['xcrun', 'clang++', '-std=c++17', '-O2', '-I', str(scratch),
                 str(source / 'method_rpc_peer.c++'), str(scratch / 'method_generics.capnp.c++'),
+                str(scratch / 'cpp_streams.capnp.c++'),
                 '-o', str(scratch / 'cpp-peer'), *flags], check=True)
 PY
 swift_flags=(-swift-version 6 -strict-concurrency=complete -warnings-as-errors -module-cache-path "$scratch/module-cache")
@@ -48,5 +51,5 @@ xcrun swiftc "${swift_flags[@]}" -Xcc -Wno-comment -module-name CapnpNW -emit-li
     -emit-module-path "$scratch/CapnpNW.swiftmodule" -Xlinker -rpath -Xlinker "$scratch"
 xcrun swiftc "${swift_flags[@]}" -Xcc -Wno-comment -I "$scratch" -I "$core/Headers" \
     -L "$scratch" -lCapnp -lCapnpRPC -lCapnpNW -Xlinker -rpath -Xlinker "$scratch" \
-    "$scratch/method_generics.swift" "$script_dir/CppRPCMain.swift" -o "$scratch/swift-peer"
+    "$scratch/method_generics.swift" "$scratch/cpp_streams.swift" "$script_dir/CppRPCMain.swift" -o "$scratch/swift-peer"
 python3 "$script_dir/run-rpc-cpp.py" "$scratch/swift-peer" "$scratch/cpp-peer"

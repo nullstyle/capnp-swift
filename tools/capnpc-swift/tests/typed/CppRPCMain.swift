@@ -3,6 +3,7 @@
 import CapnpNW
 import Dispatch
 import Foundation
+import Synchronization
 
 private struct Failure: Error, CustomStringConvertible { let description: String }
 private func check(_ condition: Bool, _ name: String) throws {
@@ -40,6 +41,32 @@ private struct BatchServer: Batch.TypedServer {
         }
     }
 }
+private final class GenericStreamServer: CppStreamChild.TypedServer {
+    private let state = Mutex<(value: String, count: UInt32)>((value: "", count: 0))
+    func push(params: CppStream.Typed<CapnpText>.PushParams.Reader,
+              on connection: isolated RPCConnection) async throws {
+        let value = try params.value()
+        state.withLock { $0.value = value; $0.count += 1 }
+    }
+    func seen(params: CppStream.Typed<CapnpText>.SeenParams.Reader,
+              on connection: isolated RPCConnection) async throws -> CppStream.Typed<CapnpText>.SeenResults.Value {
+        let snapshot = state.withLock { $0 }
+        return try .init { try $0.setValue(snapshot.value); $0.count = snapshot.count }
+    }
+}
+private final class MethodStreamServer: CppMethodStream.TypedServer {
+    private let state = Mutex<(value: [UInt8], count: UInt32)>((value: [], count: 0))
+    func push(params: CppMethodStream.Typed.PushParams<CapnpAnyPointer>.Reader,
+              on connection: isolated RPCConnection) async throws {
+        let bytes = try CapnpData.read(from: params.value())
+        state.withLock { $0.value = bytes; $0.count += 1 }
+    }
+    func seen(params: CppMethodStream.Typed.SeenParams.Reader,
+              on connection: isolated RPCConnection) async throws -> CppMethodStream.Typed.SeenResults.Value {
+        let snapshot = state.withLock { $0 }
+        return try .init { $0.setValue(snapshot.value); $0.count = snapshot.count }
+    }
+}
 
 @main struct CppRPCMain {
     static func client(kind: String, port: UInt16) async throws {
@@ -74,6 +101,19 @@ private struct BatchServer: Batch.TypedServer {
                 }()
                 let callback = try await returned.parent.echo(as: CapnpText.self) { try $0.setScope("callback"); try $0.setValue("retained") }
                 try check(try callback.value() == "retained" && callback.scope() == "ack:callback", "method capability remains callable")
+                let projected: Child.Typed.Client = try await {
+                    let pending = try await parent.sendEcho(as: Child.Typed.self) { try $0.setScope("pipeline"); try $0.setValue(child) }
+                    return pending.pipeline.value()
+                }()
+                let direct = try await projected.parent.echo(as: CapnpText.self) { try $0.setScope("direct"); try $0.setValue("projected") }
+                try check(try direct.value() == "projected" && direct.scope() == "ack:direct", "method generic capability pipeline")
+                let nestedProjected: Child.Typed.Client = try await {
+                    let boxed = try Box.Typed<Child.Typed>.Value { try $0.setValue(child) }
+                    let pending = try await parent.sendEcho(as: Box.Typed<Child.Typed>.self) { try $0.setScope("pipeline box"); try $0.setValue(boxed) }
+                    return pending.pipeline.value().value()
+                }()
+                let throughBox = try await nestedProjected.parent.echo(as: CapnpText.self) { try $0.setScope("nested"); try $0.setValue("through box") }
+                try check(try throughBox.value() == "through box" && throughBox.scope() == "ack:nested", "method nested generic capability pipeline")
             case "named":
                 let named = try Named.Typed.Client(cap: cap, connection: connection)
                 let text = try await named.echo(as: CapnpText.self) { try $0.setValue("named") }
@@ -94,6 +134,19 @@ private struct BatchServer: Batch.TypedServer {
                 let result = try await batch.gather(as: CapnpText.self) { try $0.setValues([one, two]) }
                 let values = try result.values()
                 try check(try values.count == 2 && values[0].value() == "one" && values[1].value() == "two", "method arguments in list elements")
+            case "stream-child":
+                let child = try CppStreamChild.Typed.Client(cap: cap, connection: connection)
+                try await child.cppStream.push { try $0.setValue("outer-stream") }
+                let receipt = try await child.cppStream.seen()
+                try check(try receipt.count == 1 && receipt.value() == "outer-stream", "inherited generic stream receipt")
+            case "stream-method":
+                let stream = try CppMethodStream.Typed.Client(cap: cap, connection: connection)
+                try await stream.push(as: CapnpText.self) { try $0.setValue("method-stream") }
+                let textReceipt = try await stream.seen()
+                try check(try textReceipt.count == 1 && textReceipt.value() == Array("method-stream".utf8) + [0], "method Text stream receipt")
+                try await stream.push(as: CapnpData.self) { try $0.setValue([4, 0, 255]) }
+                let dataReceipt = try await stream.seen()
+                try check(try dataReceipt.count == 2 && dataReceipt.value() == [4, 0, 255], "method Data stream receipt")
             default: throw Failure(description: "unknown interface")
             }
         } catch { await connection.close(); throw error }
@@ -106,6 +159,8 @@ private struct BatchServer: Batch.TypedServer {
         case "named": handler = Named.Typed.Export(NamedServer())
         case "swap": handler = Swap.Typed.Export(SwapServer())
         case "batch": handler = Batch.Typed.Export(BatchServer())
+        case "stream-child": handler = CppStreamChild.Typed.Export(GenericStreamServer())
+        case "stream-method": handler = CppMethodStream.Typed.Export(MethodStreamServer())
         default: throw Failure(description: "unknown interface")
         }
         let listener = try RPCListener(port: 0, bootstrap: { handler })

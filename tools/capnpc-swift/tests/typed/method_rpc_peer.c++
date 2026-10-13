@@ -1,8 +1,10 @@
 #include "method_generics.capnp.h"
+#include "cpp_streams.capnp.h"
 #include <capnp/ez-rpc.h>
 #include <kj/debug.h>
 #include <iostream>
 #include <string>
+#include <vector>
 
 class EchoServer final: public Child::Server {
   kj::Promise<void> echo(EchoContext context) override {
@@ -31,6 +33,35 @@ class SwapServer final: public Swap::Server {
 class BatchServer final: public Batch::Server {
   kj::Promise<void> gather(GatherContext context) override {
     context.getResults().setValues(context.getParams().getValues());
+    return kj::READY_NOW;
+  }
+};
+class GenericStreamServer final: public CppStreamChild::Server {
+  std::string value;
+  uint32_t count = 0;
+  kj::Promise<void> push(PushContext context) override {
+    value = context.getParams().getValue().cStr();
+    ++count;
+    return kj::READY_NOW;
+  }
+  kj::Promise<void> seen(SeenContext context) override {
+    context.getResults().setValue(value);
+    context.getResults().setCount(count);
+    return kj::READY_NOW;
+  }
+};
+class MethodStreamServer final: public CppMethodStream::Server {
+  std::vector<uint8_t> value;
+  uint32_t count = 0;
+  kj::Promise<void> push(PushContext context) override {
+    auto bytes = context.getParams().getValue().getAs<capnp::Data>();
+    value.assign(bytes.begin(), bytes.end());
+    ++count;
+    return kj::READY_NOW;
+  }
+  kj::Promise<void> seen(SeenContext context) override {
+    context.getResults().setValue(kj::arrayPtr(value.data(), value.size()));
+    context.getResults().setCount(count);
     return kj::READY_NOW;
   }
 };
@@ -89,6 +120,26 @@ static void childClient(capnp::EzRpcClient& rpc) {
     KJ_REQUIRE(result.getValue() == "retained" && result.getScope() == "ack:callback", "method capability remains callable");
     std::cout << "PASS: method capability remains callable\n";
   }
+  {
+    auto request = client.echoRequest<Child>();
+    request.setScope("pipeline"); request.setValue(client);
+    auto pending = request.send();
+    auto callback = pending.getValue().echoRequest<capnp::Text>();
+    callback.setScope("direct"); callback.setValue("projected");
+    auto result = callback.send().wait(wait);
+    KJ_REQUIRE(result.getValue() == "projected" && result.getScope() == "ack:direct", "method generic capability pipeline");
+    std::cout << "PASS: method generic capability pipeline\n";
+  }
+  {
+    auto request = client.echoRequest<Box<Child>>();
+    request.setScope("pipeline box"); request.initValue().setValue(client);
+    auto pending = request.send();
+    auto callback = pending.getValue().getValue().echoRequest<capnp::Text>();
+    callback.setScope("nested"); callback.setValue("through box");
+    auto result = callback.send().wait(wait);
+    KJ_REQUIRE(result.getValue() == "through box" && result.getScope() == "ack:nested", "method nested generic capability pipeline");
+    std::cout << "PASS: method nested generic capability pipeline\n";
+  }
 }
 static void namedClient(capnp::EzRpcClient& rpc) {
   auto client = rpc.getMain<Named>();
@@ -129,6 +180,38 @@ static void batchClient(capnp::EzRpcClient& rpc) {
   KJ_REQUIRE(read.size() == 2 && read[0].getValue() == "one" && read[1].getValue() == "two", "method arguments in list elements");
   std::cout << "PASS: method arguments in list elements\n";
 }
+static void genericStreamClient(capnp::EzRpcClient& rpc) {
+  auto client = rpc.getMain<CppStreamChild>();
+  auto request = client.pushRequest();
+  request.setValue("outer-stream");
+  request.send().wait(rpc.getWaitScope());
+  auto receipt = client.seenRequest().send().wait(rpc.getWaitScope());
+  KJ_REQUIRE(receipt.getCount() == 1 && receipt.getValue() == "outer-stream", "inherited generic stream receipt");
+  std::cout << "PASS: inherited generic stream receipt\n";
+}
+static void methodStreamClient(capnp::EzRpcClient& rpc) {
+  auto client = rpc.getMain<CppMethodStream>();
+  auto text = client.pushRequest<capnp::Text>();
+  text.setValue("method-stream");
+  text.send().wait(rpc.getWaitScope());
+  auto textReceipt = client.seenRequest().send().wait(rpc.getWaitScope());
+  auto textValue = textReceipt.getValue();
+  const std::string expected = "method-stream";
+  bool validText = textValue.size() == expected.size() + 1 && textValue[expected.size()] == 0;
+  if (validText) {
+    for (size_t i = 0; i < expected.size(); ++i) validText = validText && textValue[i] == static_cast<uint8_t>(expected[i]);
+  }
+  KJ_REQUIRE(textReceipt.getCount() == 1 && validText, "method Text stream receipt");
+  std::cout << "PASS: method Text stream receipt\n";
+  const uint8_t bytes[] = {4, 0, 255};
+  auto data = client.pushRequest<capnp::Data>();
+  data.setValue(kj::arrayPtr(bytes, 3));
+  data.send().wait(rpc.getWaitScope());
+  auto dataReceipt = client.seenRequest().send().wait(rpc.getWaitScope());
+  auto dataValue = dataReceipt.getValue();
+  KJ_REQUIRE(dataReceipt.getCount() == 2 && dataValue.size() == 3 && dataValue[0] == 4 && dataValue[1] == 0 && dataValue[2] == 255, "method Data stream receipt");
+  std::cout << "PASS: method Data stream receipt\n";
+}
 int main(int argc, char** argv) {
   try {
     KJ_REQUIRE(argc >= 3, "usage: peer server kind [port] | peer client kind address");
@@ -139,6 +222,8 @@ int main(int argc, char** argv) {
       else if (kind == "named") handler = kj::heap<NamedServer>();
       else if (kind == "swap") handler = kj::heap<SwapServer>();
       else if (kind == "batch") handler = kj::heap<BatchServer>();
+      else if (kind == "stream-child") handler = kj::heap<GenericStreamServer>();
+      else if (kind == "stream-method") handler = kj::heap<MethodStreamServer>();
       else KJ_FAIL_REQUIRE("unknown interface");
       capnp::EzRpcServer server(kj::mv(handler), "127.0.0.1", argc > 3 ? std::stoul(argv[3]) : 0);
       auto port = server.getPort().wait(server.getWaitScope());
@@ -151,6 +236,8 @@ int main(int argc, char** argv) {
       else if (kind == "named") namedClient(client);
       else if (kind == "swap") swapClient(client);
       else if (kind == "batch") batchClient(client);
+      else if (kind == "stream-child") genericStreamClient(client);
+      else if (kind == "stream-method") methodStreamClient(client);
       else KJ_FAIL_REQUIRE("unknown interface");
     }
     return 0;

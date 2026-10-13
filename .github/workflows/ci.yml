@@ -65,6 +65,7 @@ jobs:
           just type-resolver-methods
           just typed-structs
           just typed-rpc
+          just typed-names
           just legacy-rpc
           just legacy-defaults
           just legacy-void
@@ -162,7 +163,9 @@ jobs:
           cd core && mise exec -- zig build xcframework && cd ..
           scripts/use-local-core.sh
           just tsan
+          CAPNP_TYPED_RPC_SANITIZER=thread just typed-rpc
           just asan
+          CAPNP_TYPED_RPC_SANITIZER=address just typed-rpc
       - name: Test process crash reports
         if: failure()
         run: scripts/print-test-crashes.sh

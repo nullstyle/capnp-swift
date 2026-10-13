@@ -4,7 +4,7 @@
 /// the connection and, for a capability that came home, its local handler.
 public struct RPCPointerCapability: Sendable {
     private let token: PointerCapability
-    private let storage: RPCPointerStorage
+    fileprivate let storage: RPCPointerStorage
 
     public init(_ pointer: PointerReader) throws {
         guard let token = try pointer.capability() else {
@@ -13,7 +13,7 @@ public struct RPCPointerCapability: Sendable {
         guard let storage = token.payload as? RPCPointerStorage else {
             throw RPCError.malformed("unknown pointer capability adapter")
         }
-        if case .none = storage.slot {
+        if storage.projection == nil, case .none = storage.slot {
             throw RPCError.unimplemented(reason: "null pointer capability")
         }
         self.token = token
@@ -38,6 +38,12 @@ public struct RPCPointerCapability: Sendable {
         token = PointerCapability(storage)
     }
 
+    init(projection: RPCPointerPipeline) {
+        let slot: CapSlot = projection.native.map(CapSlot.pipelined) ?? .none
+        storage = RPCPointerStorage(connection: projection.pending.connection, slot: slot, projection: projection)
+        token = PointerCapability(storage)
+    }
+
     public var connection: RPCConnection { storage.connection }
 
     /// Generated nullable interface readers treat a null pointer or a
@@ -48,7 +54,7 @@ public struct RPCPointerCapability: Sendable {
         guard let storage = token.payload as? RPCPointerStorage else {
             throw RPCError.malformed("unknown pointer capability adapter")
         }
-        if case .none = storage.slot { return nil }
+        if storage.projection == nil, case .none = storage.slot { return nil }
         return try RPCPointerCapability(pointer)
     }
 
@@ -62,17 +68,35 @@ public struct RPCPointerCapability: Sendable {
     public func call(interface: UInt64, method: UInt16, params: PointerReader) async throws -> PointerReader {
         try await storage.connection.callPointer(storage, interface: interface, method: method, params: params)
     }
+
+    /// Send without awaiting the result. Native promised-answer targets are
+    /// sent immediately; local projections wait for their local result.
+    public func send(interface: UInt64, method: UInt16, params: PointerReader) async throws -> RPCPointerCall {
+        try await storage.connection.sendPointer(storage, interface: interface, method: method, params: params)
+    }
+
+    /// A stream acknowledgement holds its existing connection window permit
+    /// until success, exception, cancellation, or connection closure.
+    public func stream(interface: UInt64, method: UInt16, params: PointerReader) async throws {
+        let bytes = try params.serialized().bytes.count
+        try await connection.streamWindow.acquireThrowing(bytes: bytes)
+        defer { connection.streamWindow.release(bytes: bytes) }
+        guard !Task.isCancelled else { throw RPCError.canceled }
+        _ = try await call(interface: interface, method: method, params: params)
+    }
 }
 
-private final class RPCPointerStorage: Sendable {
+final class RPCPointerStorage: Sendable {
     let connection: RPCConnection
     let slot: CapSlot
     let local: (any ExportHandler)?
+    let projection: RPCPointerPipeline?
 
-    init(connection: RPCConnection, slot: CapSlot, local: (any ExportHandler)? = nil) {
+    init(connection: RPCConnection, slot: CapSlot, local: (any ExportHandler)? = nil, projection: RPCPointerPipeline? = nil) {
         self.connection = connection
         self.slot = slot
         self.local = local
+        self.projection = projection
     }
 }
 
@@ -122,13 +146,33 @@ extension RPCConnection {
     /// send/response seam, which performs the core's ownership checks too.
     @_spi(Generated)
     public nonisolated func pointerSlots(_ tokens: [PointerCapability]) throws -> [CapSlot] {
+        try pointerStorages(tokens).map { storage in
+            if let projection = storage.projection, projection.native == nil {
+                throw RPCError.failed(reason: "pending local capability must be resolved before passing")
+            }
+            return storage.slot
+        }
+    }
+
+    private nonisolated func pointerStorages(_ tokens: [PointerCapability]) throws -> [RPCPointerStorage] {
         try tokens.map { token in
             guard let storage = token.payload as? RPCPointerStorage else {
                 throw RPCError.malformed("unknown pointer capability adapter")
             }
             guard storage.connection === self else { throw RPCError.foreignCapability }
-            return storage.slot
+            return storage
         }
+    }
+
+    /// Resolve future arguments/results before passing them. This retains the
+    /// native peer's H9 wait-then-pass workaround and also supports returned
+    /// local handlers, for which a wire receiverAnswer would be invalid.
+    @_spi(Generated)
+    public func pointerResolvedSlots(_ tokens: [PointerCapability]) async throws -> [CapSlot] {
+        let storages = try pointerStorages(tokens)
+        var slots: [CapSlot] = []
+        for storage in storages { slots.append(try await resolvedPointerStorage(storage).slot) }
+        return slots
     }
 
     private func pointerPayload(bytes: [UInt8], slots: [CapSlot]) throws -> PointerReader {
@@ -151,35 +195,77 @@ extension RPCConnection {
     }
 
     fileprivate func callPointer(_ storage: RPCPointerStorage, interface: UInt64, method: UInt16, params: PointerReader) async throws -> PointerReader {
+        let pending = try await sendPointer(storage, interface: interface, method: method, params: params)
+        return try await pending.value()
+    }
+
+    fileprivate func sendPointer(_ storage: RPCPointerStorage, interface: UInt64, method: UInt16, params: PointerReader) async throws -> RPCPointerCall {
         try pointerCheckOpen()
         let payload = try params.serialized()
-        let slots = try pointerSlots(payload.capabilities)
-        if let handler = storage.local {
-            var aliases: [UInt32] = []
-            defer { pointerRemoveLocal(aliases) }
-            let caps = try localPointerEntries(payload.capabilities, aliases: &aliases)
-            let call = InboundCall(interfaceID: interface, methodID: method, params: payload.bytes, caps: caps, connection: self, pointerLocalHandlers: pointerLocalSnapshot(caps))
-            let response = try await handler.handle(call, on: self)
-            return try pointerPayload(bytes: response.message, slots: response.caps)
+        let slots = try await pointerResolvedSlots(payload.capabilities)
+        let ready = try await readyPointerTarget(storage)
+        if let handler = ready.local {
+            let task = Task { try await self.invokeLocalPointer(handler, interface: interface, method: method, bytes: payload.bytes, slots: slots) }
+            return RPCPointerCall(RPCPointerPending(local: task, connection: self, timeoutMilliseconds: pointerCallTimeoutMilliseconds, retained: [storage, payload.capabilities]))
         }
         let target: CallTarget
-        switch storage.slot {
+        switch ready.slot {
         case .imported(let cap): target = .cap(cap)
         case .pipelined(let cap): target = .pipelined(cap)
         case .none: throw RPCError.unimplemented(reason: "null pointer capability")
         case .export, .promise: throw RPCError.unimplemented(reason: "unresolved local pointer capability")
         }
-        let response = try await call(target, interface: interface, method: method, params: payload.bytes, caps: slots)
-        return try pointerPayload(result: response)
+        let promise = try await send(target, interface: interface, method: method, params: payload.bytes, caps: slots)
+        return RPCPointerCall(RPCPointerPending(remote: promise, retained: [storage, payload.capabilities]))
     }
 
-    private func localPointerEntries(_ tokens: [PointerCapability], aliases: inout [UInt32]) throws -> [CapTableEntry] {
-        try tokens.map { token in
-            guard let storage = token.payload as? RPCPointerStorage else {
-                throw RPCError.malformed("unknown pointer capability adapter")
-            }
-            guard storage.connection === self else { throw RPCError.foreignCapability }
-            switch storage.slot {
+    private func readyPointerTarget(_ storage: RPCPointerStorage) async throws -> RPCPointerStorage {
+        if let projection = storage.projection {
+            guard projection.path.count <= 64 else { throw RPCError.failed(reason: "pipeline path too deep") }
+            if let native = projection.native, try pointerPipelinedResult(native) == nil { return storage }
+            return try await resolvedPointerStorage(storage)
+        }
+        if case .pipelined(let native) = storage.slot, try pointerPipelinedResult(native) != nil {
+            return try await resolvedPointerStorage(storage)
+        }
+        return storage
+    }
+
+    private func resolvedPointerStorage(_ storage: RPCPointerStorage, depth: Int = 0) async throws -> RPCPointerStorage {
+        guard depth < 64 else { throw RPCError.failed(reason: "pipeline resolution too deep") }
+        let pointer: PointerReader
+        if let projection = storage.projection {
+            pointer = try await projection.value()
+        } else if case .pipelined(let native) = storage.slot {
+            let result = try await pointerAwaitPipelinedResult(native)
+            var selected = try pointerPayload(result: result)
+            guard native.path.count <= 64 else { throw RPCError.failed(reason: "pipeline path too deep") }
+            for index in native.path { selected = try selected.field(Int(index)) }
+            pointer = selected
+        } else {
+            return storage
+        }
+        guard let capability = try RPCPointerCapability.read(from: pointer) else {
+            throw RPCError.failed(reason: "pipelined capability is null")
+        }
+        guard capability.connection === self else { throw RPCError.foreignCapability }
+        return try await resolvedPointerStorage(capability.storage, depth: depth + 1)
+    }
+
+    private func invokeLocalPointer(_ handler: any ExportHandler, interface: UInt64, method: UInt16, bytes: [UInt8], slots: [CapSlot]) async throws -> PointerReader {
+        try pointerCheckOpen()
+        try Task.checkCancellation()
+        var aliases: [UInt32] = []
+        defer { pointerRemoveLocal(aliases) }
+        let caps = try localPointerEntries(slots, aliases: &aliases)
+        let call = InboundCall(interfaceID: interface, methodID: method, params: bytes, caps: caps, connection: self, pointerLocalHandlers: pointerLocalSnapshot(caps))
+        let response = try await handler.handle(call, on: self)
+        return try pointerPayload(bytes: response.message, slots: response.caps)
+    }
+
+    private func localPointerEntries(_ slots: [CapSlot], aliases: inout [UInt32]) throws -> [CapTableEntry] {
+        try slots.map { slot in
+            switch slot {
             case .none: return .none
             case .imported(let cap): return .imported(cap)
             case .export(let handler):

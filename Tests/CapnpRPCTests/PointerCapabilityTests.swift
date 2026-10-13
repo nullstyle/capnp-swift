@@ -290,7 +290,11 @@ struct PointerCapabilityTests {
             for await _ in stream { break }
             #expect(await pair.client.pointerLocalAliasCount == 1)
             task.cancel()
-            await #expect(throws: CancellationError.self) { _ = try await task.value }
+            await #expect(throws: RPCError.canceled) { _ = try await task.value }
+            let deadline = ContinuousClock.now.advanced(by: .seconds(1))
+            while await pair.client.pointerLocalAliasCount != 0, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(1))
+            }
             #expect(await pair.client.pointerLocalAliasCount == 0)
         } catch { await pair.close(); throw error }
         await pair.close()

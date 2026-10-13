@@ -51,6 +51,17 @@ fn methodArguments(gen: *Generator, method: schema.Method, erased: bool) ![]cons
     return args;
 }
 
+fn senderName(gen: *Generator, node: *schema.Node, method: schema.Method) ![]const u8 {
+    const base = try std.fmt.allocPrint(gen.scratch(), "send{s}", .{try gen.capitalized(gen.unescaped(try gen.swiftMemberName(method.name)))});
+    var candidate = base;
+    var suffix: usize = 2;
+    while (blk: {
+        for (node.interface_node.?.methods) |other| if (std.mem.eql(u8, gen.unescaped(try gen.swiftMemberName(other.name)), candidate)) break :blk true;
+        break :blk false;
+    }) : (suffix += 1) candidate = try std.fmt.allocPrint(gen.scratch(), "{s}{d}", .{ base, suffix });
+    return gen.swiftMemberName(candidate);
+}
+
 fn namedApplication(gen: *Generator, context: *const resolver.Context, node: *schema.Node) ![]const u8 {
     return typed.codec(gen, context, try context.resolve(.{ .type = .{ .interface = .{ .type_id = node.id } } }), 0);
 }
@@ -101,6 +112,78 @@ fn serverReference(gen: *Generator, node: *schema.Node, args: ?[]const Parameter
     return std.fmt.allocPrint(gen.scratch(), "{s}{s}", .{ name, try parameterList(gen, names, false) });
 }
 
+fn pipelineNamespace(gen: *Generator, node: *schema.Node) anyerror![]const u8 {
+    const parent = gen.getNode(node.scope_id) orelse return error.MissingNode;
+    if (parent.kind == .file) return std.fmt.allocPrint(gen.scratch(), "{s}.Typed", .{try typed.namespaceReference(gen, node)});
+    const name = if (node.struct_node != null and node.struct_node.?.is_group) blk: {
+        for (parent.struct_node.?.fields) |field| if (field.group) |group| if (group.type_id == node.id) break :blk try typed.groupDeclarationName(gen, field);
+        return error.MissingDeclarationName;
+    } else try typed.declarationName(gen, node);
+    return std.fmt.allocPrint(gen.scratch(), "{s}.{s}", .{ try pipelineNamespace(gen, parent), name });
+}
+
+pub fn emitPipelineConformances(gen: *Generator, w: *std.Io.Writer, node: *schema.Node) anyerror!void {
+    if (node.kind != .@"struct" and node.kind != .interface) return;
+    const namespace = try pipelineNamespace(gen, node);
+    try w.print("#if canImport(CapnpRPC)\nextension {s}: CapnpPipelineSchema {{}}\n#endif\n", .{namespace});
+    if (node.interface_node) |interface| for (interface.methods) |method| {
+        const name = try gen.capitalized(try gen.swiftMemberName(method.name));
+        const params = gen.getNode(method.param_struct_type) orelse return error.MissingNode;
+        if (params.scope_id == 0) try w.print("#if canImport(CapnpRPC)\nextension {s}.{s}Params: CapnpPipelineSchema {{}}\n#endif\n", .{ namespace, name });
+        if (!method.isStreaming()) {
+            const results = gen.getNode(method.result_struct_type) orelse return error.MissingNode;
+            if (results.scope_id == 0) try w.print("#if canImport(CapnpRPC)\nextension {s}.{s}Results: CapnpPipelineSchema {{}}\n#endif\n", .{ namespace, name });
+        }
+    };
+    for (node.nested_nodes) |nested| {
+        const child = gen.getNode(nested.id) orelse return error.MissingNode;
+        if (child.scope_id != node.id) continue;
+        if (child.struct_node) |structure| if (structure.is_group) continue;
+        try emitPipelineConformances(gen, w, child);
+    }
+    if (node.struct_node) |structure| for (structure.fields) |field| if (field.group) |group| {
+        try emitPipelineConformances(gen, w, gen.getNode(group.type_id) orelse return error.MissingNode);
+    };
+}
+
+pub fn emitStructPipeline(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, context: *const resolver.Context, indent: usize) anyerror!void {
+    try w.print("{s}#if canImport(CapnpRPC)\n{s}public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline {{ Pipeline(projection) }}\n{s}public struct Pipeline: Sendable {{\n{s}    private let _capnpPipeline: RPCPointerPipeline\n{s}    public init(_ projection: RPCPointerPipeline) {{ _capnpPipeline = projection }}\n", .{ pad(indent), pad(indent), pad(indent), pad(indent), pad(indent) });
+    for (node.struct_node.?.fields) |field| {
+        // The wire transform has no union test or list-index operation.
+        if (field.discriminant_value != 0xffff) continue;
+        if (field.group) |group| {
+            _ = group;
+            const group_name = try typed.groupDeclarationName(gen, field);
+            try w.print("{s}    public var {s}: {s}.Pipeline {{ {s}.pipeline(_capnpPipeline) }}\n", .{ pad(indent), try typed.accessorName(gen, node, field), group_name, group_name });
+            continue;
+        }
+        const slot = field.slot orelse continue;
+        const value = try context.resolve(.{ .type = slot.type, .metadata = slot.type_metadata });
+        if (!value.unbound and value.expression.type != .@"struct" and value.expression.type != .interface) continue;
+        if (slot.offset > std.math.maxInt(u16)) return error.InvalidSchema;
+        const name = try typed.accessorName(gen, node, field);
+        const schema_name = try typed.codec(gen, context, value, 0);
+        if (value.unbound) {
+            if (std.mem.eql(u8, schema_name, "CapnpAnyPointer")) continue;
+            try w.print("{s}    public func {s}() -> {s}.Pipeline where {s}: CapnpPipelineSchema {{ {s}.pipeline(_capnpPipeline.field({d})) }}\n", .{ pad(indent), name, schema_name, schema_name, schema_name, slot.offset });
+        } else {
+            const foreign_struct = if (value.expression.type == .@"struct") try foreignStruct(gen, value.expression.type.@"struct".type_id) else false;
+            if (foreign_struct) {
+                try w.print("{s}    public var {s}: RPCStructPipeline<{s}> {{ RPCStructPipeline(_capnpPipeline.field({d})) }}\n", .{ pad(indent), name, schema_name, slot.offset });
+            } else {
+                try w.print("{s}    public var {s}: {s}.Pipeline {{ {s}.pipeline(_capnpPipeline.field({d})) }}\n", .{ pad(indent), name, schema_name, schema_name, slot.offset });
+            }
+        }
+    }
+    try w.print("{s}}}\n{s}#endif\n", .{ pad(indent), pad(indent) });
+}
+
+fn foreignStruct(gen: *Generator, id: schema.Id) !bool {
+    const file = gen.getFileNode(id) orelse return error.MissingNode;
+    const current = gen.current_file orelse return error.MissingNode;
+    return file.id != current.id;
+}
+
 fn emitValueConveniences(gen: *Generator, w: *std.Io.Writer, owner: Application, method: schema.Method, indent: usize) !void {
     if (method.implicit_parameters.len != 1) return;
     const payload = gen.getNode(method.param_struct_type) orelse return error.MissingNode;
@@ -148,7 +231,9 @@ fn emitValueConveniences(gen: *Generator, w: *std.Io.Writer, owner: Application,
             if (index != 0) try w.writeAll(", ");
             try w.print("{s}: {s}.Value", .{ try typed.accessorName(gen, payload, field), type_name });
         }
-        try w.print(", isolation: isolated (any Actor)? = #isolation) async throws -> {s}.Reader {{\n{s}    try await {s}(as: {s}.self, isolation: isolation) {{ params in\n", .{ try payloadReference(gen, owner, method, true, &.{binding}), pad(indent), try gen.swiftMemberName(method.name), binding });
+        try w.writeAll(", isolation: isolated (any Actor)? = #isolation) async throws");
+        if (!method.isStreaming()) try w.print(" -> {s}.Reader", .{try payloadReference(gen, owner, method, true, &.{binding})});
+        try w.print(" {{\n{s}    try await {s}(as: {s}.self, isolation: isolation) {{ params in\n", .{ pad(indent), try gen.swiftMemberName(method.name), binding });
         for (structure.fields) |field| {
             const slot = field.slot.?;
             const name = try typed.accessorName(gen, payload, field);
@@ -185,9 +270,10 @@ pub fn emitServer(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, contex
     try w.writeAll(" {\n");
     for (own_parameters) |parameter| try w.print("{s}associatedtype {s}: CapnpPointerSchema\n", .{ pad(indent + 1), parameter.name });
     for (interface.methods) |method| {
-        if (method.isStreaming()) return error.UnsupportedTypedStreaming;
         const args = try methodArguments(gen, method, true);
-        try w.print("{s}func {s}(params: {s}.Reader, on connection: isolated RPCConnection) async throws -> {s}.Value\n", .{ pad(indent + 1), try gen.swiftMemberName(method.name), try payloadReference(gen, owner, method, false, args), try payloadReference(gen, owner, method, true, args) });
+        try w.print("{s}func {s}(params: {s}.Reader, on connection: isolated RPCConnection) async throws", .{ pad(indent + 1), try gen.swiftMemberName(method.name), try payloadReference(gen, owner, method, false, args) });
+        if (!method.isStreaming()) try w.print(" -> {s}.Value", .{try payloadReference(gen, owner, method, true, args)});
+        try w.writeByte('\n');
     }
     try w.print("{s}}}\n", .{pad(indent)});
 }
@@ -198,12 +284,12 @@ pub fn emitInterface(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, con
     const interface = node.interface_node.?;
     try w.print("{s}public static var interfaceID: UInt64 {{ 0x{x} }}\n", .{ pad(indent), node.id });
     for (interface.methods) |method| {
-        if (method.isStreaming()) return error.UnsupportedTypedStreaming;
         const args = try methodArguments(gen, method, false);
         const name = try gen.capitalized(try gen.swiftMemberName(method.name));
         try typed.emitMethodPayload(gen, w, context, node, gen.getNode(method.param_struct_type) orelse return error.MissingNode, method.param_brand, try std.fmt.allocPrint(gen.scratch(), "{s}Params", .{name}), args, indent);
-        try typed.emitMethodPayload(gen, w, context, node, gen.getNode(method.result_struct_type) orelse return error.MissingNode, method.result_brand, try std.fmt.allocPrint(gen.scratch(), "{s}Results", .{name}), args, indent);
+        if (!method.isStreaming()) try typed.emitMethodPayload(gen, w, context, node, gen.getNode(method.result_struct_type) orelse return error.MissingNode, method.result_brand, try std.fmt.allocPrint(gen.scratch(), "{s}Results", .{name}), args, indent);
     }
+    try w.print("{s}public typealias Pipeline = Client\n{s}public static func pipeline(_ projection: RPCPointerPipeline) -> Pipeline {{ Client(capability: projection.capability()) }}\n", .{ pad(indent), pad(indent) });
     try w.print("{s}public typealias Reader = Client?\n{s}public typealias Value = Client?\n", .{ pad(indent), pad(indent) });
     try w.print("{s}public static func read(from pointer: PointerReader) throws -> Reader {{\n{s}    guard let capability = try RPCPointerCapability.read(from: pointer) else {{ return nil }}\n{s}    return Client(capability: capability)\n{s}}}\n", .{ pad(indent), pad(indent), pad(indent), pad(indent) });
     try w.print("{s}public static func write(_ value: Value, to pointer: PointerBuilder) throws {{\n{s}    if let value {{ try value.capability.write(to: pointer) }} else {{ try pointer.setNull() }}\n{s}}}\n", .{ pad(indent), pad(indent), pad(indent) });
@@ -228,11 +314,30 @@ pub fn emitInterface(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, con
         if (ordinal > std.math.maxInt(u16)) return error.InvalidSchema;
         const args = try methodArguments(gen, method, false);
         const params = try payloadReference(gen, owner, method, false, args);
-        const results = try payloadReference(gen, owner, method, true, args);
+        const results = if (method.isStreaming()) "" else try payloadReference(gen, owner, method, true, args);
         try w.print("{s}    public func {s}{s}(", .{ pad(indent), try gen.swiftMemberName(method.name), try parameterList(gen, args, true) });
         for (args, 0..) |arg, index| try w.print("{s}{s}: {s}.Type, ", .{ if (index == 0) "as " else "as", if (index == 0) "schema" else try std.fmt.allocPrint(gen.scratch(), "{d}", .{index}), arg });
-        try w.print("isolation: isolated (any Actor)? = #isolation, _ build: ({s}.Builder) throws -> Void = {{ _ in }}) async throws -> {s}.Reader {{\n", .{ params, results });
-        try w.print("{s}        let params = try {s}.Value(build)\n{s}        let result = try await capability.call(interface: 0x{x}, method: {d}, params: params.pointer)\n{s}        return try {s}.read(from: result)\n{s}    }}\n", .{ pad(indent), params, pad(indent), node.id, ordinal, pad(indent), results, pad(indent) });
+        try w.print("isolation: isolated (any Actor)? = #isolation, _ build: ({s}.Builder) throws -> Void = {{ _ in }}) async throws", .{params});
+        if (method.isStreaming()) {
+            try w.print(" {{\n{s}        let params = try {s}.Value(build)\n{s}        try await capability.stream(interface: 0x{x}, method: {d}, params: params.pointer)\n{s}    }}\n", .{ pad(indent), params, pad(indent), node.id, ordinal, pad(indent) });
+        } else {
+            const call_name = try std.fmt.allocPrint(gen.scratch(), "{s}Call", .{try gen.capitalized(try gen.swiftMemberName(method.name))});
+            const send_name = try senderName(gen, node, method);
+            try w.print(" -> {s}.Reader {{\n{s}        let pending = try await {s}(", .{ results, pad(indent), send_name });
+            for (args, 0..) |_, index| try w.print("{s}: {s}, ", .{ if (index == 0) "as" else try std.fmt.allocPrint(gen.scratch(), "as{d}", .{index}), if (index == 0) "schema" else try std.fmt.allocPrint(gen.scratch(), "as{d}", .{index}) });
+            try w.print("isolation: isolation, build)\n{s}        return try await pending.value()\n{s}    }}\n", .{ pad(indent), pad(indent) });
+            try w.print("{s}    public struct {s}{s}: Sendable {{\n{s}        public let pending: RPCPointerCall\n{s}        public init(_ pending: RPCPointerCall) {{ self.pending = pending }}\n{s}        public var connection: RPCConnection {{ pending.connection }}\n", .{ pad(indent), call_name, try parameterList(gen, args, true), pad(indent), pad(indent), pad(indent) });
+            const result_node = gen.getNode(method.result_struct_type) orelse return error.MissingNode;
+            if (result_node.scope_id != 0 and try foreignStruct(gen, result_node.id)) {
+                try w.print("{s}        public var pipeline: RPCStructPipeline<{s}> {{ RPCStructPipeline(pending.pipeline) }}\n", .{ pad(indent), results });
+            } else {
+                try w.print("{s}        public var pipeline: {s}.Pipeline {{ {s}.pipeline(pending.pipeline) }}\n", .{ pad(indent), results, results });
+            }
+            try w.print("{s}        public func value() async throws -> {s}.Reader {{ try {s}.read(from: await pending.value()) }}\n{s}    }}\n", .{ pad(indent), results, results, pad(indent) });
+            try w.print("{s}    public func {s}{s}(", .{ pad(indent), send_name, try parameterList(gen, args, true) });
+            for (args, 0..) |arg, index| try w.print("{s}{s}: {s}.Type, ", .{ if (index == 0) "as " else "as", if (index == 0) "schema" else try std.fmt.allocPrint(gen.scratch(), "{d}", .{index}), arg });
+            try w.print("isolation: isolated (any Actor)? = #isolation, _ build: ({s}.Builder) throws -> Void = {{ _ in }}) async throws -> {s}{s} {{\n{s}        let params = try {s}.Value(build)\n{s}        return {s}(try await capability.send(interface: 0x{x}, method: {d}, params: params.pointer))\n{s}    }}\n", .{ params, call_name, try parameterList(gen, args, false), pad(indent), params, pad(indent), call_name, node.id, ordinal, pad(indent) });
+        }
         try emitValueConveniences(gen, w, owner, method, indent + 1);
     }
     try w.print("{s}}}\n{s}public struct Export: ExportHandler {{\n{s}    public let server: any {s}\n{s}    public init(_ server: any {s}) {{ self.server = server }}\n{s}    public func handle(_ call: InboundCall, on connection: isolated RPCConnection) async throws -> CallResponse {{\n{s}        do {{\n{s}            switch call.interfaceID {{\n", .{ pad(indent), pad(indent), pad(indent), server, pad(indent), server, pad(indent), pad(indent), pad(indent) });
@@ -241,7 +346,12 @@ pub fn emitInterface(gen: *Generator, w: *std.Io.Writer, node: *schema.Node, con
         for (application.node.interface_node.?.methods, 0..) |method, ordinal| {
             const args = try methodArguments(gen, method, true);
             const params = try payloadReference(gen, application, method, false, args);
-            try w.print("{s}                case {d}:\n{s}                    let params = try {s}.read(from: connection.pointerPayload(call: call))\n{s}                    let results = try await server.{s}(params: params, on: connection)\n{s}                    let payload = try results.pointer.serialized()\n{s}                    return CallResponse(message: payload.bytes, caps: try connection.pointerSlots(payload.capabilities))\n", .{ pad(indent), ordinal, pad(indent), params, pad(indent), try gen.swiftMemberName(method.name), pad(indent), pad(indent) });
+            try w.print("{s}                case {d}:\n{s}                    let params = try {s}.read(from: connection.pointerPayload(call: call))\n", .{ pad(indent), ordinal, pad(indent), params });
+            if (method.isStreaming()) {
+                try w.print("{s}                    try await server.{s}(params: params, on: connection)\n{s}                    return CallResponse(message: MessageBuilder.emptyStruct())\n", .{ pad(indent), try gen.swiftMemberName(method.name), pad(indent) });
+            } else {
+                try w.print("{s}                    let results = try await server.{s}(params: params, on: connection)\n{s}                    let payload = try results.pointer.serialized()\n{s}                    return CallResponse(message: payload.bytes, caps: try await connection.pointerResolvedSlots(payload.capabilities))\n", .{ pad(indent), try gen.swiftMemberName(method.name), pad(indent), pad(indent) });
+            }
         }
         try w.print("{s}                default: throw RPCError.unimplemented(reason: \"unknown typed method\")\n{s}                }}\n", .{ pad(indent), pad(indent) });
     }
