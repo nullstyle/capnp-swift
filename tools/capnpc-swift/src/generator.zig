@@ -837,6 +837,16 @@ pub const Generator = struct {
         return bytes;
     }
 
+    /// Adapt a root list pointer to field zero of a one-pointer struct. Moving
+    /// its root word and all content together preserves every relative offset.
+    fn framedListDefault(self: *Generator, segment: []const u8) ![]const u8 {
+        const wrapped = try self.scratch().alloc(u8, segment.len + 8);
+        @memset(wrapped[0..8], 0);
+        wrapped[6] = 1; // Struct root: zero data words, one pointer word.
+        @memcpy(wrapped[8..], segment);
+        return self.framedPointerDefault(wrapped);
+    }
+
     /// `private static let <Field>Default[Bytes]` for every struct field
     /// with a non-empty pointer default, at Reader scope.
     pub fn emitReaderDefaultStatics(self: *Generator, w: *std.Io.Writer, node: *schema.Node, indent: usize) !void {
@@ -850,7 +860,15 @@ pub const Generator = struct {
                     if (dv.@"struct".message_bytes.len == 0) continue;
                     const name = try self.fieldAccessorName(node, field);
                     const static_name = try self.staticDefaultName(name);
-                    const bytes = try self.swiftByteArrayLiteral(dv.@"struct".message_bytes);
+                    const bytes = try self.swiftByteArrayLiteral(try self.framedPointerDefault(dv.@"struct".message_bytes));
+                    try w.print("{s}static let {s}Bytes = {s}\n", .{ pad, static_name, bytes });
+                    try w.print("{s}static let {s} = CapnpDefaultMessage(bytes: {s}Bytes)\n", .{ pad, static_name, static_name });
+                },
+                .list => {
+                    if (dv.list.message_bytes.len == 0) continue;
+                    const name = try self.fieldAccessorName(node, field);
+                    const static_name = try self.staticDefaultName(name);
+                    const bytes = try self.swiftByteArrayLiteral(try self.framedListDefault(dv.list.message_bytes));
                     try w.print("{s}static let {s}Bytes = {s}\n", .{ pad, static_name, bytes });
                     try w.print("{s}static let {s} = CapnpDefaultMessage(bytes: {s}Bytes)\n", .{ pad, static_name, static_name });
                 },
@@ -938,28 +956,31 @@ pub const Generator = struct {
         return std.fmt.allocPrint(self.scratch(), fmt, .{offset});
     }
 
-    fn fixedListReader(w: *std.Io.Writer, pad: []const u8, name: []const u8, swift_scalar: []const u8, offset: u32) !void {
-        try w.print("{s}public func {s}() throws -> FixedSizeListReader<{s}>? {{ try root.readFixedSizeListOrDefault({d}, as: {s}.self) }}\n\n", .{ pad, name, swift_scalar, offset, swift_scalar });
+    fn fixedListReader(w: *std.Io.Writer, pad: []const u8, name: []const u8, swift_scalar: []const u8, root: []const u8, offset: []const u8) !void {
+        try w.print("{s}public func {s}() throws -> FixedSizeListReader<{s}>? {{ try {s}.readFixedSizeListOrDefault({s}, as: {s}.self) }}\n\n", .{ pad, name, swift_scalar, root, offset, swift_scalar });
     }
 
     fn emitListReader(self: *Generator, w: *std.Io.Writer, pad: []const u8, name: []const u8, slot: schema.FieldSlot, element: *schema.Type) !void {
+        const has_default = if (slot.default_value) |dv| dv == .list and dv.list.message_bytes.len > 0 else false;
+        const root = if (has_default) try std.fmt.allocPrint(self.scratch(), "(root.isPointerNull({d}) ? Self.{s}.rootStruct() : root)", .{ slot.offset, try self.staticDefaultName(name) }) else "root";
+        const offset = if (has_default) try std.fmt.allocPrint(self.scratch(), "(root.isPointerNull({d}) ? 0 : {d})", .{ slot.offset, slot.offset }) else try std.fmt.allocPrint(self.scratch(), "{d}", .{slot.offset});
         switch (element.*) {
-            .void, .interface => try w.print("{s}public func {s}() throws -> PointerListReader? {{ try root.readPointerListOrDefault({d}) }}\n\n", .{ pad, name, slot.offset }),
-            .bool => try w.print("{s}public func {s}() throws -> BitListReader? {{ try root.readBoolListOrDefault({d}) }}\n\n", .{ pad, name, slot.offset }),
-            .int8 => try fixedListReader(w, pad, name, "Int8", slot.offset),
-            .int16 => try fixedListReader(w, pad, name, "Int16", slot.offset),
-            .int32 => try fixedListReader(w, pad, name, "Int32", slot.offset),
-            .int64 => try fixedListReader(w, pad, name, "Int64", slot.offset),
-            .uint8 => try fixedListReader(w, pad, name, "UInt8", slot.offset),
-            .uint16 => try fixedListReader(w, pad, name, "UInt16", slot.offset),
-            .uint32 => try fixedListReader(w, pad, name, "UInt32", slot.offset),
-            .uint64 => try fixedListReader(w, pad, name, "UInt64", slot.offset),
-            .float32 => try w.print("{s}public func {s}() throws -> Float32ListReader? {{ try root.readFloat32ListOrDefault({d}) }}\n\n", .{ pad, name, slot.offset }),
-            .float64 => try w.print("{s}public func {s}() throws -> Float64ListReader? {{ try root.readFloat64ListOrDefault({d}) }}\n\n", .{ pad, name, slot.offset }),
+            .void, .interface => try w.print("{s}public func {s}() throws -> PointerListReader? {{ try {s}.readPointerListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
+            .bool => try w.print("{s}public func {s}() throws -> BitListReader? {{ try {s}.readBoolListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
+            .int8 => try fixedListReader(w, pad, name, "Int8", root, offset),
+            .int16 => try fixedListReader(w, pad, name, "Int16", root, offset),
+            .int32 => try fixedListReader(w, pad, name, "Int32", root, offset),
+            .int64 => try fixedListReader(w, pad, name, "Int64", root, offset),
+            .uint8 => try fixedListReader(w, pad, name, "UInt8", root, offset),
+            .uint16 => try fixedListReader(w, pad, name, "UInt16", root, offset),
+            .uint32 => try fixedListReader(w, pad, name, "UInt32", root, offset),
+            .uint64 => try fixedListReader(w, pad, name, "UInt64", root, offset),
+            .float32 => try w.print("{s}public func {s}() throws -> Float32ListReader? {{ try {s}.readFloat32ListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
+            .float64 => try w.print("{s}public func {s}() throws -> Float64ListReader? {{ try {s}.readFloat64ListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
             .@"enum" => |e| {
                 const enum_node = self.getNode(e.type_id) orelse return error.MissingEnumNode;
                 const type_name = self.swiftRef(enum_node);
-                try w.print("{s}public func {s}() throws -> FixedSizeListReader<UInt16>? {{ try root.readFixedSizeListOrDefault({d}, as: UInt16.self) }}\n\n", .{ pad, name, slot.offset });
+                try w.print("{s}public func {s}() throws -> FixedSizeListReader<UInt16>? {{ try {s}.readFixedSizeListOrDefault({s}, as: UInt16.self) }}\n\n", .{ pad, name, root, offset });
                 try w.print("{s}public func {s}Elements() throws -> [{s}] {{\n", .{ pad, name, type_name });
                 try w.print("{s}    guard let list = try {s}() else {{ return [] }}\n", .{ pad, name });
                 try w.print("{s}    var out: [{s}] = []\n", .{ pad, type_name });
@@ -968,7 +989,7 @@ pub const Generator = struct {
                 try w.print("{s}    return out\n", .{pad});
                 try w.print("{s}}}\n\n", .{pad});
             },
-            .text, .data, .any_pointer, .list => try w.print("{s}public func {s}() throws -> PointerListReader? {{ try root.readPointerListOrDefault({d}) }}\n\n", .{ pad, name, slot.offset }),
+            .text, .data, .any_pointer, .list => try w.print("{s}public func {s}() throws -> PointerListReader? {{ try {s}.readPointerListOrDefault({s}) }}\n\n", .{ pad, name, root, offset }),
             .@"struct" => |s| {
                 const element_node = self.getNode(s.type_id) orelse return error.MissingStructNode;
                 const element_name = self.swiftRef(element_node);
@@ -979,7 +1000,7 @@ pub const Generator = struct {
                 try w.print("{s}    public var indices: Range<Int> {{ list.indices }}\n", .{pad});
                 try w.print("{s}    public subscript(index: Int) -> {s}.Reader {{ {s}.Reader(list[index]) }}\n", .{ pad, element_name, element_name });
                 try w.print("{s}}}\n\n", .{pad});
-                try w.print("{s}public func {s}() throws -> {s}List? {{ (try root.readStructListOrDefault({d})).map({s}List.init) }}\n\n", .{ pad, name, list_type, slot.offset, list_type });
+                try w.print("{s}public func {s}() throws -> {s}List? {{ (try {s}.readStructListOrDefault({s})).map({s}List.init) }}\n\n", .{ pad, name, list_type, root, offset, list_type });
             },
         }
     }

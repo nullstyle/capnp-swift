@@ -21,6 +21,13 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Ordinary struct defaults now contain standalone-message framing; ordinary
+  list defaults retain their original relative pointer offsets. Unset/null
+  fields read their schema defaults and stored values take precedence. Eleven
+  cases cover scalar, bit, float, enum, text, data, nested and struct lists;
+  all assertions and both old implementations were ablated. Generated goldens
+  and shipping bindings were regenerated. Empty composite lists and legacy
+  Void/enum-builder behavior are tracked as separate repairs.
 - Ordinary generated clients now reserve their `target` and `connection`
   members when naming ancestor views. Interfaces with those names previously
   produced duplicate Swift declarations. A generated loopback regression,
@@ -55,7 +62,8 @@ All notable changes to capnp-swift are recorded here.
   and preserve generator diagnostics. Thirty-two struct/CLI and 31 RPC gates,
   seven driver guards and 22 independent C++/Swift RPC checks pass; deliberate
   failure checks prove the new assertions and implementation guards.
-  All 28 legacy requests / 32 outputs remain byte-identical. Typed streaming
+  The feature addition preserved all 28 legacy requests / 32 outputs before
+  the separate correctness repairs listed above. Typed streaming
   and generated result pipelines follow separately; release 0.1.1 is unchanged.
 - Experimental pointer schema codecs in `Capnp` and capability projection in
   `CapnpRPC`, preparing open generated schema applications. Readers/values

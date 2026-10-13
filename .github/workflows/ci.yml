@@ -65,6 +65,7 @@ jobs:
           just typed-structs
           just typed-rpc
           just legacy-rpc
+          just legacy-defaults
           just typed-driver
 
   swift:

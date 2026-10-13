@@ -100,6 +100,9 @@ typed-rpc:
 legacy-rpc:
     tools/capnpc-swift/tests/typed/check-legacy-rpc.sh
 
+legacy-defaults:
+    tools/capnpc-swift/tests/typed/check-legacy-defaults.sh
+
 typed-driver:
     tools/capnpc-swift/tests/typed/check-driver.sh
 
