@@ -9,6 +9,8 @@ All notable changes to capnp-swift are recorded here.
 - Core CI installs ripgrep for the typed generation gates. Sanitizer failures
   print matching OS crash reports and run a bounded debugger diagnosis when
   SwiftPM reports only a signal; the original failure status is retained.
+  The diagnosis supports both executable tests and Swift 6.4 helper-loaded
+  test bundles, with their matching framework and sanitizer search paths.
 - Simulator diagnostics can compare `ios_network_layout=combined` with
   `separate`, which places QUIC in its own process while retaining all sixteen
   parallel cases. Eight hosted split repetitions passed; scheduled runs now
