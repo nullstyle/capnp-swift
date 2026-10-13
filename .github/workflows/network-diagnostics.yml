@@ -1,0 +1,75 @@
+# Manual, bounded reproduction on the SDK which produced the initialization trap.
+# These diagnostic runs do not replace CI, and do not claim that a negative fixes it.
+name: network-diagnostics
+
+on:
+  workflow_dispatch:
+    inputs:
+      sanitizer:
+        description: Instrumentation used by the failing process
+        type: choice
+        options: [thread, address]
+        default: thread
+
+permissions:
+  contents: read
+
+jobs:
+  reproduce:
+    runs-on: macos-26
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scope: quic
+            repetitions: 32
+            timeout: 60
+          - scope: network
+            repetitions: 16
+            timeout: 60
+          - scope: all
+            repetitions: 4
+            timeout: 300
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+      CAPNP_NETWORK_SANITIZER: ${{ inputs.sanitizer }}
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: Exact toolchain identity and setup
+        run: |
+          xcodebuild -version
+          xcrun swiftc --version
+          xcrun --show-sdk-version
+          sw_vers
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          mise install
+          mise exec -- zig version
+      - name: Build this tree once
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          cd core && mise exec -- zig build xcframework && cd ..
+          scripts/use-local-core.sh
+          swift build --build-tests --sanitize="$CAPNP_NETWORK_SANITIZER"
+      - name: Repeat exact real-network selections
+        env:
+          CAPNP_NETWORK_SCOPE: ${{ matrix.scope }}
+          CAPNP_NETWORK_REPETITIONS: ${{ matrix.repetitions }}
+          CAPNP_NETWORK_TIMEOUT: ${{ matrix.timeout }}
+        run: |
+          python3 scripts/diagnose-network-tests.py \
+            --scope "$CAPNP_NETWORK_SCOPE" --sanitizer "$CAPNP_NETWORK_SANITIZER" \
+            --repetitions "$CAPNP_NETWORK_REPETITIONS" --timeout "$CAPNP_NETWORK_TIMEOUT"
+      - name: Debug stopped process on recurrence
+        if: failure()
+        run: python3 scripts/diagnose-sanitizer-crash.py --filter 'QUICTests|TCPTests|M5Tests|ExecutorProbeTests'

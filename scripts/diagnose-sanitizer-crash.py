@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Capture a stopped instrumented test process without changing gate status."""
+import argparse
 import os
 import pathlib
 import shlex
@@ -7,13 +8,22 @@ import signal
 import subprocess
 import sys
 
-if len(sys.argv) > 1:
-    binary = pathlib.Path(sys.argv[1])
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('binary', nargs='?', type=pathlib.Path)
+parser.add_argument('--filter', help='Repeat the failing Swift Testing selection')
+args = parser.parse_args()
+if args.binary is not None:
+    binary = args.binary
 else:
     folder = subprocess.check_output(['swift', 'build', '--show-bin-path'], text=True).strip()
-    binary = pathlib.Path(folder) / 'capnp-swiftPackageTests.xctest/Contents/MacOS/capnp-swiftPackageTests'
-    if not binary.is_file():
-        binary = pathlib.Path(folder) / 'CapnpRPCTests.xctest/Contents/MacOS/CapnpRPCTests'
+    # Prefer instrumented RPC tests when several products are present.
+    # Older SwiftPM versions use one monolithic bundle. Skip stale products
+    # which do not contain the sanitizer runtime.
+    candidates = [pathlib.Path(folder) / (name + '.xctest/Contents/MacOS/' + name)
+                  for name in ['CapnpRPCTests', 'capnp-swiftPackageTests']]
+    binary = next((candidate for candidate in candidates if candidate.is_file()
+                   and 'libclang_rt.' in subprocess.check_output(
+                       ['xcrun', 'otool', '-L', str(candidate)], text=True)), candidates[0])
 if not binary.is_file():
     print('Sanitizer diagnosis: no built test executable is available.', flush=True)
     sys.exit(0)
@@ -33,8 +43,8 @@ if 'BUNDLE' in headers:
     swiftc = pathlib.Path(subprocess.check_output(['xcrun', '--find', 'swiftc'], text=True).strip())
     toolchain_usr = swiftc.parent.parent
     helper = toolchain_usr / 'libexec/swift/pm/swiftpm-testing-helper'
-    developer = pathlib.Path(subprocess.check_output(['xcode-select', '-p'], text=True).strip())
-    platform = developer / 'Platforms/MacOSX.platform/Developer'
+    platform = pathlib.Path(subprocess.check_output(
+        ['xcrun', '--show-sdk-platform-path'], text=True).strip()) / 'Developer'
     runtimes = sorted((toolchain_usr / 'lib/clang').glob('*/lib/darwin/libclang_rt.' + runtime_name + '_osx_dynamic.dylib'))
     if not helper.is_file() or not runtimes:
         print('Sanitizer diagnosis: no matching bundle helper or sanitizer runtime is available.', flush=True)
@@ -44,6 +54,8 @@ if 'BUNDLE' in headers:
     target_environment['DYLD_INSERT_LIBRARIES'] = str(runtimes[-1])
     target = [str(helper), '--test-bundle-path', str(binary), '--sanitize=' + sanitizer_option,
               str(binary), '--testing-library', 'swift-testing']
+if args.filter:
+    target += ['--filter', args.filter]
 command = ['xcrun', 'lldb', '--no-lldbinit', '--no-use-colors', '--batch',
            '-o', 'settings set target.disable-aslr false']
 if target_environment:

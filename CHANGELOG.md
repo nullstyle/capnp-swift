@@ -6,6 +6,13 @@ All notable changes to capnp-swift are recorded here.
 
 ### Changed
 
+- A manual Network diagnostic pins Xcode 26.6 and repeats QUIC-only, mixed
+  networking and full test selections without rebuilding each process. It
+  distinguishes the exact initialization trap from unrelated failures and
+  refuses missing tests, missing parallel cases and mismatched sanitizer
+  binaries. Debugger recovery accepts the failing selection and uses the
+  selected Xcode's platform paths. These are reproduction tools; no transport
+  repair is claimed from a clean run.
 - Final main verification passed all four hosted CI lanes and all five nightly
   lanes. Normal, TSan and ASan each passed 71 Swift tests; the typed RPC gate
   passed 84 checks in each mode. The universal codegen candidate passed a fresh
