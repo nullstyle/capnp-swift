@@ -128,9 +128,16 @@ public final class QUICTransport: Transport, @unchecked Sendable {
                 }
             }
         }
-        // All channel setup funnels through the transport's queue, keeping
-        // start(), the state callbacks, and streamReady() ordered.
-        queue.async { _ = connection.start() }
+        // Start exactly once, synchronously, before openStream(): async
+        // operations auto-start the connection (WWDC25 session 250), so a
+        // deferred start raced openStream()'s implicit start and
+        // double-started the underlying NWConnection — the
+        // "nw_connection_set_queue called after nw_connection_start"
+        // client errors that preceded the hosted "Neither nw nor nwGroup
+        // is initialized" trap (run 38339227662, Xcode 26.6).
+        // streamReady() still funnels through the transport's queue, so
+        // its ordering with the state callbacks is unchanged.
+        _ = connection.start()
         Task { [weak self] in
             guard let self else { return }
             do {
