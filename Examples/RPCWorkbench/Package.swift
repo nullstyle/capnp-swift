@@ -8,7 +8,7 @@ let package = Package(
         .library(name: "WorkbenchKit", targets: ["WorkbenchKit"]),
         .executable(name: "workbench-smoke", targets: ["WorkbenchSmoke"]),
     ],
-    dependencies: [.package(path: "../..")],
+    dependencies: [.package(name: "capnp-swift", path: "../..")],
     targets: [
         .target(name: "WorkbenchModels", dependencies: [
             .product(name: "Capnp", package: "capnp-swift"),

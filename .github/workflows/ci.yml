@@ -107,6 +107,7 @@ jobs:
           just mvp-e2e
           # Verify the real consumer and its native Mac target as well.
           just workbench-check
+          just workbench-archive-check
           xcodebuild build -project Examples/RPCWorkbench/RPCWorkbench.xcodeproj \
             -scheme WorkbenchMac -destination 'platform=macOS,arch=arm64' \
             -derivedDataPath Examples/RPCWorkbench/DerivedData CODE_SIGNING_ALLOWED=NO

@@ -38,6 +38,7 @@ From the repository root:
 ```sh
 just workbench-generate
 just workbench-check
+just workbench-archive-check
 just workbench-ablations
 just workbench-mac
 ```
@@ -52,6 +53,10 @@ or uses an explicitly supplied standalone `CAPNPC_SWIFT_DRIVER`.
 cases, and 21 CLI proofs: ten each over TCP/TLS, plus rejection of a wrong
 TLS pin. The eleven distinct assertions were individually inverted, rebuilt,
 failed by name and exactly restored. Logs go to a printed temporary path.
+
+The archive gate builds and runs the committed sample from a clean checkout
+named `source`, with the released remote core. The local dependency has an
+explicit name so a renamed repository still resolves its products correctly.
 
 The test schemas use an observer capability, `Session(Text)`, streaming input,
 a delayed factory result, and a method-generic exchange. The client chooses

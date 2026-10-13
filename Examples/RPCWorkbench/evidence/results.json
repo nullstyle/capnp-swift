@@ -12,7 +12,7 @@
     "App/WorkbenchView.swift": "188e193c626d0b70ae9e415110e0bee078b49368ed25da47829d6c7554109c3b",
     "Config/Shared.xcconfig": "860f4ccce50dc8e98b8c1a54a58c1fb21eb88e755ca3dffb1c9ea5709bee57c6",
     "Config/Signing.example.xcconfig": "da96f0f7b3523d1074d28d1d31ba75d0911cda5ae65cd7711f58711caae2b932",
-    "Package.swift": "ece2e6c73010611604f48fd2d0205264b55b78956a46c7c66879887a1f10b37e",
+    "Package.swift": "54f0526841b46453df8b74c3d4f74ac645c76c6df6c020586b6b6062ee88c960",
     "RPCWorkbench.xcodeproj/project.pbxproj": "a3f47b2d6f48ac43e53c0a140e7133b771d5f98104407e83be2389d386f6fb8e",
     "RPCWorkbench.xcodeproj/xcshareddata/xcschemes/WorkbenchIOS.xcscheme": "146501cb9021ddc541622ac3a0e6621853bc8094c96dcaf4e1ab4bd82497775a",
     "RPCWorkbench.xcodeproj/xcshareddata/xcschemes/WorkbenchMac.xcscheme": "4017b918dc86ef70e7601333eaa754875bdb2e2f6b838bcc182bb31a16696b9d",
@@ -27,7 +27,8 @@
     "Tests/WorkbenchTests/NetworkTests.swift": "4839b5fae6fbd6dd3316d98effa0a56f6dc0ec053fa41c053ad583b57dc56a51",
     "scripts/ablate-checks.py": "2e6aa619a177b141df006e0df20c4ff2aacd70b7f79d113c278adc6d5e6cdb66",
     "scripts/check.sh": "465a025eb64357c09eaa0daf9fae2a114b66a766c66dfba3188421230062d5d8",
-    "scripts/generate.sh": "da8fe9629bfe568b2c9c88459ef8d043c9130e901ad334cadd1f2abf4287efab"
+    "scripts/generate.sh": "da8fe9629bfe568b2c9c88459ef8d043c9130e901ad334cadd1f2abf4287efab",
+    "scripts/check-archive.sh": "f834eec50db91b349a63bd09a9b416abf93d1e84891c18c87062017dad562520"
   },
   "local_xcode": "27.0 (27A266a)",
   "local_swift": "6.4",
@@ -559,5 +560,31 @@
       "file_named_in_failure": true,
       "restored_exit": 0
     }
-  ]
+  ],
+  "archive_guard_ablations": [
+    {
+      "name": "WORKBENCH_GATE_FAIL: archive smoke selection",
+      "exit": 1,
+      "named_failure": true
+    },
+    {
+      "name": "WORKBENCH_GATE_FAIL: archive must use released remote core",
+      "exit": 1,
+      "named_failure": true
+    }
+  ],
+  "renamed_archive_consumer": {
+    "directory": "/tmp/capnp-workbench-archive.tz8Ovi",
+    "public_network_checks": 21,
+    "core_source": "released remote URL/checksum",
+    "explicit_local_dependency_name": true,
+    "original_failure": "unknown package capnp-swift; valid package source",
+    "original_red_log": "/tmp/capnp-workbench-release-consumer-t61la1q0/build.log"
+  },
+  "native_sample_hosted_ci": {
+    "source_commit": "53aac84906c1d3c22f730bf5a3d9a6dcf1c8956f",
+    "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38360495998",
+    "lanes": 4,
+    "conclusion": "success"
+  }
 }

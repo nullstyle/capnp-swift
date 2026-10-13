@@ -49,6 +49,13 @@ This finding is independent of the closed QUIC SDK defect.
 passed all four lanes at `d72c407`; normal/TSan/ASan each passed 72 tests.
 The native sample's expanded CI gates are a subsequent commit.
 
+[Expanded CI 38360495998](https://github.com/nullstyle/capnp-swift/actions/runs/38360495998)
+passed all four lanes at `53aac84`, including the sample's network gate and
+native Mac/iOS builds. A clean archive check then found a dependence on the
+checkout directory's name. Naming the local package explicitly makes the
+renamed archive compile and pass all 21 checks with the released remote core.
+Both archive selection and core-source guards failed by name and restored.
+
 ## Evidence
 
 Local files may expire. The checked-in [evidence manifest](evidence/results.json)

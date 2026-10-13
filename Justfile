@@ -222,6 +222,9 @@ workbench-check:
 workbench-ablations:
     python3 Examples/RPCWorkbench/scripts/ablate-checks.py
 
+workbench-archive-check:
+    Examples/RPCWorkbench/scripts/check-archive.sh
+
 workbench-mac:
     xcodebuild build -project Examples/RPCWorkbench/RPCWorkbench.xcodeproj -scheme WorkbenchMac -destination 'platform=macOS,arch=arm64' -derivedDataPath Examples/RPCWorkbench/DerivedData
     open -n 'Examples/RPCWorkbench/DerivedData/Build/Products/Debug/RPC Workbench.app'

@@ -30,6 +30,9 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- The workbench names its local capnp-swift dependency explicitly. A clean
+  archive unpacked under a different folder name previously failed product
+  resolution. A new archive gate covers that context and the released core URL.
 - TLS graceful shutdown now queues its close notification after the current
   callback returns. Delivering it inline from `cancel()` reentered the RPC
   drain while `CLOSE_REQUESTED` was still borrowed, trapping with
