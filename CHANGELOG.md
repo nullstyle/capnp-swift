@@ -6,9 +6,16 @@ All notable changes to capnp-swift are recorded here.
 
 ### Changed
 
+- Final main verification passed all four hosted CI lanes and all five nightly
+  lanes. Normal, TSan and ASan each passed 71 Swift tests; the typed RPC gate
+  passed 84 checks in each mode. The universal codegen candidate passed a fresh
+  consumer using only public APIs and the released core, with all four consumer
+  assertions deliberately failed by name and restored. The earlier intermittent
+  Network initialization trap did not recur; its cause remains tracked with
+  failure-only diagnostics. Release 0.1.1 remains unchanged.
 - The sanitizer job installs ripgrep for its typed gates. The stream race
-  harness uses Sendable counter and activity objects compatible with Swift 6.3, preserving
-  all sixteen workers, eight rounds and permit assertions. Its 84 checks pass
+  harness uses Sendable counter and activity objects compatible with Swift 6.3,
+  preserving all sixteen workers, eight rounds and permit assertions. Its 84 checks pass
   in normal, TSan and ASan builds; the race assertion was ablated and restored.
 - Core CI installs ripgrep for the typed generation gates. Sanitizer failures
   print matching OS crash reports and run a bounded debugger diagnosis when
@@ -106,8 +113,8 @@ All notable changes to capnp-swift are recorded here.
   erased server handlers, transitive inheritance, nullable capabilities,
   MainActor build closures, stable module aliases and Text/Data conveniences
   are supported. The driver and command plugin forward generation/check flags
-  and preserve generator diagnostics. Thirty-two struct/CLI and 31 RPC gates,
-  seven driver guards and 22 independent C++/Swift RPC checks pass; deliberate
+  and preserve generator diagnostics. Thirty-four struct/CLI and 84 RPC gates,
+  seven driver guards and 32 independent C++/Swift RPC checks pass; deliberate
   failure checks prove the new assertions and implementation guards.
   The feature addition preserved all 28 legacy requests / 32 outputs before
   the separate correctness repairs listed above. The streaming and pipeline
