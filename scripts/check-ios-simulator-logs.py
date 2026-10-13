@@ -6,6 +6,7 @@ import re
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("network", nargs="+", type=pathlib.Path)
+parser.add_argument("--quic", nargs="+", type=pathlib.Path)
 parser.add_argument("--runtime", required=True, type=pathlib.Path)
 parser.add_argument("--conformance", required=True, type=pathlib.Path)
 parser.add_argument("--stress", required=True, type=pathlib.Path)
@@ -50,15 +51,33 @@ def started(text, name):
 
 
 network_counts = []
+separate = args.quic is not None
+require(not separate or len(args.quic) == len(args.network), "separate QUIC must have one log per networking repetition")
 for filename in args.network:
     text = filename.read_text()
     count = passed_count(text, "network")
-    require(count >= 10, f"network selection must retain its ten-test baseline: {filename}")
-    require(suites(text) == network_suites, f"network selection must contain only TCP M5 QUIC ExecutorProbe: {filename}")
+    if separate:
+        require(count >= 8, f"separate network selection must retain its eight-test baseline: {filename}")
+        require(suites(text) == network_suites - {"QUIC"}, f"separate network selection must contain only TCP M5 ExecutorProbe: {filename}")
+    else:
+        require(count >= 10, f"network selection must retain its ten-test baseline: {filename}")
+        require(suites(text) == network_suites, f"network selection must contain only TCP M5 QUIC ExecutorProbe: {filename}")
     require(not any(started(text, name) for name in (stress_name, e_order_name, fuzz_name, bench_name)),
             f"network selection must exclude pure RPC conformance and stress workloads: {filename}")
-    require(passed(text, quic_name, cases=16), f"network selection must pass all 16 parallel QUIC cases: {filename}")
+    if not separate:
+        require(passed(text, quic_name, cases=16), f"network selection must pass all 16 parallel QUIC cases: {filename}")
     network_counts.append(count)
+
+quic_counts = []
+for filename in args.quic or []:
+    text = filename.read_text()
+    count = passed_count(text, "QUIC")
+    require(count >= 2, f"separate QUIC selection must retain its two-test baseline: {filename}")
+    require(suites(text) == {"QUIC"}, f"separate QUIC selection must contain only QUIC: {filename}")
+    require(passed(text, quic_name, cases=16), f"separate QUIC selection must pass all 16 parallel cases: {filename}")
+    require(not any(started(text, name) for name in (stress_name, e_order_name, fuzz_name, bench_name)),
+            f"separate QUIC selection must exclude other workloads: {filename}")
+    quic_counts.append(count)
 
 runtime = args.runtime.read_text()
 runtime_count = passed_count(runtime, "runtime")
@@ -81,7 +100,8 @@ stress = args.stress.read_text()
 require(passed_count(stress, "stress") == 1 and passed(stress, stress_name)
         and suites(stress) == {"Loopback"}, "stress filter must select and pass exactly the 64 x 10k test")
 
-baseline_total = network_counts[0] + runtime_count + conformance_count + 1
+baseline_total = network_counts[0] + (quic_counts[0] if separate else 0) + runtime_count + conformance_count + 1
 print(f"simulator: {len(network_counts)} networking runs ({network_counts}), "
-      f"{runtime_count} other RPC, {conformance_count} conformance, and one 64 x 10k stress test passed; "
+      f"{len(quic_counts)} separate QUIC runs ({quic_counts}), {runtime_count} other RPC, "
+      f"{conformance_count} conformance, and one 64 x 10k stress test passed; "
       f"{baseline_total} tests across the four selections")

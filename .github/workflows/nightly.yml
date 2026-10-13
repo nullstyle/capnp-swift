@@ -18,6 +18,11 @@ on:
         description: Repeat simulator networking processes to diagnose intermittent failures (1-16)
         type: number
         default: 1
+      ios_network_layout:
+        description: Compare mixed networking with QUIC in a separate process
+        type: choice
+        options: [combined, separate]
+        default: combined
 
 permissions:
   contents: read
@@ -235,6 +240,7 @@ jobs:
       - name: iOS XCFramework + simulator tests (M5)
         env:
           CAPNP_IOS_NETWORK_REPETITIONS: ${{ inputs.ios_network_repetitions }}
+          CAPNP_IOS_NETWORK_LAYOUT: ${{ inputs.ios_network_layout }}
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           set -euxo pipefail
@@ -259,13 +265,29 @@ jobs:
             *) echo "ios_network_repetitions must be an integer from 1 to 16" >&2; exit 2 ;;
           esac
           NETWORK_LOGS=()
+          QUIC_LOGS=()
+          CAPNP_IOS_NETWORK_LAYOUT="${CAPNP_IOS_NETWORK_LAYOUT:-combined}"
+          case "$CAPNP_IOS_NETWORK_LAYOUT" in
+            combined|separate) ;;
+            *) echo "ios_network_layout must be combined or separate" >&2; exit 2 ;;
+          esac
           for ((trial=1; trial<=CAPNP_IOS_NETWORK_REPETITIONS; trial++)); do
             NETWORK_LOGS+=("$LOG_DIR/network-$trial.log")
-            xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
-              '-only-testing:CapnpRPCTests/TCPTests' \
-              '-only-testing:CapnpRPCTests/M5Tests' \
-              '-only-testing:CapnpRPCTests/QUICTests' \
-              '-only-testing:CapnpRPCTests/ExecutorProbeTests' 2>&1 | tee "$LOG_DIR/network-$trial.log"
+            if [[ "$CAPNP_IOS_NETWORK_LAYOUT" == separate ]]; then
+              QUIC_LOGS+=("$LOG_DIR/quic-$trial.log")
+              xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
+                '-only-testing:CapnpRPCTests/TCPTests' \
+                '-only-testing:CapnpRPCTests/M5Tests' \
+                '-only-testing:CapnpRPCTests/ExecutorProbeTests' 2>&1 | tee "$LOG_DIR/network-$trial.log"
+              xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
+                '-only-testing:CapnpRPCTests/QUICTests' 2>&1 | tee "$LOG_DIR/quic-$trial.log"
+            else
+              xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
+                '-only-testing:CapnpRPCTests/TCPTests' \
+                '-only-testing:CapnpRPCTests/M5Tests' \
+                '-only-testing:CapnpRPCTests/QUICTests' \
+                '-only-testing:CapnpRPCTests/ExecutorProbeTests' 2>&1 | tee "$LOG_DIR/network-$trial.log"
+            fi
           done
           xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
             '-only-testing:CapnpRPCTests' \
@@ -280,6 +302,11 @@ jobs:
             '-only-testing:CapnpRPCTests/LoopbackTests/manyConnections()' 2>&1 | tee "$LOG_DIR/stress.log"
           # Xcode can exit 0 for empty filters. Check every distinct workload,
           # including the expensive pure RPC, reader benchmark and fuzz cases.
-          python3 scripts/check-ios-simulator-logs.py "${NETWORK_LOGS[@]}" \
-            --runtime "$LOG_DIR/runtime.log" --conformance "$LOG_DIR/conformance.log" --stress "$LOG_DIR/stress.log"
+          if [[ "$CAPNP_IOS_NETWORK_LAYOUT" == separate ]]; then
+            python3 scripts/check-ios-simulator-logs.py "${NETWORK_LOGS[@]}" --quic "${QUIC_LOGS[@]}" \
+              --runtime "$LOG_DIR/runtime.log" --conformance "$LOG_DIR/conformance.log" --stress "$LOG_DIR/stress.log"
+          else
+            python3 scripts/check-ios-simulator-logs.py "${NETWORK_LOGS[@]}" \
+              --runtime "$LOG_DIR/runtime.log" --conformance "$LOG_DIR/conformance.log" --stress "$LOG_DIR/stress.log"
+          fi
 
