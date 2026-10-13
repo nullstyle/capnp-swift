@@ -113,4 +113,24 @@ struct M5Tests {
             }
         }
     }
+
+    @Test("TLS graceful shutdown closes without reentering the core effect drain")
+    func tlsGracefulShutdown() async throws {
+        let fixtures = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("fixtures/tls")
+        let cert = try Data(contentsOf: fixtures.appendingPathComponent("test-cert.der"))
+        let key = try Data(contentsOf: fixtures.appendingPathComponent("test-key.der"))
+        let listener = try RPCListener(tls: 0,
+            identity: TLSIdentity(certificateDER: cert, keyDER: key),
+            bootstrap: { Greeter.Export(SwiftGreeter()) })
+        let port = try await withTimeout(.seconds(5)) { try await listener.start() }
+        defer { listener.cancel() }
+        let client = try await RPCConnection.connect(transport:
+            TLSTransport(host: "127.0.0.1", port: port, trust: .testOnlyTrustThisCertificate(cert)))
+        // No calls, callbacks, typed generation or sample transport wrapper:
+        // an idle shutdown alone used to reenter drain with CLOSE_REQUESTED borrowed.
+        let cause = try await withTimeout(.seconds(2)) { await client.shutdown() }
+        #expect(cause == .disconnected(reason: "shut down"), "graceful TLS shutdown preserves close cause")
+        #expect(await client.isClosed, "graceful TLS shutdown marks connection closed")
+    }
 }

@@ -20,6 +20,13 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- TLS graceful shutdown now queues its close notification after the current
+  callback returns. Delivering it inline from `cancel()` reentered the RPC
+  drain while `CLOSE_REQUESTED` was still borrowed, trapping with
+  `capnp_conn_next_effect returned -3`. An idle TLS shutdown reproduced it
+  twice without the app wrapper; the fix passes all 72 tests in normal,
+  TSan and ASan builds. Both new assertion guards were failed by name and
+  restored. This is separate from the closed QUIC SDK investigation.
 - The QUIC client transport starts its `NetworkConnection` exactly once,
   synchronously, before `openStream()`. The previous `queue.async`-deferred
   start raced `openStream()`'s implicit auto-start (WWDC25 session 250) and

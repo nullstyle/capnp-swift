@@ -17,8 +17,8 @@ import time
 
 SELECTIONS = {
     'quic': ('QUICTests', 2),
-    'network': ('QUICTests|TCPTests|M5Tests|ExecutorProbeTests', 12),
-    'all': (None, 71),
+    'network': ('QUICTests|TCPTests|M5Tests|ExecutorProbeTests', 13),
+    'all': (None, 72),
 }
 TRAP = re.compile(r'Network/Connection\.swift:\d+: Fatal error: Neither nw nor nwGroup is initialized')
 

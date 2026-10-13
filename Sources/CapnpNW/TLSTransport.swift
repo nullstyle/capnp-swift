@@ -292,6 +292,10 @@ public final class TLSTransport: Transport, @unchecked Sendable {
         closed = true
         cancelTimeout()
         connection?.cancel()
-        delegate?.transportDidClose(error: nil)
+        // cancel() can run while RPCConnection still borrows a
+        // CLOSE_REQUESTED effect. Deliver the end after that effect commits,
+        // as the other transports do, rather than reentering its drain loop.
+        let delegate = delegate
+        queue?.async { delegate?.transportDidClose(error: nil) }
     }
 }
