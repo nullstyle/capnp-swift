@@ -1040,9 +1040,15 @@ pub const Generator = struct {
             .@"enum" => |e| {
                 const enum_node = self.getNode(e.type_id) orelse return error.MissingEnumNode;
                 const type_name = self.swiftRef(enum_node);
+                const default: u16 = if (dv) |value| if (value == .@"enum") value.@"enum" else 0 else 0;
+                const xor = if (default != 0) try std.fmt.allocPrint(self.scratch(), " ^ {d}", .{default}) else "";
                 try w.print("{s}public var {s}: {s} {{\n", .{ pad, name, type_name });
-                try w.print("{s}    get {{ {s}(rawValue: root.readUInt16(at: {d})) }}\n", .{ pad, type_name, off });
-                try w.print("{s}    set {{ root.setEnum16(at: {d}, newValue.rawValue) }}\n", .{ pad, off });
+                try w.print("{s}    get {{ {s}(rawValue: root.readUInt16(at: {d}){s}) }}\n", .{ pad, type_name, off, xor });
+                try w.print("{s}    set {{", .{pad});
+                if (field.discriminant_value != no_discriminant) {
+                    try w.print(" root.setUInt16(at: {d}, {d});", .{ parent.struct_node.?.discriminant_offset * 2, field.discriminant_value });
+                }
+                try w.print(" root.setEnum16(at: {d}, newValue.rawValue{s}) }}\n", .{ off, xor });
                 try w.print("{s}}}\n\n", .{pad});
             },
             .text => {

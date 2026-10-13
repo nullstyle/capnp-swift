@@ -24,6 +24,9 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Ordinary enum builders apply XOR defaults on read and write and select
+  enum union members. Six cases cover known/default/unknown values and both
+  zero and nonzero union defaults; assertions and both defects were ablated.
 - Empty struct lists now retain a non-null inline-composite tag, so explicit
   empty values override nonempty schema defaults. Exact independent C++ bytes
   and released-core CALL/RETURN checks cover both zero and nonzero layouts;

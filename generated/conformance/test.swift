@@ -460,8 +460,8 @@ public struct TestDefaults {
         }
 
         public var enumField: TestEnum {
-            get { TestEnum(rawValue: root.readUInt16(at: 36)) }
-            set { root.setEnum16(at: 36, newValue.rawValue) }
+            get { TestEnum(rawValue: root.readUInt16(at: 36) ^ 5) }
+            set { root.setEnum16(at: 36, newValue.rawValue ^ 5) }
         }
 
         public func initVoidList(_ count: Int) -> VoidListBuilder { root.initVoidList(3, count: count) }
@@ -1831,13 +1831,13 @@ public struct TestNestedTypes {
             let root: StructBuilder
             public init(_ root: StructBuilder) { self.root = root }
             public var outerNestedEnum: TestNestedTypes.TestNestedTypes_NestedEnum {
-                get { TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0)) }
-                set { root.setEnum16(at: 0, newValue.rawValue) }
+                get { TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0) ^ 1) }
+                set { root.setEnum16(at: 0, newValue.rawValue ^ 1) }
             }
 
             public var innerNestedEnum: TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum {
-                get { TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 2)) }
-                set { root.setEnum16(at: 2, newValue.rawValue) }
+                get { TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 2) ^ 2) }
+                set { root.setEnum16(at: 2, newValue.rawValue ^ 2) }
             }
 
         }
@@ -1869,13 +1869,13 @@ public struct TestNestedTypes {
         }
 
         public var outerNestedEnum: TestNestedTypes.TestNestedTypes_NestedEnum {
-            get { TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0)) }
-            set { root.setEnum16(at: 0, newValue.rawValue) }
+            get { TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 0) ^ 1) }
+            set { root.setEnum16(at: 0, newValue.rawValue ^ 1) }
         }
 
         public var innerNestedEnum: TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum {
-            get { TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 2)) }
-            set { root.setEnum16(at: 2, newValue.rawValue) }
+            get { TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 2) ^ 2) }
+            set { root.setEnum16(at: 2, newValue.rawValue ^ 2) }
         }
 
     }
@@ -1900,13 +1900,13 @@ public struct TestUsing {
         let root: StructBuilder
         public init(_ root: StructBuilder) { self.root = root }
         public var innerNestedEnum: TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum {
-            get { TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 0)) }
-            set { root.setEnum16(at: 0, newValue.rawValue) }
+            get { TestNestedTypes.TestNestedTypes_NestedStruct.TestNestedTypes_NestedStruct_NestedEnum(rawValue: root.readUInt16(at: 0) ^ 2) }
+            set { root.setEnum16(at: 0, newValue.rawValue ^ 2) }
         }
 
         public var outerNestedEnum: TestNestedTypes.TestNestedTypes_NestedEnum {
-            get { TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 2)) }
-            set { root.setEnum16(at: 2, newValue.rawValue) }
+            get { TestNestedTypes.TestNestedTypes_NestedEnum(rawValue: root.readUInt16(at: 2) ^ 1) }
+            set { root.setEnum16(at: 2, newValue.rawValue ^ 1) }
         }
 
     }

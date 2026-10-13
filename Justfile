@@ -106,6 +106,9 @@ legacy-defaults:
 legacy-void:
     tools/capnpc-swift/tests/typed/check-legacy-void.sh
 
+legacy-enum:
+    tools/capnpc-swift/tests/typed/check-legacy-enum.sh
+
 empty-composite:
     tools/capnpc-swift/tests/typed/check-empty-composite.sh
 

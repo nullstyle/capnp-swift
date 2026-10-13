@@ -112,8 +112,8 @@ public struct Widget {
         }
 
         public var color: Color {
-            get { Color(rawValue: root.readUInt16(at: 6)) }
-            set { root.setEnum16(at: 6, newValue.rawValue) }
+            get { Color(rawValue: root.readUInt16(at: 6) ^ 1) }
+            set { root.setEnum16(at: 6, newValue.rawValue ^ 1) }
         }
 
     }

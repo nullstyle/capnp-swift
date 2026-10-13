@@ -1,2 +1,3 @@
 # Byte-exact legacy snapshots retain the generator's historical trailing blank.
 tools/capnpc-swift/tests/typed/generated/legacy_*.swift whitespace=-blank-at-eof
+tools/capnpc-swift/tests/typed/generated/enum_defaults.swift whitespace=-blank-at-eof

@@ -501,8 +501,8 @@ public struct TestDefaults {
         }
 
         public var enumField: TestEnum {
-            get { TestEnum(rawValue: root.readUInt16(at: 36)) }
-            set { root.setEnum16(at: 36, newValue.rawValue) }
+            get { TestEnum(rawValue: root.readUInt16(at: 36) ^ 5) }
+            set { root.setEnum16(at: 36, newValue.rawValue ^ 5) }
         }
 
         public func initVoidList(_ count: Int) -> VoidListBuilder { root.initVoidList(3, count: count) }
