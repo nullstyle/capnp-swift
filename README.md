@@ -14,6 +14,11 @@ streaming methods. See
 [typed generics](docs/typed-generics.md) for generation, client/server examples
 and the matching runtime/tool requirement. Release 0.1.1 remains unchanged.
 
+For a native Mac/iPhone integration example, open
+[RPC Workbench](Examples/RPCWorkbench/README.md). It demonstrates typed RPC,
+callbacks, streaming, cancellation and reconnect over TCP and pinned sample
+TLS. `just workbench-check` verifies the shared consumer on real sockets.
+
 ## iOS apps (M5)
 
 The package builds for macOS 15+ and iOS 18+ (`CapnpCore.xcframework`

@@ -4,6 +4,16 @@ All notable changes to capnp-swift are recorded here.
 
 ## [Unreleased]
 
+### Added
+
+- RPC Workbench: native Mac/iPhone apps with a shared, separately generated
+  consumer package for typed calls, capability pipelines/callbacks, streaming,
+  cancellation and reconnect over TCP and pinned sample TLS. Mac and simulator
+  apps run successfully; a physical iPhone passed seven RPC checks in each
+  transport. The network gate has 21 checks and eleven independently failed /
+  restored assertions. CI now checks generation, the consumer, and both native
+  app builds. See `Examples/RPCWorkbench/README.md` and its evidence manifest.
+
 ### Documentation
 
 - Verified the existing universal codegen candidate against main `b19b7fe`:

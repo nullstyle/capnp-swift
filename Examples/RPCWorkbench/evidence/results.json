@@ -1,0 +1,563 @@
+{
+  "recorded_at_utc": "2026-10-13T06:55:47.385569+00:00",
+  "runtime_source_commit": "d72c4079ed9fcd82adbf41329a57908f8f13c925",
+  "core_artifact_source": {
+    "checksum": "750f53096f825ba211607b27adcbdd6216e487b1f6c03b0b11135427af975340",
+    "type": "remote",
+    "url": "https://github.com/nullstyle/capnp-swift/releases/download/0.1.1/CapnpCore.xcframework.zip"
+  },
+  "sample_source_manifest": {
+    "App/WorkbenchApp.swift": "d7e7f4c82606c6cdcea23bcd78621409345cec7e5ca554cd73b7f8f21d756b7b",
+    "App/WorkbenchModel.swift": "79bb62a5b9b8dfabdff4b78a0915894c1a1940e1a6c98fcc977a28bc174d8079",
+    "App/WorkbenchView.swift": "188e193c626d0b70ae9e415110e0bee078b49368ed25da47829d6c7554109c3b",
+    "Config/Shared.xcconfig": "860f4ccce50dc8e98b8c1a54a58c1fb21eb88e755ca3dffb1c9ea5709bee57c6",
+    "Config/Signing.example.xcconfig": "da96f0f7b3523d1074d28d1d31ba75d0911cda5ae65cd7711f58711caae2b932",
+    "Package.swift": "ece2e6c73010611604f48fd2d0205264b55b78956a46c7c66879887a1f10b37e",
+    "RPCWorkbench.xcodeproj/project.pbxproj": "a3f47b2d6f48ac43e53c0a140e7133b771d5f98104407e83be2389d386f6fb8e",
+    "RPCWorkbench.xcodeproj/xcshareddata/xcschemes/WorkbenchIOS.xcscheme": "146501cb9021ddc541622ac3a0e6621853bc8094c96dcaf4e1ab4bd82497775a",
+    "RPCWorkbench.xcodeproj/xcshareddata/xcschemes/WorkbenchMac.xcscheme": "4017b918dc86ef70e7601333eaa754875bdb2e2f6b838bcc182bb31a16696b9d",
+    "Schemas/models.capnp": "6e8e949884d2e5713beca398dd1d96b7cd1661fb43196a57cf4352e7a4f211b4",
+    "Schemas/workbench.capnp": "fb9841021df3d68ebf2c0c0d218523a7b119b2755456061a27bf2a94bc76628f",
+    "Sources/WorkbenchKit/Client.swift": "a47facab84c786fb03fc4c83f753a718babdb520047a761b26ce9463f88408fc",
+    "Sources/WorkbenchKit/Networking.swift": "80b9891dc254e55b1d4cae0f6485ec6ace4a2f96ed5fe7e03009c1caf19b91fc",
+    "Sources/WorkbenchKit/Service.swift": "18688c146253eafa9bdf3b3bc214e10d560ea6533b1d2a7f376aa852359d5790",
+    "Sources/WorkbenchModels/models.swift": "99311c94009f3997f81e5310226917adcddf150671dc4bc1d61280c67601d719",
+    "Sources/WorkbenchRPC/workbench.swift": "e508bd42dddbf47531df37b68fd54cef4810992a03e848157b41fb9c2742ae46",
+    "Sources/WorkbenchSmoke/main.swift": "ca792942994a57c885e8ea06c49f917cd1bca3a50f79a323fc3a3d691f3e1f81",
+    "Tests/WorkbenchTests/NetworkTests.swift": "4839b5fae6fbd6dd3316d98effa0a56f6dc0ec053fa41c053ad583b57dc56a51",
+    "scripts/ablate-checks.py": "2e6aa619a177b141df006e0df20c4ff2aacd70b7f79d113c278adc6d5e6cdb66",
+    "scripts/check.sh": "465a025eb64357c09eaa0daf9fae2a114b66a766c66dfba3188421230062d5d8",
+    "scripts/generate.sh": "da8fe9629bfe568b2c9c88459ef8d043c9130e901ad334cadd1f2abf4287efab"
+  },
+  "local_xcode": "27.0 (27A266a)",
+  "local_swift": "6.4",
+  "macos_sdk": "27.0",
+  "physical_device": {
+    "name": "Oranga",
+    "model": "iPhone 17 Pro",
+    "os": "27.0.1",
+    "developer_mode": "enabled",
+    "install_and_launch_success": true,
+    "phone_released_to_owner": true,
+    "physical_background_foreground_checked": false,
+    "wifi_only_routing_checked": false,
+    "binary_sha256": "c611cdbb34124539907c342514cb8c2236fd3061ce276da7d2d7172ad891d9f7",
+    "source_scope": "Device run preceded small preference/reporting and shared wrong-pin helper polish; the exact installed executable hash is retained."
+  },
+  "reports": {
+    "mac-final": {
+      "path": "/tmp/capnp-workbench-mac-final-result.json",
+      "sha256": "0ffc8319eca2ffbe823aa284848ad30ee7d08d898308f148ac95b15709985fb5",
+      "results": {
+        "checks": [
+          {
+            "name": "pipeline CALL is sent before server result is ready",
+            "passed": true
+          },
+          {
+            "name": "projected call resolves through returned session",
+            "passed": true
+          },
+          {
+            "name": "server invokes client callback capability",
+            "passed": true
+          },
+          {
+            "name": "unseen generic parcel survives separate-module RPC",
+            "passed": true
+          },
+          {
+            "name": "stream receipt proves all acknowledged updates",
+            "passed": true
+          },
+          {
+            "name": "caller cancellation wakes before slow work completes",
+            "passed": true
+          },
+          {
+            "name": "connection remains usable after caller cancellation",
+            "passed": true
+          }
+        ],
+        "events": [
+          "Server started. Enter this Mac\u2019s LAN address on your iPhone.",
+          "Callback \u00b7 Session opening",
+          "Callback \u00b7 Session result ready",
+          "Callback \u00b7 Echo received: before-return",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "Callback \u00b7 Update 1",
+          "Callback \u00b7 Update 2",
+          "Callback \u00b7 Update 3",
+          "Callback \u00b7 Update 4",
+          "Callback \u00b7 Update 5",
+          "Callback \u00b7 Update 6",
+          "Callback \u00b7 Update 7",
+          "Callback \u00b7 Update 8",
+          "Callback \u00b7 Update 9",
+          "Callback \u00b7 Update 10",
+          "Callback \u00b7 Update 11",
+          "Callback \u00b7 Update 12",
+          "Callback \u00b7 Slow request started",
+          "Callback \u00b7 Echo received: after-cancel",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "PASS \u00b7 unseen generic parcel survives separate-module RPC",
+          "PASS \u00b7 stream receipt proves all acknowledged updates",
+          "PASS \u00b7 caller cancellation wakes before slow work completes",
+          "PASS \u00b7 connection remains usable after caller cancellation",
+          "7 checks passed"
+        ],
+        "host": "127.0.0.1",
+        "recordedAt": 813567077.398471,
+        "transport": "TCP"
+      }
+    },
+    "simulator-tcp": {
+      "path": "/tmp/capnp-workbench-simulator-tcp-result.json",
+      "sha256": "8ba423e8becc1c6c362e165afbe8f58626b0a1fb223f14ef88e71f6728629dc4",
+      "results": {
+        "checks": [
+          {
+            "name": "pipeline CALL is sent before server result is ready",
+            "passed": true
+          },
+          {
+            "name": "projected call resolves through returned session",
+            "passed": true
+          },
+          {
+            "name": "server invokes client callback capability",
+            "passed": true
+          },
+          {
+            "name": "unseen generic parcel survives separate-module RPC",
+            "passed": true
+          },
+          {
+            "name": "stream receipt proves all acknowledged updates",
+            "passed": true
+          },
+          {
+            "name": "caller cancellation wakes before slow work completes",
+            "passed": true
+          },
+          {
+            "name": "connection remains usable after caller cancellation",
+            "passed": true
+          }
+        ],
+        "events": [
+          "Callback \u00b7 Session opening",
+          "Callback \u00b7 Session result ready",
+          "Callback \u00b7 Echo received: before-return",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "Callback \u00b7 Update 1",
+          "Callback \u00b7 Update 2",
+          "Callback \u00b7 Update 3",
+          "Callback \u00b7 Update 4",
+          "Callback \u00b7 Update 5",
+          "Callback \u00b7 Update 6",
+          "Callback \u00b7 Update 7",
+          "Callback \u00b7 Update 8",
+          "Callback \u00b7 Update 9",
+          "Callback \u00b7 Update 10",
+          "Callback \u00b7 Update 11",
+          "Callback \u00b7 Update 12",
+          "Callback \u00b7 Slow request started",
+          "Callback \u00b7 Echo received: after-cancel",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "PASS \u00b7 unseen generic parcel survives separate-module RPC",
+          "PASS \u00b7 stream receipt proves all acknowledged updates",
+          "PASS \u00b7 caller cancellation wakes before slow work completes",
+          "PASS \u00b7 connection remains usable after caller cancellation",
+          "7 checks passed"
+        ],
+        "host": "127.0.0.1",
+        "recordedAt": 813566527.276798,
+        "transport": "TCP"
+      }
+    },
+    "simulator-tls": {
+      "path": "/tmp/capnp-workbench-simulator-tls-result.json",
+      "sha256": "3f6ed0efffc5d168854026e45e2ab426578ba72b56efb3196c63075779c3da2e",
+      "results": {
+        "checks": [
+          {
+            "name": "pipeline CALL is sent before server result is ready",
+            "passed": true
+          },
+          {
+            "name": "projected call resolves through returned session",
+            "passed": true
+          },
+          {
+            "name": "server invokes client callback capability",
+            "passed": true
+          },
+          {
+            "name": "unseen generic parcel survives separate-module RPC",
+            "passed": true
+          },
+          {
+            "name": "stream receipt proves all acknowledged updates",
+            "passed": true
+          },
+          {
+            "name": "caller cancellation wakes before slow work completes",
+            "passed": true
+          },
+          {
+            "name": "connection remains usable after caller cancellation",
+            "passed": true
+          }
+        ],
+        "events": [
+          "Callback \u00b7 Session opening",
+          "Callback \u00b7 Session result ready",
+          "Callback \u00b7 Echo received: before-return",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "Callback \u00b7 Update 1",
+          "Callback \u00b7 Update 2",
+          "Callback \u00b7 Update 3",
+          "Callback \u00b7 Update 4",
+          "Callback \u00b7 Update 5",
+          "Callback \u00b7 Update 6",
+          "Callback \u00b7 Update 7",
+          "Callback \u00b7 Update 8",
+          "Callback \u00b7 Update 9",
+          "Callback \u00b7 Update 10",
+          "Callback \u00b7 Update 11",
+          "Callback \u00b7 Update 12",
+          "Callback \u00b7 Slow request started",
+          "Callback \u00b7 Echo received: after-cancel",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "PASS \u00b7 unseen generic parcel survives separate-module RPC",
+          "PASS \u00b7 stream receipt proves all acknowledged updates",
+          "PASS \u00b7 caller cancellation wakes before slow work completes",
+          "PASS \u00b7 connection remains usable after caller cancellation",
+          "7 checks passed"
+        ],
+        "host": "127.0.0.1",
+        "recordedAt": 813566740.540807,
+        "transport": "Sample TLS"
+      }
+    },
+    "phone-tcp": {
+      "path": "/tmp/capnp-workbench-phone-tcp-result.json",
+      "sha256": "1741f6ef9e2e665e0974e41be1c177db05bbd7676c9e81b281eb79c97030aec6",
+      "results": {
+        "checks": [
+          {
+            "name": "pipeline CALL is sent before server result is ready",
+            "passed": true
+          },
+          {
+            "name": "projected call resolves through returned session",
+            "passed": true
+          },
+          {
+            "name": "server invokes client callback capability",
+            "passed": true
+          },
+          {
+            "name": "unseen generic parcel survives separate-module RPC",
+            "passed": true
+          },
+          {
+            "name": "stream receipt proves all acknowledged updates",
+            "passed": true
+          },
+          {
+            "name": "caller cancellation wakes before slow work completes",
+            "passed": true
+          },
+          {
+            "name": "connection remains usable after caller cancellation",
+            "passed": true
+          }
+        ],
+        "events": [
+          "Callback \u00b7 Session opening",
+          "Callback \u00b7 Session result ready",
+          "Callback \u00b7 Echo received: before-return",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "Callback \u00b7 Update 1",
+          "Callback \u00b7 Update 2",
+          "Callback \u00b7 Update 3",
+          "Callback \u00b7 Update 4",
+          "Callback \u00b7 Update 5",
+          "Callback \u00b7 Update 6",
+          "Callback \u00b7 Update 7",
+          "Callback \u00b7 Update 8",
+          "Callback \u00b7 Update 9",
+          "Callback \u00b7 Update 10",
+          "Callback \u00b7 Update 11",
+          "Callback \u00b7 Update 12",
+          "Callback \u00b7 Slow request started",
+          "Callback \u00b7 Echo received: after-cancel",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "PASS \u00b7 unseen generic parcel survives separate-module RPC",
+          "PASS \u00b7 stream receipt proves all acknowledged updates",
+          "PASS \u00b7 caller cancellation wakes before slow work completes",
+          "PASS \u00b7 connection remains usable after caller cancellation",
+          "7 checks passed",
+          "Callback \u00b7 Update 13",
+          "Callback \u00b7 Update 14",
+          "Callback \u00b7 Update 15",
+          "Callback \u00b7 Update 16",
+          "Callback \u00b7 Update 17",
+          "Callback \u00b7 Update 18",
+          "Callback \u00b7 Update 19",
+          "Callback \u00b7 Update 20",
+          "Callback \u00b7 Update 21",
+          "Callback \u00b7 Update 22",
+          "Callback \u00b7 Update 23",
+          "Callback \u00b7 Update 24",
+          "Callback \u00b7 Slow request started",
+          "Callback \u00b7 Echo received: after-cancel",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "PASS \u00b7 unseen generic parcel survives separate-module RPC",
+          "PASS \u00b7 stream receipt proves all acknowledged updates",
+          "PASS \u00b7 caller cancellation wakes before slow work completes",
+          "PASS \u00b7 connection remains usable after caller cancellation",
+          "7 checks passed"
+        ],
+        "host": "m5roscoe.local",
+        "transport": "TCP"
+      }
+    },
+    "phone-tls": {
+      "path": "/tmp/capnp-workbench-phone-tls-result.json",
+      "sha256": "ff643a8d5d777f2312d4c89888f53c0901532e42fe7df5f660019d4700955da8",
+      "results": {
+        "checks": [
+          {
+            "name": "pipeline CALL is sent before server result is ready",
+            "passed": true
+          },
+          {
+            "name": "projected call resolves through returned session",
+            "passed": true
+          },
+          {
+            "name": "server invokes client callback capability",
+            "passed": true
+          },
+          {
+            "name": "unseen generic parcel survives separate-module RPC",
+            "passed": true
+          },
+          {
+            "name": "stream receipt proves all acknowledged updates",
+            "passed": true
+          },
+          {
+            "name": "caller cancellation wakes before slow work completes",
+            "passed": true
+          },
+          {
+            "name": "connection remains usable after caller cancellation",
+            "passed": true
+          }
+        ],
+        "events": [
+          "Callback \u00b7 Session opening",
+          "Callback \u00b7 Session result ready",
+          "Callback \u00b7 Echo received: before-return",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "Callback \u00b7 Update 1",
+          "Callback \u00b7 Update 2",
+          "Callback \u00b7 Update 3",
+          "Callback \u00b7 Update 4",
+          "Callback \u00b7 Update 5",
+          "Callback \u00b7 Update 6",
+          "Callback \u00b7 Update 7",
+          "Callback \u00b7 Update 8",
+          "Callback \u00b7 Update 9",
+          "Callback \u00b7 Update 10",
+          "Callback \u00b7 Update 11",
+          "Callback \u00b7 Update 12",
+          "Callback \u00b7 Slow request started",
+          "Callback \u00b7 Echo received: after-cancel",
+          "PASS \u00b7 pipeline CALL is sent before server result is ready",
+          "PASS \u00b7 projected call resolves through returned session",
+          "PASS \u00b7 server invokes client callback capability",
+          "PASS \u00b7 unseen generic parcel survives separate-module RPC",
+          "PASS \u00b7 stream receipt proves all acknowledged updates",
+          "PASS \u00b7 caller cancellation wakes before slow work completes",
+          "PASS \u00b7 connection remains usable after caller cancellation",
+          "7 checks passed"
+        ],
+        "host": "m5roscoe.local",
+        "transport": "Sample TLS"
+      }
+    }
+  },
+  "network_gate": {
+    "swift_test_functions": 2,
+    "network_test_cases": 3,
+    "smoke_checks": 21,
+    "tcp_checks": 10,
+    "tls_checks": 10,
+    "wrong_pin_checks": 1
+  },
+  "assertion_ablations": {
+    "source_sha256": "a47facab84c786fb03fc4c83f753a718babdb520047a761b26ce9463f88408fc",
+    "assertions": [
+      {
+        "name": "pipeline CALL is sent before server result is ready",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "projected call resolves through returned session",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "server invokes client callback capability",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "unseen generic parcel survives separate-module RPC",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "stream receipt proves all acknowledged updates",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "caller cancellation wakes before slow work completes",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "connection remains usable after caller cancellation",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "background suspension releases managed connection",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "foreground reconnect creates a fresh connection",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "foreground session completes a new RPC",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      },
+      {
+        "name": "wrong TLS certificate pin rejects connection",
+        "inverted_exit": -5,
+        "named_failure": true,
+        "restored_checks": 21
+      }
+    ],
+    "final_checks": 21
+  },
+  "assertion_ablations_sha256": "e9c51ccacd1dab645b01b3592d42b513c286d8e6469683fe75825306eaf3bbcc",
+  "tls_repair": {
+    "commit": "d72c4079ed9fcd82adbf41329a57908f8f13c925",
+    "original_idle_shutdown_reproductions": 2,
+    "assertion_ablations": [
+      {
+        "name": "graceful TLS shutdown preserves close cause",
+        "failed_by_name": true,
+        "exit": 1
+      },
+      {
+        "name": "graceful TLS shutdown marks connection closed",
+        "failed_by_name": true,
+        "exit": 1
+      }
+    ],
+    "normal_tests": 72,
+    "tsan_tests": 72,
+    "asan_tests": 72,
+    "sanitizer_bundle_linkage_verified": true,
+    "sanitizer_findings": false,
+    "hosted_ci_url": "https://github.com/nullstyle/capnp-swift/actions/runs/38357935250",
+    "hosted_ci_lanes": 4,
+    "hosted_tests_per_mode": 72
+  },
+  "mac_visual_inspection": "Unavailable: native computer-use bridge closed before UI state returned. Native app runtime report and simulator visual inspection verified.",
+  "temporary_evidence_notice": "Local logs and reports may expire; results and source/binary identities are retained here.",
+  "selection_guard_ablations": [
+    {
+      "name": "network test selection",
+      "exit": 1,
+      "named_failure": true
+    },
+    {
+      "name": "total smoke selection",
+      "exit": 1,
+      "named_failure": true
+    },
+    {
+      "name": "TCP smoke selection",
+      "exit": 1,
+      "named_failure": true
+    },
+    {
+      "name": "TLS smoke selection",
+      "exit": 1,
+      "named_failure": true
+    },
+    {
+      "name": "wrong-pin smoke selection",
+      "exit": 1,
+      "named_failure": true
+    }
+  ],
+  "generation_drift_ablations": [
+    {
+      "module": "WorkbenchModels",
+      "drift_exit": 1,
+      "file_named_in_failure": true,
+      "restored_exit": 0
+    },
+    {
+      "module": "WorkbenchRPC",
+      "drift_exit": 1,
+      "file_named_in_failure": true,
+      "restored_exit": 0
+    }
+  ]
+}

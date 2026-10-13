@@ -210,3 +210,18 @@ bench-ping-pong:
     cd ../..
     echo "== swift"
     "$(swift build -c release --product bench-ping-pong --show-bin-path)/bench-ping-pong" --iters 10000 --payload 1024 | grep 'ns/op'
+
+# Native Mac/iPhone example. These recipes use the released core binary and
+# never depend on xcframework (no local core rebuild).
+workbench-generate:
+    Examples/RPCWorkbench/scripts/generate.sh
+
+workbench-check:
+    Examples/RPCWorkbench/scripts/check.sh
+
+workbench-ablations:
+    python3 Examples/RPCWorkbench/scripts/ablate-checks.py
+
+workbench-mac:
+    xcodebuild build -project Examples/RPCWorkbench/RPCWorkbench.xcodeproj -scheme WorkbenchMac -destination 'platform=macOS,arch=arm64' -derivedDataPath Examples/RPCWorkbench/DerivedData
+    open -n 'Examples/RPCWorkbench/DerivedData/Build/Products/Debug/RPC Workbench.app'

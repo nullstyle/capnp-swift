@@ -1,0 +1,41 @@
+// !$*UTF8*$!
+{ archiveVersion = 1; classes = {}; objectVersion = 56; objects = {
+6F12474A223F23F4247FF599 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkbenchApp.swift; sourceTree = "<group>"; };
+3740833B960B696C92DA32ED = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkbenchModel.swift; sourceTree = "<group>"; };
+CC3F9330694EF26C61285A3B = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkbenchView.swift; sourceTree = "<group>"; };
+AA07A63D47DE75F7AF423269 = { isa = PBXFileReference; explicitFileType = wrapper.application; path = "RPC Workbench.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+B805AFE187D4385D28257C7D = { isa = PBXBuildFile; fileRef = 6F12474A223F23F4247FF599; };
+2BE5ED8E873D8B50DEB127B9 = { isa = PBXBuildFile; fileRef = 3740833B960B696C92DA32ED; };
+EA2920F94EE879708C5E887C = { isa = PBXBuildFile; fileRef = CC3F9330694EF26C61285A3B; };
+2259C1582FF6DA83D803AECB = { isa = PBXBuildFile; productRef = 5ACB93F0FB946EE09E085C4D; };
+767988B1401294A9B5DB7EC0 = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (B805AFE187D4385D28257C7D, 2BE5ED8E873D8B50DEB127B9, EA2920F94EE879708C5E887C); runOnlyForDeploymentPostprocessing = 0; };
+8D8D89A1A1616E4AFEEBD5F3 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (2259C1582FF6DA83D803AECB); runOnlyForDeploymentPostprocessing = 0; };
+C0E1D028CA6C3A3AD67B27B4 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+5ACB93F0FB946EE09E085C4D = { isa = XCSwiftPackageProductDependency; package = BE9AD54601022DCC6177AF8B; productName = WorkbenchKit; };
+7ED474B3C249DF5C6BB79213 = { isa = XCBuildConfiguration; baseConfigurationReference = 84DCF3455B82680263A7AFA6; buildSettings = { SDKROOT = macosx; PRODUCT_BUNDLE_IDENTIFIER = org.nullstyle.capnpswift.workbench.mac; SUPPORTED_PLATFORMS = macosx; ENABLE_APP_SANDBOX = NO; CODE_SIGN_IDENTITY = "-"; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+AB8219295537D092B673A360 = { isa = XCBuildConfiguration; baseConfigurationReference = 84DCF3455B82680263A7AFA6; buildSettings = { SDKROOT = macosx; PRODUCT_BUNDLE_IDENTIFIER = org.nullstyle.capnpswift.workbench.mac; SUPPORTED_PLATFORMS = macosx; ENABLE_APP_SANDBOX = NO; CODE_SIGN_IDENTITY = "-"; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+E4A7238DB8B8F511ABF7388B = { isa = XCConfigurationList; buildConfigurations = (7ED474B3C249DF5C6BB79213, AB8219295537D092B673A360); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+C6F8E693575E876D5139ACE1 = { isa = PBXNativeTarget; buildConfigurationList = E4A7238DB8B8F511ABF7388B; buildPhases = (767988B1401294A9B5DB7EC0, 8D8D89A1A1616E4AFEEBD5F3, C0E1D028CA6C3A3AD67B27B4); buildRules = (); dependencies = (); name = WorkbenchMac; packageProductDependencies = (5ACB93F0FB946EE09E085C4D); productName = "RPC Workbench"; productReference = AA07A63D47DE75F7AF423269; productType = "com.apple.product-type.application"; };
+5A745688EA6643D3D9C6ADD0 = { isa = PBXFileReference; explicitFileType = wrapper.application; path = "RPC Workbench.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+ECEE34CB44ADA930278E1B29 = { isa = PBXBuildFile; fileRef = 6F12474A223F23F4247FF599; };
+2D0B793A71BC4AC5B5A526E0 = { isa = PBXBuildFile; fileRef = 3740833B960B696C92DA32ED; };
+7A5F41262F3AF56BAD05589A = { isa = PBXBuildFile; fileRef = CC3F9330694EF26C61285A3B; };
+6F6BB4B6C4920D2B095B18EE = { isa = PBXBuildFile; productRef = 6BBCE33C4B0FC7EF5D941A4F; };
+47ED52EB65F2137328DE21FD = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (ECEE34CB44ADA930278E1B29, 2D0B793A71BC4AC5B5A526E0, 7A5F41262F3AF56BAD05589A); runOnlyForDeploymentPostprocessing = 0; };
+05D75B61A9C441610949E086 = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (6F6BB4B6C4920D2B095B18EE); runOnlyForDeploymentPostprocessing = 0; };
+CAFD5DD693C43503DD9044A8 = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+6BBCE33C4B0FC7EF5D941A4F = { isa = XCSwiftPackageProductDependency; package = BE9AD54601022DCC6177AF8B; productName = WorkbenchKit; };
+D9C3E5493E15632DB692A90A = { isa = XCBuildConfiguration; baseConfigurationReference = 84DCF3455B82680263A7AFA6; buildSettings = { SDKROOT = iphoneos; PRODUCT_BUNDLE_IDENTIFIER = org.nullstyle.capnpswift.workbench.ios; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; TARGETED_DEVICE_FAMILY = "1,2"; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; SUPPORTS_MACCATALYST = NO; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+CDA1815057390DF99A6DA8D2 = { isa = XCBuildConfiguration; baseConfigurationReference = 84DCF3455B82680263A7AFA6; buildSettings = { SDKROOT = iphoneos; PRODUCT_BUNDLE_IDENTIFIER = org.nullstyle.capnpswift.workbench.ios; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; TARGETED_DEVICE_FAMILY = "1,2"; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; INFOPLIST_KEY_UILaunchScreen_Generation = YES; SUPPORTS_MACCATALYST = NO; SWIFT_OPTIMIZATION_LEVEL = "-O"; }; name = Release; };
+70091070EB660091FE5A1ED4 = { isa = XCConfigurationList; buildConfigurations = (D9C3E5493E15632DB692A90A, CDA1815057390DF99A6DA8D2); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+EE52E9845129179370659502 = { isa = PBXNativeTarget; buildConfigurationList = 70091070EB660091FE5A1ED4; buildPhases = (47ED52EB65F2137328DE21FD, 05D75B61A9C441610949E086, CAFD5DD693C43503DD9044A8); buildRules = (); dependencies = (); name = WorkbenchIOS; packageProductDependencies = (6BBCE33C4B0FC7EF5D941A4F); productName = "RPC Workbench"; productReference = 5A745688EA6643D3D9C6ADD0; productType = "com.apple.product-type.application"; };
+A5660BF89DD2D657048780AB = { isa = PBXGroup; children = (6F12474A223F23F4247FF599, 3740833B960B696C92DA32ED, CC3F9330694EF26C61285A3B); path = App; sourceTree = "<group>"; };
+84DCF3455B82680263A7AFA6 = { isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Shared.xcconfig; sourceTree = "<group>"; };
+61DEB054F32CA5A5B7265A5E = { isa = PBXGroup; children = (AA07A63D47DE75F7AF423269, 5A745688EA6643D3D9C6ADD0); name = Products; sourceTree = "<group>"; };
+97A63A01E61FD439E8760B8E = { isa = PBXGroup; children = (A5660BF89DD2D657048780AB, 84DCF3455B82680263A7AFA6, 61DEB054F32CA5A5B7265A5E); sourceTree = "<group>"; };
+BE9AD54601022DCC6177AF8B = { isa = XCLocalSwiftPackageReference; relativePath = .; };
+433548979C024CC63B5F3B8D = { isa = XCBuildConfiguration; buildSettings = { ONLY_ACTIVE_ARCH = YES; }; name = Debug; };
+B800A40FDE6F0A0218D9BCD2 = { isa = XCBuildConfiguration; buildSettings = {}; name = Release; };
+3060FD7BB02642FF578B9053 = { isa = XCConfigurationList; buildConfigurations = (433548979C024CC63B5F3B8D, B800A40FDE6F0A0218D9BCD2); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+985959785319747668373CC6 = { isa = PBXProject; attributes = { LastUpgradeCheck = 2700; LastSwiftUpdateCheck = 2700; }; buildConfigurationList = 3060FD7BB02642FF578B9053; compatibilityVersion = "Xcode 14.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = 97A63A01E61FD439E8760B8E; packageReferences = (BE9AD54601022DCC6177AF8B); productRefGroup = 61DEB054F32CA5A5B7265A5E; projectDirPath = ""; projectRoot = ""; targets = (C6F8E693575E876D5139ACE1, EE52E9845129179370659502); };
+}; rootObject = 985959785319747668373CC6; }

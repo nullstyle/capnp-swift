@@ -92,9 +92,10 @@ jobs:
             curl -fsSL https://mise.run | sh
           fi
           command -v just >/dev/null 2>&1 || brew install just
+          command -v rg >/dev/null 2>&1 || brew install ripgrep
           mise install
           mise exec -- zig version
-      - name: Build, test, mvp e2e
+      - name: Build, test, interop and native sample
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           set -euxo pipefail
@@ -104,6 +105,11 @@ jobs:
           swift test
           swift build -c release
           just mvp-e2e
+          # Verify the real consumer and its native Mac target as well.
+          just workbench-check
+          xcodebuild build -project Examples/RPCWorkbench/RPCWorkbench.xcodeproj \
+            -scheme WorkbenchMac -destination 'platform=macOS,arch=arm64' \
+            -derivedDataPath Examples/RPCWorkbench/DerivedData CODE_SIGNING_ALLOWED=NO
 
   ios:
     runs-on: macos-26
@@ -126,7 +132,7 @@ jobs:
           command -v just >/dev/null 2>&1 || brew install just
           mise install
           mise exec -- zig version
-      - name: iOS XCFramework + device build
+      - name: iOS XCFramework + device builds
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           set -euxo pipefail
@@ -134,6 +140,9 @@ jobs:
           scripts/use-local-core.sh
           set -o pipefail
           xcodebuild build -scheme CapnpRPC -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO 2>&1 | tail -20
+          xcodebuild build -project Examples/RPCWorkbench/RPCWorkbench.xcodeproj \
+            -scheme WorkbenchIOS -destination 'generic/platform=iOS' \
+            -derivedDataPath Examples/RPCWorkbench/DerivedData CODE_SIGNING_ALLOWED=NO 2>&1 | tail -20
 
   sanitizers:
     runs-on: macos-26
