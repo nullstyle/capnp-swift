@@ -7,11 +7,19 @@ import shlex
 import signal
 import subprocess
 import sys
+import tempfile
+import time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('binary', nargs='?', type=pathlib.Path)
 parser.add_argument('--filter', help='Repeat the failing Swift Testing selection')
+parser.add_argument('--repetitions', type=int, default=1)
+parser.add_argument('--timeout', type=int, default=180, help='Total debugger budget in seconds')
 args = parser.parse_args()
+if not 1 <= args.repetitions <= 32:
+    parser.error('Sanitizer diagnosis: repetitions must be 1...32')
+if not 1 <= args.timeout <= 300:
+    parser.error('Sanitizer diagnosis: timeout must be 1...300 seconds')
 if args.binary is not None:
     binary = args.binary
 else:
@@ -62,20 +70,38 @@ if target_environment:
     # Set these on the inferior: protected launchers discard inherited DYLD vars.
     command += ['-o', 'settings set target.env-vars ' + ' '.join(
         shlex.quote(key + '=' + value) for key, value in target_environment.items())]
-command += ['-o', 'run',
+command += ['-o', 'process launch --shell-expand-args false',
            '-k', 'process status', '-k', 'thread backtrace all', '-k', 'frame select 0',
            '-k', 'register read --all', '-k', 'disassemble --frame', '-k', 'image list -o -f',
            '--', *target]
-process = subprocess.Popen(command, start_new_session=True)
-try:
-    process.wait(timeout=180)
-except subprocess.TimeoutExpired:
-    print('Sanitizer diagnosis: debugger reached its three-minute bound.', flush=True)
-    os.killpg(process.pid, signal.SIGTERM)
-    try:
-        process.wait(timeout=3)
-    except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
-        process.wait()
-print('Sanitizer diagnosis: debugger exit ' + str(process.returncode)
-      + '; the original suite failure remains authoritative.', flush=True)
+folder = pathlib.Path(tempfile.mkdtemp(prefix='capnp-sanitizer-debugger-'))
+print('Sanitizer diagnosis: debugger artifacts ' + str(folder), flush=True)
+deadline = time.monotonic() + args.timeout
+for attempt in range(1, args.repetitions + 1):
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        break
+    path = folder / ('attempt-' + str(attempt) + '.log')
+    print('Sanitizer diagnosis: debugger attempt ' + str(attempt), flush=True)
+    expired = False
+    with path.open('w') as stream:
+        process = subprocess.Popen(command, start_new_session=True, stdout=stream, stderr=subprocess.STDOUT)
+        try:
+            process.wait(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            expired = True
+            os.killpg(process.pid, signal.SIGTERM)
+            try:
+                process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+    output = path.read_text(errors='replace')
+    print(output, flush=True)
+    print('Sanitizer diagnosis: debugger exit ' + str(process.returncode)
+          + '; the original suite failure remains authoritative.', flush=True)
+    if expired:
+        print('Sanitizer diagnosis: debugger reached its total time bound.', flush=True)
+        break
+    if 'stop reason =' in output or process.returncode != 0:
+        break

@@ -72,4 +72,4 @@ jobs:
             --repetitions "$CAPNP_NETWORK_REPETITIONS" --timeout "$CAPNP_NETWORK_TIMEOUT"
       - name: Debug stopped process on recurrence
         if: failure()
-        run: python3 scripts/diagnose-sanitizer-crash.py --filter 'QUICTests|TCPTests|M5Tests|ExecutorProbeTests'
+        run: python3 scripts/diagnose-sanitizer-crash.py --filter 'QUICTests.*roundTrip' --repetitions 32 --timeout 300
