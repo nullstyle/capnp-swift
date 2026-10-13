@@ -155,6 +155,8 @@ jobs:
           mise install
           mise exec -- zig version
       - name: TSan + ASan
+        env:
+          SWIFT_BACKTRACE: enable=yes,interactive=no,color=no,output-to=stderr
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           set -euxo pipefail
