@@ -26,6 +26,14 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Pointer copying now uses an iterative depth-first traversal, avoiding stack
+  exhaustion for valid deeply nested messages under Address Sanitizer.
+  Sibling cursors keep temporary storage proportional to depth. A branching
+  regression verifies exact wire bytes, capability order and word/depth limits;
+  the original crashing depth test passes without increasing its stack or budget.
+  Fourteen assertion ablations and restoration of the old recursive copier
+  proved the guards. Full normal, TSan and ASan suites pass 62 RPC plus 9
+  conformance tests without sanitizer findings.
 - Ordinary enum builders apply XOR defaults on read and write and select
   enum union members. Six cases cover known/default/unknown values and both
   zero and nonzero union defaults; assertions and both defects were ablated.

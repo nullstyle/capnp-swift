@@ -190,10 +190,10 @@ public struct PointerReader: Sendable {
         var copy = PointerCopy(source: message, tokens: tokens, destination: destination,
                                remaining: limits.words)
         if let structure {
-            try copy.structure(structure, destination: destination, depth: min(depth, limits.depth))
+            try copy.run(.structure(structure, destination: destination, depth: min(depth, limits.depth)))
         } else if let position {
-            try copy.pointer(segment: segment, position: position, destination: destination,
-                             depth: min(depth, limits.depth))
+            try copy.run(.pointer(segment: segment, position: position, destination: destination,
+                                  depth: min(depth, limits.depth)))
         } else {
             if let raw = destination.structure { try copy.charge(raw.dataWords + raw.pointerWords) }
             try destination.setNull()
@@ -367,10 +367,54 @@ public struct PointerBuilder {
 }
 
 private struct PointerCopy {
+    enum Work {
+        case pointer(segment: Int, position: Int, destination: PointerBuilder, depth: Int)
+        case structure(StructReader, destination: PointerBuilder, depth: Int)
+        case pointers(segment: Int, start: Int, destination: PointerBuilder, firstWord: Int,
+                      count: Int, index: Int, depth: Int)
+        case elements(segment: Int, start: Int, destination: PointerBuilder, list: StructListBuilder,
+                      dataWords: Int, pointerWords: Int, index: Int, depth: Int)
+    }
+
     let source: Message
     let tokens: [PointerCapability]
     let destination: PointerBuilder
     var remaining: Int
+
+    mutating func run(_ initial: Work) throws {
+        // Resume one sibling at a time to retain recursive depth-first
+        // allocation/capability order with auxiliary storage bounded by depth.
+        // The Swift call stack stays constant even on instrumented task stacks.
+        var work = [initial]
+        while let next = work.popLast() {
+            switch next {
+            case let .pointer(segment, position, destination, depth):
+                try pointer(segment: segment, position: position, destination: destination,
+                            depth: depth, work: &work)
+            case let .structure(raw, destination, depth):
+                try structure(raw, destination: destination, depth: depth, work: &work)
+            case let .pointers(segment, start, destination, firstWord, count, index, depth):
+                guard index < count else { continue }
+                work.append(.pointers(segment: segment, start: start, destination: destination,
+                                      firstWord: firstWord, count: count, index: index + 1, depth: depth))
+                let element = PointerBuilder(message: destination.message, word: firstWord + index,
+                                             structure: nil, bag: destination.bag)
+                work.append(.pointer(segment: segment, position: start + index * 8,
+                                     destination: element, depth: depth))
+            case let .elements(segment, start, destination, list, dw, pw, index, depth):
+                guard index < list.count else { continue }
+                work.append(.elements(segment: segment, start: start, destination: destination,
+                                      list: list, dataWords: dw, pointerWords: pw, index: index + 1, depth: depth))
+                let sourceStart = start + index * (dw + pw) * 8
+                let raw = StructReader(message: source, segment: segment, dataStart: sourceStart,
+                                       dataBytes: dw * 8, pointerStart: sourceStart + dw * 8,
+                                       pointerCount: pw, depth: depth - 1)
+                // Inline elements have no pointer edge of their own. Their
+                // child pointers spend the list's depth step in structure().
+                work.append(.structure(raw, destination: destination.element(list[index]), depth: depth))
+            }
+        }
+    }
 
     mutating func charge(_ words: Int) throws {
         guard words >= 0, words <= remaining else { throw CapnpError.malformed("pointer copy budget exceeded") }
@@ -386,7 +430,7 @@ private struct PointerCopy {
         return source.bytes[base..<(base + count)]
     }
 
-    mutating func structure(_ raw: StructReader, destination: PointerBuilder, depth: Int) throws {
+    mutating func structure(_ raw: StructReader, destination: PointerBuilder, depth: Int, work: inout [Work]) throws {
         // An already-resolved inline struct needs no further pointer step to
         // copy its scalar bytes. Its child pointer chases remain depth-checked.
         guard depth >= 0 else { throw CapnpError.malformed("pointer nesting too deep") }
@@ -405,13 +449,11 @@ private struct PointerCopy {
             try destination.setNull()
         }
         destination.message.writeBytes(target.dataStart, data)
-        for i in 0..<pw {
-            try pointer(segment: raw.segment, position: raw.pointerStart + i * 8,
-                        destination: destination.field(target, index: i), depth: depth - 1)
-        }
+        work.append(.pointers(segment: raw.segment, start: raw.pointerStart, destination: destination,
+                              firstWord: target.pointerStartWord, count: pw, index: 0, depth: depth - 1))
     }
 
-    mutating func pointer(segment: Int, position: Int, destination: PointerBuilder, depth: Int) throws {
+    mutating func pointer(segment: Int, position: Int, destination: PointerBuilder, depth: Int, work: inout [Work]) throws {
         try charge(1)
         guard let resolved = try source.resolve(segment: segment, pos: position, depth: depth) else {
             if let raw = destination.structure { try charge(raw.dataWords + raw.pointerWords) }
@@ -426,7 +468,7 @@ private struct PointerCopy {
             let raw = StructReader(message: source, segment: resolved.segment, dataStart: start,
                                    dataBytes: dw * 8, pointerStart: start + dw * 8,
                                    pointerCount: pw, depth: depth)
-            try structure(raw, destination: destination, depth: depth)
+            work.append(.structure(raw, destination: destination, depth: depth))
         case 1:
             guard let target = destination.word else { throw CapnpError.wrongPointerKind(expected: "list destination") }
             let count = p.listElementCount, size = p.listElementSize
@@ -440,23 +482,14 @@ private struct PointerCopy {
                 try charge(words + elements + 1)
                 let list = destination.message.allocateStructList(pointerWord: target, dataWords: UInt16(dw),
                                                                    pointerWords: UInt16(pw), count: elements)
-                for e in 0..<elements {
-                    let sourceStart = start + 8 + e * (dw + pw) * 8
-                    let raw = StructReader(message: source, segment: resolved.segment, dataStart: sourceStart,
-                                           dataBytes: dw * 8, pointerStart: sourceStart + dw * 8,
-                                           pointerCount: pw, depth: depth - 1)
-                    // Inline elements have no pointer edge of their own.
-                    // Their child pointers spend the list's depth step below.
-                    try structure(raw, destination: destination.element(list[e]), depth: depth)
-                }
+                work.append(.elements(segment: resolved.segment, start: start + 8, destination: destination,
+                                      list: list, dataWords: dw, pointerWords: pw, index: 0, depth: depth))
             } else if size == ElementSize.pointer.rawValue {
                 _ = try bytes(segment: resolved.segment, start: start, count: count * 8)
                 try charge(count)
                 let first = destination.message.allocatePointerList(pointerWord: target, count: count) / 8
-                for i in 0..<count {
-                    let element = PointerBuilder(message: destination.message, word: first + i, structure: nil, bag: destination.bag)
-                    try pointer(segment: resolved.segment, position: start + i * 8, destination: element, depth: depth - 1)
-                }
+                work.append(.pointers(segment: resolved.segment, start: start, destination: destination,
+                                      firstWord: first, count: count, index: 0, depth: depth - 1))
             } else {
                 let length: Int
                 switch size { case 0: length = 0; case 1: length = (count + 7) / 8

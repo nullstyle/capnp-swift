@@ -127,6 +127,54 @@ struct PointerSchemaTests {
         #expect(okay, "pointer capability copying merges sources and deduplicates handles")
     }
 
+    @Test("pointer worklist preserves depth-first siblings and exact budgets")
+    func worklistSiblingOrderAndBudgets() throws {
+        let first = PointerCapability("first"), second = PointerCapability("second"), third = PointerCapability("third")
+        func branching(_ order: [Int]) throws -> (pointer: PointerReader, bytes: [UInt8]) {
+            let message = MessageBuilder()
+            let root = PointerBuilder(message: message)
+            root.initializeStruct(dataWords: 1, pointerWords: 3).setUInt64(at: 0, 0x1122334455667788)
+            for index in order {
+                let field = try root.field(index)
+                switch index {
+                case 0:
+                    field.initializeStruct(dataWords: 1, pointerWords: 1).setUInt64(at: 0, 99)
+                    try field.field(0).setCapability(first)
+                case 1:
+                    let list = try field.initializePointerList(3)
+                    try list[0].setCapability(second)
+                    try list[1].setText("middle")
+                    try list[2].setCapability(first)
+                default:
+                    let list = try field.initializeStructList(2, dataWords: 2, pointerWords: 2)
+                    for element in list.indices {
+                        let raw = list[element].initializeStruct(dataWords: 2, pointerWords: 2)
+                        raw.setUInt64(at: 0, UInt64(element + 1))
+                        raw.setUInt64(at: 8, 0xfedcba9876543210)
+                        try list[element].field(0).setText(element == 0 ? "A" : "B")
+                        try list[element].field(1).setCapability(element == 0 ? third : second)
+                    }
+                }
+            }
+            return (try root.freeze(), message.toBytes())
+        }
+        let source = try branching([2, 1, 0]).pointer, expectedBytes = try branching([0, 1, 2]).bytes
+        let message = MessageBuilder(), destination: PointerBuilder
+        destination = PointerBuilder(message: message)
+        // Preserve the established charging: root 6, child struct 5,
+        // pointer list 8, and composite list with its inline elements 28.
+        try source.copy(to: destination, limits: .init(words: 47, depth: 3))
+        let copied = try destination.freeze()
+        #expect(message.toBytes() == expectedBytes, "worklist visits struct, pointer-list and composite siblings in depth-first order")
+        #expect(copied.capabilities.count == 3 && copied.capabilities[0] === first
+                && copied.capabilities[1] === second && copied.capabilities[2] === third,
+                "worklist capability order follows pointer encounter order and deduplicates repeated handles")
+        #expect(rejects { try source.copy(to: PointerBuilder(), limits: .init(words: 46, depth: 3)) },
+                "worklist rejects one word below the exact copy budget")
+        #expect(rejects { try source.copy(to: PointerBuilder(), limits: .init(words: 47, depth: 2)) },
+                "worklist rejects one pointer step below the exact depth budget")
+    }
+
     @Test("pointer snapshots retain message storage independently of builders")
     func snapshotLifetime() throws {
         var retained: PointerReader
@@ -221,15 +269,15 @@ struct PointerSchemaTests {
         // One root struct, 62 list pointers and the Text pointer use all 64
         // pointer steps. An inline list element does not spend another step.
         let accepted = try nested(62), rejected = try nested(63), small = try nested(4)
-        let okay = try leaf(accepted, lists: 62) == "leaf"
-          && legacyLeaf(accepted, lists: 62) == "leaf"
-          && copiedLeaf(accepted, lists: 62)
-          && rejects { _ = try leaf(rejected, lists: 63) }
-          && rejects { _ = try legacyLeaf(rejected, lists: 63) }
-          && rejects { try rejected.copy(to: PointerBuilder()) }
-          && copiedLeaf(small, lists: 4, depth: 6)
-          && rejects { try small.copy(to: PointerBuilder(), limits: .init(depth: 5)) }
-        #expect(okay, "pointer composite-list copying matches reader depth boundaries")
+        #expect(try leaf(accepted, lists: 62) == "leaf" && legacyLeaf(accepted, lists: 62) == "leaf",
+                "typed and legacy readers accept exactly 64 pointer steps")
+        #expect(copiedLeaf(accepted, lists: 62), "copy accepts exactly 64 pointer steps")
+        #expect(rejects { _ = try leaf(rejected, lists: 63) } && rejects { _ = try legacyLeaf(rejected, lists: 63) },
+                "typed and legacy readers reject a 65th pointer step")
+        #expect(rejects { try rejected.copy(to: PointerBuilder()) }, "copy rejects a 65th pointer step")
+        #expect(copiedLeaf(small, lists: 4, depth: 6), "copy accepts an exact custom depth budget")
+        #expect(rejects { try small.copy(to: PointerBuilder(), limits: .init(depth: 5)) },
+                "copy rejects one pointer step below a custom depth budget")
     }
 
     @Test("retained terminal inline scalar values copy at zero remaining depth")
@@ -261,11 +309,14 @@ struct PointerSchemaTests {
                 return try destination.freeze().readStruct().readUInt64(at: 0) == 42
             } catch { return false }
         }
-        let okay = try scalar.readStruct().readUInt64(at: 0) == 42 && copiedScalar()
-          && rejects { try child.copy(to: PointerBuilder()) }
-          && rejects { _ = try child.field(0).readText() }
-          && rejects { try scalar.copy(to: PointerBuilder(), limits: .init(depth: 0)) }
-        #expect(okay, "retained terminal inline scalar values copy at zero remaining depth")
+        #expect(try scalar.readStruct().readUInt64(at: 0) == 42 && copiedScalar(),
+                "retained terminal inline scalar copies with no pointer steps remaining")
+        #expect(rejects { try child.copy(to: PointerBuilder()) },
+                "retained terminal inline child cannot spend another pointer step")
+        #expect(rejects { _ = try child.field(0).readText() },
+                "retained terminal inline reader cannot spend another pointer step")
+        #expect(rejects { try scalar.copy(to: PointerBuilder(), limits: .init(depth: 0)) },
+                "copy refuses an explicitly zero depth budget")
     }
 
     @Test("pointer copying resolves independent far and double far fixtures")
