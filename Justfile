@@ -106,6 +106,9 @@ legacy-defaults:
 legacy-void:
     tools/capnpc-swift/tests/typed/check-legacy-void.sh
 
+empty-composite:
+    tools/capnpc-swift/tests/typed/check-empty-composite.sh
+
 typed-driver:
     tools/capnpc-swift/tests/typed/check-driver.sh
 

@@ -420,14 +420,9 @@ extension MessageBuilder {
 
     /// Allocate an inline-composite struct list at `pointerWord`. The list
     /// pointer's count field holds the element words, excluding the tag.
-    /// A zero-element list is a NULL pointer: the canonical empty (a bare
-    /// tag with count 0 is ambiguous — capnp-zig's walk reads it as a struct
-    /// pointer and refuses the payload).
+    /// An empty list still has a tag and a non-null list pointer. This
+    /// distinguishes an explicit empty value from an unset schema default.
     func allocateStructList(pointerWord: Int, dataWords: UInt16, pointerWords: UInt16, count: Int) -> StructListBuilder {
-        if count == 0 {
-            writeWord(pointerWord, 0)
-            return StructListBuilder(message: self, firstElementWord: 0, count: 0, dataWords: Int(dataWords), pointerWords: Int(pointerWords))
-        }
         let stride = Int(dataWords) + Int(pointerWords)
         let tagWordIndex = allocate(words: 1 + stride * count)
         // The tag is a struct pointer: offset field = element count, sizes =

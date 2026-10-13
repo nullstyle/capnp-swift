@@ -23,6 +23,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Empty struct lists now retain a non-null inline-composite tag, so explicit
+  empty values override nonempty schema defaults. Exact independent C++ bytes
+  and released-core CALL/RETURN checks cover both zero and nonzero layouts;
+  ten guards and the old allocator were ablated and restored.
 - Erased streaming clients omit `try` when awaiting the nonthrowing stream
   window API, allowing generated code to compile with warnings as errors.
 - Ordinary `List(Void)` fields now generate matching `VoidListReader` and

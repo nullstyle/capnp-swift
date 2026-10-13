@@ -68,6 +68,7 @@ jobs:
           just legacy-rpc
           just legacy-defaults
           just legacy-void
+          just empty-composite
           just typed-driver
 
   swift:
