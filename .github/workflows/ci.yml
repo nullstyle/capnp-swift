@@ -156,8 +156,6 @@ jobs:
           mise install
           mise exec -- zig version
       - name: TSan + ASan
-        env:
-          SWIFT_BACKTRACE: enable=yes,interactive=no,color=no,output-to=stderr
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           set -euxo pipefail
@@ -168,4 +166,7 @@ jobs:
       - name: Test process crash reports
         if: failure()
         run: scripts/print-test-crashes.sh
+      - name: ASan debugger diagnosis
+        if: failure()
+        run: python3 scripts/diagnose-sanitizer-crash.py
 
