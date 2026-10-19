@@ -10,13 +10,17 @@ All notable changes to capnp-swift are recorded here.
   18 simulator (it fetches the runtime when the image lacks it) and a
   macOS 15 runner with its newest Xcode. Nothing ran the floor before; it
   has not run yet (M9 G5).
-- A Stable Swift API gate: `scripts/check-api-breakage.sh` runs
-  `swift package diagnose-api-breaking-changes` for `Capnp`, `CapnpRPC`
-  and `CapnpNW` against the release that the committed `Package.swift`
-  downloads (now 0.1.2), in the CI `swift` job. Experimental changes need
-  an exact entry in `scripts/api-breakage-allowlist.txt`. A renamed public
-  property fails it; the same rename with its message allowed passes
-  (M9 G4).
+- A Stable Swift API gate: `scripts/check-api-breakage.sh` compares the
+  `Capnp`, `CapnpRPC` and `CapnpNW` APIs of the working tree with the
+  release that the committed `Package.swift` downloads (now 0.1.2), in the
+  CI `swift` job. It builds the library targets of each side alone and
+  compares `swift-api-digester` dumps. (`swift package
+  diagnose-api-breaking-changes` failed on CI's Xcode 26.6: its baseline
+  dump saw WasmKit's `CWASIPlatform` module twice and lost `CapnpCore`.)
+  Experimental changes need an exact line in
+  `scripts/api-breakage-allowlist.txt`. A renamed public property fails it;
+  the same rename with its line allowed passes, with both SwiftPM build
+  systems (M9 G4).
 - M8 matrix catch-up: the e2e peers run capnp-zig's `pass_back` and
   `pipelined_params` scenarios (`interop/e2e/schemas/cap_passing.capnp`
   from v0.27.0; bindings in `interop/e2e/gen/typed/`, checked by `just

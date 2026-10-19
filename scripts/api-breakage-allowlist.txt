@@ -2,8 +2,10 @@
 #
 # Only Experimental API may appear here (docs/stability.md: typed
 # generation such as CapnpPointerSchema, PointerReader/PointerBuilder and
-# RPCPointerCapability, and the CapnpNW QUIC types). Copy the exact message
-# the tool prints, without the "💔 " prefix, one per line. The baseline
+# RPCPointerCapability, and the CapnpNW QUIC types). Copy the exact line the
+# gate prints under "breaking change(s):", without its indent, for example
+# "Var RPCConnection.closeCause has been renamed to Var closeCauseRenamed".
+# One per line. The baseline
 # moves to the new release at each release commit, so clear this file
 # then. A Stable API break needs a new minor version instead (pre-1.0
 # SemVer, stability.md).
