@@ -91,6 +91,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Changed
 
+- Release 0.1.2 approved (2026-10-18): the package manifest selects the
+  approved 0.1.2 core archive by URL and checksum (capnp-zig v0.27.0
+  core). The tag includes this manifest; publication and the fresh
+  remote-consumer smoke follow. Both assets ship unsigned.
 - The RPC core pins capnp-zig v0.27.0 (was v0.23.0). The C ABI and its
   header are byte-identical; `capnp_core_version()` reports
   `core 0.1.0 / capnp-zig 0.27.0 / capnpc_zig-0.27.0-nUduFW1…`. The e2e
