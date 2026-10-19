@@ -4,7 +4,9 @@
     .fingerprint = 0xcc3c1b8e7132456f,
     .minimum_zig_version = "0.17.0",
     .dependencies = .{
-        // The same capnp-zig tag core/build.zig.zon pins (bump both together).
+        // An independent, older capnp-zig peer on purpose: v0.21.0 while the
+        // core pins v0.27.0, so the mvp and QUIC lanes keep a cross-version
+        // pairing. Bumping it means regenerating gen/ (see gen/README.md).
         // `zig build` fetches it; never run `zig fetch <url>` (CLAUDE.md).
         .capnpc_zig = .{
             .url = "https://github.com/nullstyle/capnp-zig/archive/refs/tags/v0.21.0.tar.gz",

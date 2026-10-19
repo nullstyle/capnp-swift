@@ -1,6 +1,17 @@
 # Tail-call Returns (`take_from_other_question`) through the native C ABI
 
-Status: open handoff to capnp-zig (2026-10-08). This is the second of the
+Status: CLOSED (2026-10-18). capnp-zig v0.27.0 took the minimal shape
+below: the native shim holds a question whose tail call names an
+INBOUND_CALL that the host still owes, and the host's answer becomes the
+question's one RETURN. No C ABI change. capnp-swift pins v0.27.0 since
+2026-10-18. Evidence: C++ server / Swift client `resolve_disembargo` passes
+9/9; the wire shows two `takeFromOtherQuestion` Returns, each answered
+with `resultsSentElsewhere`. Control: the v0.23.0 core client fails the same
+run with `unsupported Return variant`. Cap-bearing tail-call results still
+end as RETURN EXCEPTION (a documented limit, not hit by any lane). See
+plan §8 "capnp-zig v0.27.0 adoption".
+
+Original status (2026-10-08): open handoff to capnp-zig. This is the second of the
 two filed causes holding `resolve_disembargo` × the C++ reference (the
 first is H10); since the shim moved upstream in v0.23.0, the fix is an
 upstream `native`-module change.

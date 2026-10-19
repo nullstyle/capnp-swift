@@ -35,6 +35,29 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- Tail calls from the C++ reference now work: the core pins capnp-zig
+  v0.27.0, whose native shim follows a `takeFromOtherQuestion` Return to
+  an inbound call this side has not answered yet. C++ server / Swift client
+  `resolve_disembargo` passes 9/9; the same run on the v0.23.0 core fails
+  with `unsupported Return variant`. Tail-call results that carry
+  capabilities still end with an `unimplemented` exception.
+- QUIC: a Swift server that closes its connection now ends the Zig
+  client's waiting questions at once (H11 check 9). capnp-zig v0.27.0 ends
+  the session when stream 0 ends. The 5-schema QUIC matrix passes 10/10
+  pairings both ways. No Swift transport change was needed.
+- QUIC transports now send stream-0 frames in order. Each send ran in its
+  own unstructured `Task`, so two frames, or a frame and the FIN, could
+  reach the stream in either order. A new test, 1000 calls on one
+  capability over QUIC, saw calls start out of E-order in 2 of 3 runs; with
+  one ordered writer per stream it passes 10 of 10. Closing now sends the
+  queued frames, then the FIN, then cancels the receive. This matters more
+  since capnp-zig v0.27.0 ends the session at the FIN.
+- The e2e Swift server's `resolveNow` could run before `reflect` had
+  stored its promise, because both handlers run off the connection actor.
+  It then resolved nothing, and the C++ client's parked call never
+  returned (60 s timeout). `resolveNow` now waits for the promise, up to
+  5 s. This test-server race, not the core, held Swift server / C++ client
+  `resolve_disembargo`; it passes 8/8.
 - The workbench names its local capnp-swift dependency explicitly. A clean
   archive unpacked under a different folder name previously failed product
   resolution. A new archive gate covers that context and the released core URL.
@@ -59,6 +82,15 @@ All notable changes to capnp-swift are recorded here.
 
 ### Changed
 
+- The RPC core pins capnp-zig v0.27.0 (was v0.23.0). The C ABI and its
+  header are byte-identical; `capnp_core_version()` reports
+  `core 0.1.0 / capnp-zig 0.27.0 / capnpc_zig-0.27.0-nUduFW1…`. The e2e
+  peer source (`third_party/capnp-zig`, the nightly `CAPNP_ZIG_TAG`) moves
+  from v0.21.0 to v0.27.0. The generator stays on v0.23.0 (no codegen
+  change since), and the interop Zig peer stays on v0.21.0 on purpose.
+  `Package.swift` still names the released 0.1.1 core. The nightly C++
+  lane now runs all five schemas, and `just e2e-matrix-quic` fails instead
+  of skipping when the Zig drivers have no `--transport quic`.
 - A manual Network diagnostic pins Xcode 26.6 and repeats QUIC-only, mixed
   networking and full test selections without rebuilding each process. It
   distinguishes the exact initialization trap from unrelated failures and

@@ -1,6 +1,16 @@
 # The QUIC server-close residual (disconnectNow) — findings and the two fix paths
 
-Status: open, precisely characterized (2026-10-08). The failing check:
+Status: CLOSED (2026-10-18). Fix path B landed upstream: capnp-zig
+v0.27.0 (`1fdc029`) ends the RPC session when stream 0 ends. A clean FIN
+closes it with cause `peer_close`; a RESET or a stop closes it with
+`transport_error`. capnp-swift pins v0.27.0 for the core and the e2e peers
+since 2026-10-18. Evidence: `scripts/e2e-pair-quic.sh` passes 10/10
+pairings (84 checks); the Zig client's whole `resolve_disembargo` run takes about 60 ms. Ablation: with both
+the server's FIN and its receive cancel removed, check 9 fails
+(`not ok 9` after the 30 s deadline); each signal alone passes. No Swift
+code change was needed (plan §8 "capnp-zig v0.27.0 adoption").
+
+Original status (2026-10-08): open, precisely characterized. The failing check:
 zig e2e client, `resolve_disembargo` check 9 — "disconnectNow observes a
 disconnect-class error". Everything else in the 5-schema QUIC matrix
 passes (9/10 pairings, 84/85 checks).

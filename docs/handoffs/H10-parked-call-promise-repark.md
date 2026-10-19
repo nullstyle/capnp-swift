@@ -1,5 +1,9 @@
 # H10: re-park question-queued calls when the answer's Return carries an unresolved promise export
 
+Status: CLOSED. Delivered in capnp-zig v0.23.0. At the v0.27.0 pin
+(2026-10-18) `resolve_disembargo` passes Swift/Swift (TCP and Unix) and
+C++ server / Swift client.
+
 Found in capnp-swift M4 (2026-10-07), interop matrix, `resolve_disembargo`
 against the C++ reference server and Swift↔Swift pairing.
 

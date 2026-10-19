@@ -46,9 +46,16 @@ bumps the minor, not the patch).
   Apple, by owner decision on 2026-10-12. The investigation is closed;
   [the evidence](handoffs/apple-network-quic-teardown-race.md) is local
   reference only. Local Xcode 27 passes do not establish older SDK behavior.
-- **The pinned capnp-zig Peer** (v0.23.0, `-Dfd-passing=false`): its
-  sans-IO surface is Experimental upstream, which is why the pin is
-  exact and each release reports it in `capnp_core_version()`.
+  Since the v0.27.0 core, the end of stream 0 ends the RPC session in
+  both directions: a clean FIN (cause `peer_close`) or a reset
+  (`transport_error`). The transports end stream 0 only when they close.
+- **The pinned capnp-zig Peer** (`-Dfd-passing=false`): v0.27.0 on main;
+  the released 0.1.1 binary carries v0.23.0. Its sans-IO surface is
+  Experimental upstream, which is why the pin is exact and each release
+  reports it in `capnp_core_version()`. Since v0.27.0 the core follows a
+  tail call (`takeFromOtherQuestion`) to a call this side has not answered
+  yet. Tail-call results that carry capabilities still end the question
+  with an `unimplemented` exception.
 
 ## Not in 0.1.0
 

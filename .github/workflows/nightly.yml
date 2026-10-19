@@ -28,7 +28,9 @@ permissions:
   contents: read
 
 env:
-  CAPNP_ZIG_TAG: v0.21.0
+  # The e2e peer source (Zig and C++ drivers): the same tag as the core pin
+  # (core/build.zig.zon). v0.26.0+ ships the drivers' --transport quic.
+  CAPNP_ZIG_TAG: v0.27.0
 
 jobs:
   fuzz:
@@ -149,7 +151,7 @@ jobs:
         run: |
           git clone --quiet --depth=1 --branch "$CAPNP_ZIG_TAG" \
             https://github.com/nullstyle/capnp-zig.git third_party/capnp-zig
-      - name: C++ reference, both directions (M4; resolve_disembargo filed)
+      - name: C++ reference, both directions (M4; all five schemas since v0.27.0)
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           set -euxo pipefail
@@ -175,8 +177,8 @@ jobs:
           [ -x "$BIN/e2e-swift-server" ] || { echo "no runnable e2e-swift-server anywhere" >&2; find .build -maxdepth 4 -type d -print | head -30; exit 1; }
           echo "swift bins: $BIN"
           CPP=third_party/capnp-zig/tests/e2e/cpp/build
-          scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e_client" game_world chat inventory matchmaking
-          scripts/e2e-pair.sh "$CPP/e2e_server" "$BIN/e2e-swift-client" game_world chat inventory matchmaking
+          scripts/e2e-pair.sh "$BIN/e2e-swift-server" "$CPP/e2e_client"
+          scripts/e2e-pair.sh "$CPP/e2e_server" "$BIN/e2e-swift-client"
           tools/capnpc-swift/tests/typed/check-rpc-cpp.sh --require-cpp
           tools/capnpc-swift/tests/typed/check-empty-composite.sh --require-cpp
 

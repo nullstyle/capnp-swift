@@ -946,10 +946,21 @@ final class ReflectorService: Reflector.Server, @unchecked Sendable {
         // The target stays retained for the connection's lifetime: the
         // resolved promise forwards later calls to it (the Zig server
         // retains it the same way).
-        let pending = lock.withLock { () -> (PromiseExport, CapRef)? in
-            guard let promise, let target else { return nil }
-            self.promise = nil
-            return (promise, target)
+        // The C++ client sends resolveNow without waiting for reflect's
+        // Return. E-order delivers reflect first, but both handlers run off
+        // the connection actor and reflect suspends in makePromise(), so
+        // resolveNow could run first and resolve nothing (the parked
+        // pipelined call then never returns). Wait for reflect's promise,
+        // up to 5 s; with no reflect at all, return as before.
+        var pending: (PromiseExport, CapRef)?
+        for _ in 0..<500 {
+            pending = lock.withLock { () -> (PromiseExport, CapRef)? in
+                guard let promise, let target else { return nil }
+                self.promise = nil
+                return (promise, target)
+            }
+            if pending != nil { break }
+            try await Task.sleep(for: .milliseconds(10))
         }
         if let (promise, target) = pending {
             try await connection.resolve(promise, to: .imported(target))

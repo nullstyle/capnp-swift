@@ -2,7 +2,13 @@
 
 ## Status
 
-Filed, not started. The M6 gate row reads "Swift↔Zig both ways pass `mvp`
+CLOSED (2026-10-18). capnp-zig v0.26.0 shipped `--transport quic` on its
+e2e drivers, and v0.27.0 closed the last residual (check 9, see
+`quic-server-close-residual.md`). With `third_party/capnp-zig` at v0.27.0,
+`just e2e-matrix-quic` passes 10/10 pairings (84 checks) and now fails
+instead of skipping when the drivers lack the flag.
+
+Original status (2026-10-07): filed, not started. The M6 gate row reads "Swift↔Zig both ways pass `mvp`
 + the 5 schemas"; the `mvp` half is done (both directions, TAP-gated —
 plan §8 "M6 status"). This file is what the 5-schema half needs.
 

@@ -186,9 +186,9 @@ e2e-matrix: e2e-zig-peers e2e-swift-peers
     scripts/e2e-pair.sh third_party/capnp-zig/zig-out/bin/e2e-zig-server "$SWIFT_CLIENT"
     scripts/e2e-pair.sh "$SWIFT_SERVER" third_party/capnp-zig/zig-out/bin/e2e-zig-client
 
-# The H11 5-schema QUIC matrix (both cross pairings), against whichever
-# capnp-zig checkout third_party/ holds. Capability-skips (exit 0 with a
-# notice) until the pinned tag ships --transport quic.
+# The H11 5-schema QUIC matrix (both cross pairings), against the
+# capnp-zig checkout third_party/ holds. The pinned tag (v0.27.0) ships
+# --transport quic, so a checkout without it fails instead of skipping.
 e2e-zig-peers-quic:
     cd third_party/capnp-zig && mise x zig -- zig build e2e-zig-server-install e2e-zig-client-install -Dquic=true
 
@@ -196,8 +196,8 @@ e2e-matrix-quic: e2e-zig-peers-quic e2e-swift-peers
     #!/usr/bin/env bash
     set -euo pipefail
     if ! third_party/capnp-zig/zig-out/bin/e2e-zig-server --help 2>&1 | grep -q -- "--transport quic"; then
-        echo "# skipped: the pinned capnp-zig has no --transport quic yet (H11 rides the e2e-quic-modes branch until it tags)"
-        exit 0
+        echo "not ok - third_party/capnp-zig has no --transport quic (needs capnp-zig v0.26.0+; the pin is v0.27.0)"
+        exit 1
     fi
     BIN="$(dirname "$(find .build -name e2e-swift-client \( -type f -o -type l \) -print -quit)")"
     scripts/e2e-pair-quic.sh third_party/capnp-zig/zig-out/bin/e2e-zig-server third_party/capnp-zig/zig-out/bin/e2e-zig-client "$BIN"
