@@ -1,0 +1,95 @@
+# The platform floor (plan D2: macOS 15, iOS 18), run on demand (M9 G5).
+# CI and the nightly use only macOS 26 runners and their newest iOS
+# simulator, so nothing else runs the floor. Manual until it has passed;
+# then it can join the nightly.
+name: floor
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios18-simulator:
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          mise install
+          mise exec -- zig version
+      - name: The test suite on an iOS 18 simulator
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          cd core && mise exec -- zig build xcframework -Dios=true && cd ..
+          scripts/use-local-core.sh
+          pick() {
+            xcrun simctl list runtimes -j | python3 -c '
+          import json, sys
+          rs = [r for r in json.load(sys.stdin)["runtimes"]
+                if r.get("platform") == "iOS" and r["version"].startswith("18.") and r.get("isAvailable")]
+          rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")])
+          print(rs[-1]["identifier"] if rs else "")'
+          }
+          RUNTIME="$(pick)"
+          if [ -z "$RUNTIME" ]; then
+            # Not on the image: fetch the newest iOS 18 simulator runtime.
+            xcodebuild -downloadPlatform iOS -buildVersion 18.6
+            RUNTIME="$(pick)"
+          fi
+          [ -n "$RUNTIME" ] || { echo "no iOS 18 simulator runtime" >&2; exit 1; }
+          echo "runtime $RUNTIME"
+          UDID="$(xcrun simctl create floor-ios18 com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$RUNTIME")"
+          # QUIC tests are macOS/iOS 26+ (@available); they skip on 18.
+          xcodebuild test -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" 2>&1 | tee ios18.log
+          grep -E 'Test run with [0-9]+ tests' ios18.log
+
+  macos15:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        run: |
+          if [ ! -d .git ]; then
+            git init -q .
+            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
+            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
+            git checkout -q FETCH_HEAD
+          fi
+      - name: mise
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          if ! command -v mise >/dev/null 2>&1; then
+            curl -fsSL https://mise.run | sh
+          fi
+          mise install
+          mise exec -- zig version
+      - name: Select the newest Xcode on the image
+        run: |
+          ls -d /Applications/Xcode*.app
+          XCODE="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
+      - name: Build and test on macOS 15
+        run: |
+          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
+          set -euxo pipefail
+          sw_vers
+          xcrun swift --version
+          cd core && mise exec -- zig build xcframework && cd ..
+          scripts/use-local-core.sh
+          swift build
+          swift test

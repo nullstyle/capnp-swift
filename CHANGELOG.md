@@ -6,6 +6,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- A manual `floor` workflow runs the suite on the platform floor: an iOS
+  18 simulator (it fetches the runtime when the image lacks it) and a
+  macOS 15 runner with its newest Xcode. Nothing ran the floor before; it
+  has not run yet (M9 G5).
 - A Stable Swift API gate: `scripts/check-api-breakage.sh` runs
   `swift package diagnose-api-breaking-changes` for `Capnp`, `CapnpRPC`
   and `CapnpNW` against the release that the committed `Package.swift`
