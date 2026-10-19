@@ -248,13 +248,14 @@
     }
   },
   "verified_against_main": {
-    "commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
-    "checked_at_utc": "2026-10-13T07:55:05.219401+00:00",
-    "previous_verified_commit": "b19b7fe1c076624384ffcf14747592f96f6033a9",
+    "commit": "fdb1be4",
+    "checked_at_utc": "2026-10-19T03:26:03.593760+00:00",
+    "previous_verified_commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
     "binary_source_unchanged": true,
-    "binary_source_scope": "Codegen candidate only. Swift network transports changed; generator/core/pins are unchanged.",
+    "binary_source_scope": "Codegen candidate only. The core pin moved to capnp-zig v0.27.0 (core/build.zig.zon); no bundle build step reads it. QUIC transports, the e2e Swift server, tests and CI scripts changed.",
     "production_changes_since_previous_verification": [
-      "Sources/CapnpNW/TLSTransport.swift"
+      "core/build.zig.zon",
+      "Sources/CapnpNW/QUICTransport.swift"
     ],
     "source_comparison": {
       "pathspec": [
@@ -270,137 +271,85 @@
       "excluded_test_harness": "tools/capnpc-swift/tests/typed/VerifyTypedPipelines.swift",
       "method": "git ls-tree -r REV -- PATHS; omit the one exact test-harness path; join unchanged lines with LF plus final LF; SHA-256 of UTF-8 manifest. Git mode/type/blob/path identity proves file bytes and modes unchanged.",
       "entries": 147,
-      "manifest_sha256": "1c817b19e05400cc8e11dc776bb5bacf80d2e96b21088ae16a048fda23768ddc",
-      "matches_candidate_and_previous_verifications": true,
+      "manifest_sha256": "9f899abe8824e1a780fd37fa969f57067ee69cf80a8a0d2076d10d6149a95469",
+      "matches_candidate_and_previous_verifications": false,
+      "differs_only_in": [
+        "core/build.zig.zon"
+      ],
+      "difference_is_bundle_input": false,
+      "why_not_an_input": "scripts/make-artifactbundle.sh builds the capnpc-driver product (depends only on WasmKit) and the tools/capnpc-swift plugin (its own capnp-zig v0.23.0 pin); neither reads core/.",
       "rebuild_required": false
     },
-    "real_consumer": {
-      "evidence_manifest": "Examples/RPCWorkbench/evidence/results.json",
-      "evidence_manifest_sha256": "10266a57f2afe267f33a282cac427fd88cd2e028e06d8dfa4ad75d81c724f652",
-      "network_checks": 21,
-      "native_rpc_checks_per_transport": 7,
-      "physical_device_checked": true,
-      "physical_check_scope": "Actual iPhone TCP and TLS RPC; physical OS lifecycle and Wi-Fi-only routing not claimed. Device binary precedes small preference/reporting and packaging polish.",
-      "source_manifest_and_results_retained": true,
-      "source_commits": {
-        "native_sample": "53aac84906c1d3c22f730bf5a3d9a6dcf1c8956f",
-        "renamed_archive_packaging": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81"
-      }
-    },
-    "renamed_archive_consumer": {
-      "source_commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
-      "log": "/tmp/capnp-workbench-archive-final.log",
-      "core_source": "https://github.com/nullstyle/capnp-swift/releases/download/0.1.1/CapnpCore.xcframework.zip",
-      "core_checksum": "750f53096f825ba211607b27adcbdd6216e487b1f6c03b0b11135427af975340",
-      "public_network_checks": 21,
-      "gate": "Examples/RPCWorkbench/scripts/check-archive.sh",
-      "guards_independently_failed_and_restored": 2,
-      "log_sha256": "daa9d85b21d0a2eaf2adc7f3e269904f7291a3ce79df4b106d4e7cf100e8577f"
+    "bundle_smoke": {
+      "gate": "scripts/check-codegen-bundle.sh on the unzipped 0.1.2-capnpc-swift.artifactbundle.zip",
+      "candidate_zip_sha256": "8c241efe29b2e6df29ad02e6c7209687de08d5d439bb632f9ecadecd72eac10a",
+      "checked_on_commit": "79e733e",
+      "passes": [
+        "bundled compiler preserves MVP generation",
+        "bundled Swift annotations support checked typed module imports"
+      ]
     },
     "hosted_evidence": {
-      "tls_repair_ci": {
-        "commit": "d72c4079ed9fcd82adbf41329a57908f8f13c925",
-        "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38357935250",
-        "lanes": 4,
-        "conclusion": "success",
-        "swift_tests_per_mode": 72
-      },
-      "native_sample_ci": {
-        "commit": "53aac84906c1d3c22f730bf5a3d9a6dcf1c8956f",
-        "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38360495998",
-        "lanes": 4,
-        "conclusion": "success",
-        "swift_tests_per_mode": 72,
-        "consumer_checks": 21,
-        "native_mac_and_ios_builds": true
-      },
-      "latest_ci": {
-        "commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
-        "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703",
-        "status": "completed",
-        "conclusion": "success",
-        "lanes": 4,
-        "jobs": [
-          {
-            "name": "core",
-            "conclusion": "success",
-            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183580869"
-          },
-          {
-            "name": "swift",
-            "conclusion": "success",
-            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183580968"
-          },
-          {
-            "name": "sanitizers",
-            "conclusion": "success",
-            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183581033"
-          },
-          {
-            "name": "ios",
-            "conclusion": "success",
-            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183581103"
+      "ci": [
+        {
+          "commit": "79e733e",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39189292648",
+          "conclusion": "success",
+          "lanes": 4,
+          "swift_tests_per_mode": 73
+        },
+        {
+          "commit": "ab99623",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39191043354",
+          "conclusion": "success",
+          "lanes": 4
+        },
+        {
+          "commit": "fdb1be4",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39192848274",
+          "conclusion": "success",
+          "lanes": 4
+        }
+      ],
+      "nightly": [
+        {
+          "commit": "79e733e",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39189320930",
+          "conclusion": "failure",
+          "failed": [
+            "ios-sim (QUIC load: fixed in ab99623)",
+            "quic (no timeout on runners: fixed in fdb1be4)"
+          ]
+        },
+        {
+          "commit": "ab99623",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39191061887",
+          "conclusion": "success",
+          "scope": "ios_only"
+        },
+        {
+          "commit": "fdb1be4",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39192848295",
+          "conclusion": "success",
+          "lanes": 5,
+          "fuzz": {
+            "seconds": 1800,
+            "sessions": 4070931,
+            "ops": 356128459,
+            "live_bytes_after": 0
           }
-        ],
-        "swift_tests_per_mode": 72,
-        "typed_rpc_checks_per_mode": 84,
-        "consumer_checks": 21,
-        "renamed_archive_consumer_checks": 21,
-        "native_mac_and_ios_builds": true,
-        "released_remote_core_verified_by_archive_gate": true,
-        "log": "/tmp/capnp-workbench-archive-final-ci.log",
-        "log_sha256": "0861c7e0bf9b022a078f8392a4a887314d997e1019c5f12028e507f882b2acd8"
-      },
-      "nightly": {
-        "commit": "d72c4079ed9fcd82adbf41329a57908f8f13c925",
-        "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38359897878",
-        "lanes": 5,
-        "conclusion": "success",
-        "simulator_tests": 70,
-        "abi_fuzz_seconds": 1800,
-        "abi_fuzz_sessions": 3851980,
-        "abi_fuzz_operations": 337258277,
-        "abi_fuzz_peak_live_bytes": 117562,
-        "abi_fuzz_live_bytes_at_exit": 0,
-        "log_sha256": "d97b3f9043218f321c167e01ba2e87cf0072baea193b553c1917b950691850f8"
-      },
-      "nightly_source_equivalence": {
-        "compared_paths": [
-          "Sources",
-          "core",
-          "tools",
-          "Plugins",
-          "Tests",
-          "interop",
-          "generated",
-          "Package.swift",
-          "Package.resolved",
-          "mise.toml",
-          "scripts",
-          ".github/workflows/nightly.yml"
-        ],
-        "diff_empty": true,
-        "existing_just_recipes_byte_identical_prefix": true,
-        "scope": "Subsequent changes are native example/setup, consumer CI and docs; the runtime/core/generator/tests/interop/scripts/nightly code and existing gate recipes match the tested nightly source."
-      },
-      "cancelled_duplicate_nightly": {
-        "run": 38361415824,
-        "reason": "Already scheduled nightly 38359897878 covers the identical runtime and gate sources; queued duplicate cancelled."
-      },
-      "sdk_defect": "Hosted QUIC teardown trap remains unfixed and unreported, closed by owner decision. Passing CI/nightly establishes non-reproduction only."
+        }
+      ]
     },
-    "publication_status": "Proposed 0.1.2 only; no tag or asset mutation. Existing 0.1.1 assets are immutable. Core 0.1.0 / ABI 1 stays on its released URL/checksum.",
-    "readiness_document": "docs/release-readiness-2026-10-13.md",
     "proposed_release_staging": {
       "version": "0.1.2",
-      "owner_approval_pending": true,
-      "local_codegen_copy": "dist/0.1.2-capnpc-swift.artifactbundle.zip",
-      "codegen_sha256": "8c241efe29b2e6df29ad02e6c7209687de08d5d439bb632f9ecadecd72eac10a",
-      "draft_notes": "dist/0.1.2-release-notes.txt",
-      "draft_notes_sha256": "48f46bbba4d4c835221b5b2c40ae9f6a6c8818120c37f0ef144140309b6843c5",
-      "core_reused_from_immutable_0_1_1": true,
-      "no_tag_asset_or_publication_mutation": true
-    }
+      "owner_decision": "2026-10-18: fold the capnp-zig v0.27.0 core into 0.1.2",
+      "core_asset_sha256": "203fbdd4ef00554f278e9730431b09d1d0a117cc731e29a7e496b73fe6fbd98b",
+      "core_asset_built_from": "79e733e (core/ identical at fdb1be4)",
+      "codegen_asset_sha256": "8c241efe29b2e6df29ad02e6c7209687de08d5d439bb632f9ecadecd72eac10a"
+    },
+    "publication_status": "No tag, release asset or publication created.",
+    "readiness_document": "docs/release-readiness-2026-10-18.md"
   },
   "verification_history": [
     {
@@ -798,6 +747,161 @@
       "publication_status": "Staged main candidate for owner review; 0.1.1 is already published and immutable. Owner must choose a new version and authorize its release ceremony; gates on the final release commit remain required.",
       "temporary_evidence_notice": "Local /tmp and /var/folders logs may expire. Source revisions, manifest algorithm/digests, embedded results and hosted run/job URLs are retained here.",
       "readiness_document": "docs/release-readiness-2026-10-12.md"
+    },
+    {
+      "commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
+      "checked_at_utc": "2026-10-13T07:55:05.219401+00:00",
+      "previous_verified_commit": "b19b7fe1c076624384ffcf14747592f96f6033a9",
+      "binary_source_unchanged": true,
+      "binary_source_scope": "Codegen candidate only. Swift network transports changed; generator/core/pins are unchanged.",
+      "production_changes_since_previous_verification": [
+        "Sources/CapnpNW/TLSTransport.swift"
+      ],
+      "source_comparison": {
+        "pathspec": [
+          "tools",
+          "Plugins",
+          "core",
+          "Package.swift",
+          "Package.resolved",
+          "mise.toml",
+          "scripts/make-artifactbundle.sh",
+          "scripts/check-codegen-bundle.sh"
+        ],
+        "excluded_test_harness": "tools/capnpc-swift/tests/typed/VerifyTypedPipelines.swift",
+        "method": "git ls-tree -r REV -- PATHS; omit the one exact test-harness path; join unchanged lines with LF plus final LF; SHA-256 of UTF-8 manifest. Git mode/type/blob/path identity proves file bytes and modes unchanged.",
+        "entries": 147,
+        "manifest_sha256": "1c817b19e05400cc8e11dc776bb5bacf80d2e96b21088ae16a048fda23768ddc",
+        "matches_candidate_and_previous_verifications": true,
+        "rebuild_required": false
+      },
+      "real_consumer": {
+        "evidence_manifest": "Examples/RPCWorkbench/evidence/results.json",
+        "evidence_manifest_sha256": "10266a57f2afe267f33a282cac427fd88cd2e028e06d8dfa4ad75d81c724f652",
+        "network_checks": 21,
+        "native_rpc_checks_per_transport": 7,
+        "physical_device_checked": true,
+        "physical_check_scope": "Actual iPhone TCP and TLS RPC; physical OS lifecycle and Wi-Fi-only routing not claimed. Device binary precedes small preference/reporting and packaging polish.",
+        "source_manifest_and_results_retained": true,
+        "source_commits": {
+          "native_sample": "53aac84906c1d3c22f730bf5a3d9a6dcf1c8956f",
+          "renamed_archive_packaging": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81"
+        }
+      },
+      "renamed_archive_consumer": {
+        "source_commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
+        "log": "/tmp/capnp-workbench-archive-final.log",
+        "core_source": "https://github.com/nullstyle/capnp-swift/releases/download/0.1.1/CapnpCore.xcframework.zip",
+        "core_checksum": "750f53096f825ba211607b27adcbdd6216e487b1f6c03b0b11135427af975340",
+        "public_network_checks": 21,
+        "gate": "Examples/RPCWorkbench/scripts/check-archive.sh",
+        "guards_independently_failed_and_restored": 2,
+        "log_sha256": "daa9d85b21d0a2eaf2adc7f3e269904f7291a3ce79df4b106d4e7cf100e8577f"
+      },
+      "hosted_evidence": {
+        "tls_repair_ci": {
+          "commit": "d72c4079ed9fcd82adbf41329a57908f8f13c925",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38357935250",
+          "lanes": 4,
+          "conclusion": "success",
+          "swift_tests_per_mode": 72
+        },
+        "native_sample_ci": {
+          "commit": "53aac84906c1d3c22f730bf5a3d9a6dcf1c8956f",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38360495998",
+          "lanes": 4,
+          "conclusion": "success",
+          "swift_tests_per_mode": 72,
+          "consumer_checks": 21,
+          "native_mac_and_ios_builds": true
+        },
+        "latest_ci": {
+          "commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703",
+          "status": "completed",
+          "conclusion": "success",
+          "lanes": 4,
+          "jobs": [
+            {
+              "name": "core",
+              "conclusion": "success",
+              "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183580869"
+            },
+            {
+              "name": "swift",
+              "conclusion": "success",
+              "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183580968"
+            },
+            {
+              "name": "sanitizers",
+              "conclusion": "success",
+              "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183581033"
+            },
+            {
+              "name": "ios",
+              "conclusion": "success",
+              "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38363670703/job/115183581103"
+            }
+          ],
+          "swift_tests_per_mode": 72,
+          "typed_rpc_checks_per_mode": 84,
+          "consumer_checks": 21,
+          "renamed_archive_consumer_checks": 21,
+          "native_mac_and_ios_builds": true,
+          "released_remote_core_verified_by_archive_gate": true,
+          "log": "/tmp/capnp-workbench-archive-final-ci.log",
+          "log_sha256": "0861c7e0bf9b022a078f8392a4a887314d997e1019c5f12028e507f882b2acd8"
+        },
+        "nightly": {
+          "commit": "d72c4079ed9fcd82adbf41329a57908f8f13c925",
+          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/38359897878",
+          "lanes": 5,
+          "conclusion": "success",
+          "simulator_tests": 70,
+          "abi_fuzz_seconds": 1800,
+          "abi_fuzz_sessions": 3851980,
+          "abi_fuzz_operations": 337258277,
+          "abi_fuzz_peak_live_bytes": 117562,
+          "abi_fuzz_live_bytes_at_exit": 0,
+          "log_sha256": "d97b3f9043218f321c167e01ba2e87cf0072baea193b553c1917b950691850f8"
+        },
+        "nightly_source_equivalence": {
+          "compared_paths": [
+            "Sources",
+            "core",
+            "tools",
+            "Plugins",
+            "Tests",
+            "interop",
+            "generated",
+            "Package.swift",
+            "Package.resolved",
+            "mise.toml",
+            "scripts",
+            ".github/workflows/nightly.yml"
+          ],
+          "diff_empty": true,
+          "existing_just_recipes_byte_identical_prefix": true,
+          "scope": "Subsequent changes are native example/setup, consumer CI and docs; the runtime/core/generator/tests/interop/scripts/nightly code and existing gate recipes match the tested nightly source."
+        },
+        "cancelled_duplicate_nightly": {
+          "run": 38361415824,
+          "reason": "Already scheduled nightly 38359897878 covers the identical runtime and gate sources; queued duplicate cancelled."
+        },
+        "sdk_defect": "Hosted QUIC teardown trap remains unfixed and unreported, closed by owner decision. Passing CI/nightly establishes non-reproduction only."
+      },
+      "publication_status": "Proposed 0.1.2 only; no tag or asset mutation. Existing 0.1.1 assets are immutable. Core 0.1.0 / ABI 1 stays on its released URL/checksum.",
+      "readiness_document": "docs/release-readiness-2026-10-13.md",
+      "proposed_release_staging": {
+        "version": "0.1.2",
+        "owner_approval_pending": true,
+        "local_codegen_copy": "dist/0.1.2-capnpc-swift.artifactbundle.zip",
+        "codegen_sha256": "8c241efe29b2e6df29ad02e6c7209687de08d5d439bb632f9ecadecd72eac10a",
+        "draft_notes": "dist/0.1.2-release-notes.txt",
+        "draft_notes_sha256": "48f46bbba4d4c835221b5b2c40ae9f6a6c8818120c37f0ef144140309b6843c5",
+        "core_reused_from_immutable_0_1_1": true,
+        "no_tag_asset_or_publication_mutation": true
+      }
     }
   ]
 }

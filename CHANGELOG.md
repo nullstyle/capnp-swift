@@ -16,6 +16,11 @@ All notable changes to capnp-swift are recorded here.
 
 ### Documentation
 
+- New 0.1.2 proposal (`docs/release-readiness-2026-10-18.md`): the owner
+  chose to ship 0.1.2 with the capnp-zig v0.27.0 core. A new core asset
+  is staged (SHA-256 `203fbdd4…fbd98b`, built from `79e733e`); the codegen
+  candidate stays `8c241efe…`. Hosted CI and the full nightly pass on
+  `fdb1be4`. No tag or upload yet.
 - Completed the native integration and targeted repair sprints; assembled a
   proposed 0.1.2 release with retained phone/simulator evidence, clean-archive
   consumer checks and current CI/nightly source identities. The existing

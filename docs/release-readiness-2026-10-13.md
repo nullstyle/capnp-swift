@@ -1,5 +1,9 @@
 # Next release proposal — 2026-10-13
 
+> Superseded on 2026-10-18 by [release-readiness-2026-10-18.md](release-readiness-2026-10-18.md):
+> the owner chose to fold the capnp-zig v0.27.0 core into 0.1.2. This sheet
+> keeps its 2026-10-13 evidence unchanged.
+
 **Proposed version: 0.1.2, pending owner approval.** The real app integration
 sprint and its demonstrated TLS repair are complete. Published 0.1.1 remains
 immutable. This proposal keeps typed generation and QUIC Experimental.
