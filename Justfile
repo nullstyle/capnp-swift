@@ -185,8 +185,12 @@ e2e-swift-peers: xcframework
 e2e-known-limits-test:
     scripts/e2e-known-limits-test.sh
 
+# The pair scripts' server-start retry (the port race), with fake peers.
+e2e-pair-retry-test:
+    scripts/e2e-pair-retry-test.sh
+
 # The matrix: every schema, both Zig pairings (the M4 gate) and the extras.
-e2e-matrix: e2e-known-limits-test e2e-zig-peers e2e-swift-peers
+e2e-matrix: e2e-known-limits-test e2e-pair-retry-test e2e-zig-peers e2e-swift-peers
     #!/usr/bin/env bash
     set -euo pipefail
     SWIFT_SERVER="$(swift build --product e2e-swift-server --show-bin-path)/e2e-swift-server"
@@ -200,7 +204,7 @@ e2e-matrix: e2e-known-limits-test e2e-zig-peers e2e-swift-peers
 e2e-zig-peers-quic:
     cd third_party/capnp-zig && mise x zig -- zig build e2e-zig-server-install e2e-zig-client-install -Dquic=true
 
-e2e-matrix-quic: e2e-known-limits-test e2e-zig-peers-quic e2e-swift-peers
+e2e-matrix-quic: e2e-known-limits-test e2e-pair-retry-test e2e-zig-peers-quic e2e-swift-peers
     #!/usr/bin/env bash
     set -euo pipefail
     if ! third_party/capnp-zig/zig-out/bin/e2e-zig-server --help 2>&1 | grep -q -- "--transport quic"; then

@@ -58,9 +58,6 @@ try:
 except OSError:
     sys.exit(1)"; }
   else
-    port=$(python3 -c '
-import socket
-s = socket.socket(); s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close(); print(p)')
     host_arg="127.0.0.1"
     probe() { python3 -c "
 import socket, sys
@@ -69,17 +66,32 @@ try:
 except OSError:
     sys.exit(1)"; }
   fi
-  if [ "$TRANSPORT" = unix ]; then
-    "$SERVER" --host "$host_arg" --schema "$schema" >"$server_log" 2>&1 &
-  else
-    "$SERVER" --host "$host_arg" --port "$port" --schema "$schema" >"$server_log" 2>&1 &
-  fi
-  server_pid=$!
-  # Probe until the server accepts (max 30 s).
+  # Start the server and probe until it accepts (max 30 s). The TCP port
+  # comes from a socket that is closed again, so another socket can take
+  # it before the server binds it ("Address already in use", once in 9
+  # lane runs in M8). A server that exits before it is ready gets a new
+  # port, up to 3 tries. A unix socket path is ours alone: one try.
   ready=0
-  for _ in $(seq 1 300); do
-    if probe; then ready=1; break; fi
-    sleep 0.1
+  for attempt in 1 2 3; do
+    if [ "$TRANSPORT" = unix ]; then
+      "$SERVER" --host "$host_arg" --schema "$schema" >"$server_log" 2>&1 &
+    else
+      port=$(python3 -c '
+import socket
+s = socket.socket(); s.bind(("127.0.0.1", 0)); p = s.getsockname()[1]; s.close(); print(p)')
+      "$SERVER" --host "$host_arg" --port "$port" --schema "$schema" >"$server_log" 2>&1 &
+    fi
+    server_pid=$!
+    for _ in $(seq 1 300); do
+      if probe; then ready=1; break; fi
+      kill -0 "$server_pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    [ "$ready" = 1 ] && break
+    # Alive but never ready, or a unix socket: no retry.
+    if kill -0 "$server_pid" 2>/dev/null || [ "$TRANSPORT" = unix ]; then break; fi
+    wait "$server_pid" 2>/dev/null
+    [ "$attempt" -lt 3 ] && echo "  # $schema: the server exited before it was ready (try $attempt); new port"
   done
   if [ "$ready" != 1 ]; then
     echo "not ok - $schema: server never became ready"

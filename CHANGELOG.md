@@ -58,6 +58,12 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- The pair scripts no longer fail when another socket takes the chosen
+  port first ("Address already in use", once in 9 lane runs in M8). A
+  server that exits before it is ready gets a new port, up to 3 tries, and
+  a dead server no longer holds the 30 s wait. `scripts/e2e-pair-retry-test.sh`
+  checks this with fake peers (8 checks; runs first in `just e2e-matrix`
+  and `just e2e-matrix-quic`); three ablations are each caught (M9 G3).
 - `just generate-check` now covers the erased e2e bindings (moved to
   `interop/e2e/gen/erased/`). Nothing checked them before, and
   `game_world.swift` had drifted: the `AreaQuery.filter` setters

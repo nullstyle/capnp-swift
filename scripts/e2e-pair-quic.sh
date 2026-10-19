@@ -42,21 +42,34 @@ with_deadline() {
 total_pass=0; total_fail=0
 for pairing in swift-to-zig zig-to-swift; do
   for schema in "${SCHEMAS[@]}"; do
-    port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
     log=$(mktemp /tmp/capnp-e2e-quic-XXXXXX); mv "$log" "$log.txt"; log="$log.txt"
-    if [ "$pairing" = swift-to-zig ]; then
-      "$ZS" --host 127.0.0.1 --port "$port" --schema "$schema" --transport quic \
-        --cert-pem "$CERT" --key-pem "$KEY" >"$log" 2>&1 &
-      CLIENT_ARGS=(--host 127.0.0.1 --port "$port" --schema "$schema" --transport quic)
-      SERVER="$ZS"; CLIENT="$SBIN/e2e-swift-client"
-    else
-      "$SBIN/e2e-swift-server" --host 127.0.0.1 --port "$port" --schema "$schema" --transport quic >"$log" 2>&1 &
-      CLIENT_ARGS=(--host 127.0.0.1 --port "$port" --schema "$schema" --transport quic --insecure)
-      SERVER="$SBIN/e2e-swift-server"; CLIENT="$ZC"
-    fi
-    spid=$!
+    # The port comes from a socket that is closed again, so another socket
+    # can take it first (as in scripts/e2e-pair.sh): a server that exits
+    # before READY gets a new port, up to 3 tries.
     ready=0
-    for _ in $(seq 1 300); do grep -q READY "$log" 2>/dev/null && { ready=1; break; }; sleep 0.1; done
+    for attempt in 1 2 3; do
+      port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1]); s.close()')
+      if [ "$pairing" = swift-to-zig ]; then
+        "$ZS" --host 127.0.0.1 --port "$port" --schema "$schema" --transport quic \
+          --cert-pem "$CERT" --key-pem "$KEY" >"$log" 2>&1 &
+        CLIENT_ARGS=(--host 127.0.0.1 --port "$port" --schema "$schema" --transport quic)
+        SERVER="$ZS"; CLIENT="$SBIN/e2e-swift-client"
+      else
+        "$SBIN/e2e-swift-server" --host 127.0.0.1 --port "$port" --schema "$schema" --transport quic >"$log" 2>&1 &
+        CLIENT_ARGS=(--host 127.0.0.1 --port "$port" --schema "$schema" --transport quic --insecure)
+        SERVER="$SBIN/e2e-swift-server"; CLIENT="$ZC"
+      fi
+      spid=$!
+      for _ in $(seq 1 300); do
+        grep -q READY "$log" 2>/dev/null && { ready=1; break; }
+        kill -0 "$spid" 2>/dev/null || break
+        sleep 0.1
+      done
+      [ "$ready" = 1 ] && break
+      kill -0 "$spid" 2>/dev/null && break
+      wait "$spid" 2>/dev/null
+      [ "$attempt" -lt 3 ] && echo "  # $schema ($pairing): the server exited before READY (try $attempt); new port"
+    done
     if [ "$ready" != 1 ]; then
       echo "not ok - $schema ($pairing): server never became ready"
       echo "  # server output was:"; sed 's/^/  # /' "$log"
