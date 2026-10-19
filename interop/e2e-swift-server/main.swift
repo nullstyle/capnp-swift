@@ -19,7 +19,7 @@ struct UsageError: Error, CustomStringConvertible {
     let description: String
 }
 
-let schemas = ["game_world", "chat", "inventory", "matchmaking", "resolve_disembargo"]
+let schemas = ["game_world", "chat", "inventory", "matchmaking", "resolve_disembargo", "pass_back", "pipelined_params"]
 
 var host = "0.0.0.0"
 var port: UInt16 = 4700
@@ -55,6 +55,8 @@ case "chat": bootstrap = { ChatService.Export(ChatServiceState()) }
 case "inventory": bootstrap = { InventoryService.Export(InventoryServiceState()) }
 case "matchmaking": bootstrap = { MatchmakingService.Export(MatchmakingServiceState()) }
 case "resolve_disembargo": bootstrap = { Reflector.Export(ReflectorService()) }
+// Both serve the same TokenHost (cap_passing.capnp); the client picks the flow.
+case "pass_back", "pipelined_params": bootstrap = { TokenHost.Export(TokenHostService()) }
 default: fatalError("unreachable")
 }
 
@@ -982,5 +984,120 @@ final class ReflectorService: Reflector.Server, @unchecked Sendable {
         // produces no effects once the transport is closed).
         await connection.close()
         return Reflector.DisconnectNowResults { r in r.unused = 0 }
+    }
+}
+
+// MARK: - pass_back and pipelined_params (cap_passing.capnp)
+//
+// One TokenHost serves both scenarios. The handlers read the raw cap table
+// entry, because that is what the scenarios test:
+//
+// - pass_back: a Token the client passes back arrives as `receiverHosted`,
+//   so the core hands it over as `.exported(id)`, one of our own exports.
+//   check() calls it locally, through its handler. echo() gets a Token the
+//   client hosts (`.imported`) and returns that import, which the core
+//   writes back as `receiverHosted`: the client's own capability.
+// - pipelined_params: the client passes mint()'s `token` before mint()
+//   returns (a `receiverAnswer` descriptor). The native core refuses it
+//   while that answer is pending (native H9, plan §8 M8): check() fails
+//   with `PromisedCapUnsupported` and never runs. A Swift client waits for
+//   mint()'s Return first (the H9 wait), so check() gets `.exported(id)`.
+//
+// `tokenCalls` counts every tag() call that reaches one of our HostTokens,
+// so check() can tell whether its call reached our own object.
+
+enum CapPassing {
+    /// Every TokenHost's mintFail() reason contains "deliberate mint failure".
+    static let mintFailReason = "pipelined_params: deliberate mint failure"
+}
+
+final class HostToken: Token.Server, @unchecked Sendable {
+    let tagValue: UInt32
+    let host: TokenHostService
+
+    init(tag: UInt32, host: TokenHostService) {
+        self.tagValue = tag
+        self.host = host
+    }
+
+    func tag(params: Token.TagParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> Token.TagResults {
+        host.countTokenCall()
+        return Token.TagResults { r in r.tag = tagValue }
+    }
+}
+
+final class TokenHostService: TokenHost.Server, @unchecked Sendable {
+    private let calls = Mutex<UInt64>(0)
+
+    func countTokenCall() { calls.withLock { $0 += 1 } }
+    var tokenCalls: UInt64 { calls.withLock { $0 } }
+
+    func mint(params: TokenHost.MintParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TokenHost.MintResults {
+        let token = HostToken(tag: params.tag, host: self)
+        return TokenHost.MintResults { r in r.setToken(token) }
+    }
+
+    func check(params: TokenHost.CheckParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TokenHost.CheckResults {
+        guard let index = params.tokenCapIndex(), Int(index) < caps.count else {
+            throw RPCError.failed(reason: "check: token is not a capability")
+        }
+        let before = tokenCalls
+        let tag: UInt32
+        let own: Bool
+        switch caps[Int(index)] {
+        case .exported(let id):
+            // One of our exports came back: call it through its handler.
+            guard let handler = await connection.localHandler(forExport: id) else {
+                throw RPCError.failed(reason: "check: export \(id) is gone")
+            }
+            let mb = MessageBuilder()
+            _ = mb.initRoot(dataWords: 0, pointerWords: 0)
+            let call = InboundCall(interfaceID: Token.interfaceID, methodID: Token.Method.tag.rawValue, params: mb.toBytes(), caps: [], connection: connection)
+            let response = try await handler.handle(call, on: connection)
+            tag = try Token.TagResults.Reader(Message(bytes: response.message).rootStruct()).tag
+            own = ((handler as? Token.Export)?.server as? HostToken)?.host === self
+        case .imported(let ref):
+            // A Token the caller hosts.
+            tag = try await Token.Client(cap: ref, connection: connection).tag().tag
+            own = false
+        case .none:
+            throw RPCError.failed(reason: "check: token is null")
+        }
+        // Local: the call ran one of our own HostTokens, and nothing else of ours.
+        let local = own && tokenCalls == before + 1
+        return TokenHost.CheckResults { r in
+            r.tag = tag
+            r.local = local
+        }
+    }
+
+    func echo(params: TokenHost.EchoParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TokenHost.EchoResults {
+        guard let index = params.tokenCapIndex(), Int(index) < caps.count else {
+            throw RPCError.failed(reason: "echo: token is not a capability")
+        }
+        let slot: CapSlot
+        switch caps[Int(index)] {
+        case .imported(let ref):
+            // The caller's own Token: the core writes it as receiverHosted.
+            slot = .imported(ref)
+        case .exported(let id):
+            guard let handler = await connection.localHandler(forExport: id) else {
+                throw RPCError.failed(reason: "echo: export \(id) is gone")
+            }
+            slot = .export(handler)
+        case .none:
+            throw RPCError.failed(reason: "echo: token is null")
+        }
+        // The generated setter can only export a new server. Point the field
+        // at cap 0 with it, then put the received capability in that slot
+        // (the placeholder is never exported).
+        return TokenHost.EchoResults { r in
+            r.setToken(HostToken(tag: 0, host: self))
+            r.caps[0] = slot
+        }
+    }
+
+    func mintFail(params: TokenHost.MintFailParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> TokenHost.MintFailResults {
+        throw RPCError.failed(reason: CapPassing.mintFailReason)
     }
 }

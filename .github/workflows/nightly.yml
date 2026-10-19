@@ -151,7 +151,7 @@ jobs:
         run: |
           git clone --quiet --depth=1 --branch "$CAPNP_ZIG_TAG" \
             https://github.com/nullstyle/capnp-zig.git third_party/capnp-zig
-      - name: C++ reference, both directions (M4; all five schemas since v0.27.0)
+      - name: C++ reference, both directions (M4; seven schemas since M8)
         run: |
           export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
           set -euxo pipefail

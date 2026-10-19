@@ -6,6 +6,20 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- M8 matrix catch-up: the e2e peers run capnp-zig's `pass_back` and
+  `pipelined_params` scenarios (`interop/e2e/schemas/cap_passing.capnp`
+  from v0.27.0; bindings in `interop/e2e/gen/typed/`, checked by `just
+  generate-check`). Both pair scripts and every nightly e2e lane run seven
+  schemas. `pass_back` passes everywhere. `pipelined_params` passes except
+  where native H9 applies: a Zig or C++ client that pipelines a param on a
+  call the Swift server has not answered yet gets `PromisedCapUnsupported`
+  (C++ client: always; Zig client: depends on timing). The Swift client
+  never sends such a param (it waits for the Return), so it passes against
+  every server. `scripts/e2e-known-limits.sh` lists those lines (`xfail`
+  for the C++ client, `mayfail` for the Zig client), with a self-test.
+  `scripts/diagnostics/frameproxy.py` logs each RPC frame between two peers.
+  Evidence, traces and ablations: plan §8 "M8 status". Handoff:
+  `docs/handoffs/H9-pending-answer-params.md`.
 - RPC Workbench: native Mac/iPhone apps with a shared, separately generated
   consumer package for typed calls, capability pipelines/callbacks, streaming,
   cancellation and reconnect over TCP and pinned sample TLS. Mac and simulator
@@ -35,6 +49,9 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- `scripts/e2e-pair.sh --transport=tcp` (the usage line's own form) read
+  the flag as the server binary and waited 30 s per schema. It now selects
+  TCP; an unknown `--transport=` value exits 2.
 - Tail calls from the C++ reference now work: the core pins capnp-zig
   v0.27.0, whose native shim follows a `takeFromOtherQuestion` Return to
   an inbound call this side has not answered yet. C++ server / Swift client

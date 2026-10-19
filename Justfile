@@ -144,6 +144,7 @@ generate: driver-build
     swift package --allow-writing-to-package-directory capnp-generate --output-dir generated/conformance --include Tests/capnp_testdata Tests/capnp_testdata/test.capnp
     swift package --allow-writing-to-package-directory capnp-generate --output-dir interop/importtest/lib-gen --include tools/capnpc-swift interop/importtest/lib.capnp
     swift package --allow-writing-to-package-directory capnp-generate --output-dir interop/importtest/app-gen --include tools/capnpc-swift interop/importtest/app.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --typed --output-dir interop/e2e/gen/typed interop/e2e/schemas/cap_passing.capnp
 
 # CI: the committed code must match the schemas (diff only, exit 1 on drift).
 # --check writes nothing, but the plugin's declared permission still needs
@@ -153,6 +154,7 @@ generate-check: driver-build
     swift package --allow-writing-to-package-directory capnp-generate --check --output-dir generated/conformance --include Tests/capnp_testdata Tests/capnp_testdata/test.capnp
     swift package --allow-writing-to-package-directory capnp-generate --check --output-dir interop/importtest/lib-gen --include tools/capnpc-swift interop/importtest/lib.capnp
     swift package --allow-writing-to-package-directory capnp-generate --check --output-dir interop/importtest/app-gen --include tools/capnpc-swift interop/importtest/app.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --check --typed --output-dir interop/e2e/gen/typed interop/e2e/schemas/cap_passing.capnp
 
 # Assemble dist/capnpc-swift.artifactbundle (D6 option A): the universal
 # driver (WasmKit inside), the universal native plugin, capnp.wasm and the
@@ -177,8 +179,12 @@ e2e-swift-peers: xcframework
     swift build --product e2e-swift-server
     swift build --product e2e-swift-client
 
+# The scoring of known limits (scripts/e2e-known-limits.sh), on fake TAP.
+e2e-known-limits-test:
+    scripts/e2e-known-limits-test.sh
+
 # The matrix: every schema, both Zig pairings (the M4 gate) and the extras.
-e2e-matrix: e2e-zig-peers e2e-swift-peers
+e2e-matrix: e2e-known-limits-test e2e-zig-peers e2e-swift-peers
     #!/usr/bin/env bash
     set -euo pipefail
     SWIFT_SERVER="$(swift build --product e2e-swift-server --show-bin-path)/e2e-swift-server"
@@ -186,13 +192,13 @@ e2e-matrix: e2e-zig-peers e2e-swift-peers
     scripts/e2e-pair.sh third_party/capnp-zig/zig-out/bin/e2e-zig-server "$SWIFT_CLIENT"
     scripts/e2e-pair.sh "$SWIFT_SERVER" third_party/capnp-zig/zig-out/bin/e2e-zig-client
 
-# The H11 5-schema QUIC matrix (both cross pairings), against the
-# capnp-zig checkout third_party/ holds. The pinned tag (v0.27.0) ships
+# The H11 QUIC matrix (seven schemas since M8; both cross pairings), against
+# the capnp-zig checkout third_party/ holds. The pinned tag (v0.27.0) ships
 # --transport quic, so a checkout without it fails instead of skipping.
 e2e-zig-peers-quic:
     cd third_party/capnp-zig && mise x zig -- zig build e2e-zig-server-install e2e-zig-client-install -Dquic=true
 
-e2e-matrix-quic: e2e-zig-peers-quic e2e-swift-peers
+e2e-matrix-quic: e2e-known-limits-test e2e-zig-peers-quic e2e-swift-peers
     #!/usr/bin/env bash
     set -euo pipefail
     if ! third_party/capnp-zig/zig-out/bin/e2e-zig-server --help 2>&1 | grep -q -- "--transport quic"; then
