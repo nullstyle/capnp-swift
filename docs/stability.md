@@ -6,6 +6,11 @@ bumps the minor, not the patch).
 
 ## Stable
 
+CI enforces the Swift part of this list: `scripts/check-api-breakage.sh`
+fails on a breaking change to `Capnp`, `CapnpRPC` or `CapnpNW` since the
+last release. A change to Experimental API there is allowed only by its
+exact message in `scripts/api-breakage-allowlist.txt`.
+
 - **The wire protocol.** Standard Cap'n Proto RPC (two-party vat
   protocol) on every transport. The TCP/Unix framing is the standalone
   segment table; the QUIC baseline framing is frozen (ALPN

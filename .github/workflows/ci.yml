@@ -104,6 +104,8 @@ jobs:
           swift build
           swift test
           swift build -c release
+          # The Stable Swift API: no breaking change since the last release.
+          scripts/check-api-breakage.sh
           just mvp-e2e
           # Verify the real consumer and its native Mac target as well.
           just workbench-check

@@ -131,6 +131,11 @@ When the core version changes, update together in one commit:
 Each release pins exactly one capnp-zig tag; the pin and its hash are
 visible in that same string.
 
+The release commit's URL/checksum flip also moves the Stable API gate's
+baseline (`scripts/check-api-breakage.sh` compares against the release
+that the committed `Package.swift` downloads). Clear
+`scripts/api-breakage-allowlist.txt` in that commit.
+
 For 0.1.1, the package tag advances while the core version stays 0.1.0;
 the staged binary reports the new capnp-zig v0.23.0 pin. The former local
 `core/src/abi.zig` moved upstream in H7 and is not a release-edit target.
