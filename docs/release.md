@@ -4,15 +4,16 @@ Every step runs from a clean working tree on the release commit. Steps 5
 and 6 need the owner; nothing is tagged or uploaded before the owner
 says so.
 
-## Current release and candidate (2026-10-18)
+## Current release (2026-10-18)
 
-Release [0.1.1](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.1)
-was published on 2026-10-10 at `808a90440c4560e7f3a705170b66b3ac969388a6`.
-Its tag and assets are immutable. 0.1.2 is the proposed next version,
-pending owner approval of the tag and the uploads. On 2026-10-18 the owner
-chose to ship it with the capnp-zig v0.27.0 core, so 0.1.2 needs a new
-core asset. See the [current readiness sheet](release-readiness-2026-10-18.md)
-for the staged assets, checksums and evidence. The
+Release [0.1.2](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.2)
+was published on 2026-10-18 at `69e392e342fd4fa9ed741c68327fc31c5148e632`,
+with the capnp-zig v0.27.0 core. Release
+[0.1.1](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.1) was
+published on 2026-10-10 at `808a90440c4560e7f3a705170b66b3ac969388a6`.
+Both tags and their assets are immutable. See the
+[0.1.2 sheet](release-readiness-2026-10-18.md) for the assets, checksums,
+evidence and the post-publish smoke. The
 [2026-10-13 sheet](release-readiness-2026-10-13.md) and the
 [2026-10-12 sheet](release-readiness-2026-10-12.md) keep the earlier
 snapshots. Confirm the signing policy before any tag or asset upload.

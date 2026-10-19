@@ -16,6 +16,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Documentation
 
+- Release 0.1.2 published (2026-10-18) at `69e392e` with both assets,
+  unsigned. Both downloads match their SHA-256. A fresh consumer resolved
+  the tag, fetched the URL core, built for macOS and iOS, and completed a
+  TCP bootstrap against the zig-peer.
 - New 0.1.2 proposal (`docs/release-readiness-2026-10-18.md`): the owner
   chose to ship 0.1.2 with the capnp-zig v0.27.0 core. A new core asset
   is staged (SHA-256 `203fbdd4…fbd98b`, built from `79e733e`); the codegen
@@ -40,6 +44,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- The workbench archive gate reads the released core URL and checksum from
+  the archived `Package.swift`. It hard-coded the 0.1.1 asset, so the
+  0.1.2 release commit failed it (CI 39195835543); three ablations
+  (another checksum, another host, the path form) each fail by name.
 - Tail calls from the C++ reference now work: the core pins capnp-zig
   v0.27.0, whose native shim follows a `takeFromOtherQuestion` Return to
   an inbound call this side has not answered yet. C++ server / Swift client

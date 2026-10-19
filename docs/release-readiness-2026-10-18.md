@@ -1,4 +1,15 @@
-# Next release proposal — 2026-10-18
+# Release 0.1.2 — proposal and publication, 2026-10-18
+
+> **Published 2026-10-18** as [0.1.2](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.2)
+> at `69e392e342fd4fa9ed741c68327fc31c5148e632` (owner approved: tag and
+> both assets, unsigned). Both downloaded assets match the SHA-256 values
+> below. Post-publish smoke: a fresh consumer with an isolated SwiftPM
+> cache resolved tag 0.1.2 at `69e392e`, downloaded the release core by
+> URL and checksum, built for macOS, iOS device (unsigned) and iOS
+> simulator, printed `core 0.1.0 / capnp-zig 0.27.0 / capnpc_zig-0.27.0-nUduFW1…`,
+> and completed a TCP bootstrap and close against the v0.21.0 zig-peer.
+> The downloaded codegen bundle passes `scripts/check-codegen-bundle.sh`.
+> Release-commit CI: [39195835543](https://github.com/nullstyle/capnp-swift/actions/runs/39195835543): core, sanitizers and ios passed; swift passed its 73 tests and the workbench check, then failed the workbench archive gate, which hard-coded the 0.1.1 core URL. The gate now reads the released core from the archived `Package.swift` (`67eb725`, on main after the tag); [CI 39197265828](https://github.com/nullstyle/capnp-swift/actions/runs/39197265828) passed all four lanes, incl. the archive gate on the 0.1.2 core. The text below is the proposal as approved.
 
 **Proposed version: 0.1.2, pending owner approval of the tag and the
 uploads.** On 2026-10-18 the owner chose to fold the capnp-zig v0.27.0 core
