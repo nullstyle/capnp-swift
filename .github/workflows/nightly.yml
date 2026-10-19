@@ -297,8 +297,13 @@ jobs:
             '-skip-testing:CapnpRPCTests/TCPTests' \
             '-skip-testing:CapnpRPCTests/M5Tests' \
             '-skip-testing:CapnpRPCTests/QUICTests' \
+            '-skip-testing:CapnpRPCTests/QUICOrderTests' \
             '-skip-testing:CapnpRPCTests/ExecutorProbeTests' \
             '-skip-testing:CapnpRPCTests/LoopbackTests/manyConnections()' 2>&1 | tee "$LOG_DIR/runtime.log"
+          # The QUIC E-order load (4 x 1000 calls) runs alone: next to the 16
+          # parallel round trips it starved one past its 10 s limit.
+          xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
+            '-only-testing:CapnpRPCTests/QUICOrderTests' 2>&1 | tee "$LOG_DIR/quic-order.log"
           xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
             '-only-testing:CapnpConformanceTests' 2>&1 | tee "$LOG_DIR/conformance.log"
           xcodebuild test-without-building -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" \
@@ -307,9 +312,11 @@ jobs:
           # including the expensive pure RPC, reader benchmark and fuzz cases.
           if [[ "$CAPNP_IOS_NETWORK_LAYOUT" == separate ]]; then
             python3 scripts/check-ios-simulator-logs.py "${NETWORK_LOGS[@]}" --quic "${QUIC_LOGS[@]}" \
-              --runtime "$LOG_DIR/runtime.log" --conformance "$LOG_DIR/conformance.log" --stress "$LOG_DIR/stress.log"
+              --runtime "$LOG_DIR/runtime.log" --conformance "$LOG_DIR/conformance.log" --stress "$LOG_DIR/stress.log" \
+              --quic-order "$LOG_DIR/quic-order.log"
           else
             python3 scripts/check-ios-simulator-logs.py "${NETWORK_LOGS[@]}" \
-              --runtime "$LOG_DIR/runtime.log" --conformance "$LOG_DIR/conformance.log" --stress "$LOG_DIR/stress.log"
+              --runtime "$LOG_DIR/runtime.log" --conformance "$LOG_DIR/conformance.log" --stress "$LOG_DIR/stress.log" \
+              --quic-order "$LOG_DIR/quic-order.log"
           fi
 

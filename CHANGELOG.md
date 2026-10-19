@@ -51,7 +51,11 @@ All notable changes to capnp-swift are recorded here.
   capability over QUIC, saw calls start out of E-order in 2 of 3 runs; with
   one ordered writer per stream it passes 10 of 10. Closing now sends the
   queued frames, then the FIN, then cancels the receive. This matters more
-  since capnp-zig v0.27.0 ends the session at the FIN.
+  since capnp-zig v0.27.0 ends the session at the FIN. The test runs in its
+  own serialized suite (`QUIC order`) and, in the nightly, in its own
+  simulator process: next to the 16 parallel QUIC round trips its load
+  starved one round trip past its 10 s limit (nightly 39189320930). On the
+  old transport the serialized test still fails in at least 3 of 5 runs.
 - The e2e Swift server's `resolveNow` could run before `reflect` had
   stored its promise, because both handlers run off the connection actor.
   It then resolved nothing, and the C++ client's parked call never

@@ -48,10 +48,24 @@ struct QUICTests {
         try await Task.sleep(for: .seconds(1))
     }
 
+    @Test("the core reads the frozen ALPN and the framing option maps")
+    func constants() throws {
+        #expect(capnpQUICALPN == "capnp-rpc/1")
+        #expect(QUICCloseCode.protocolError == 0x434e_5002)
+        #expect(QUICCloseCode.normal == 0)
+    }
+}
+
+// A heavy workload apart from the QUIC suite: 4 x 1000 calls in parallel
+// with the 16 parallel round trips starved one round trip past its 10 s
+// limit on the hosted iOS simulator (nightly 39189320930). Serialized, and
+// the nightly runs this suite in its own simulator process.
+@Suite("QUIC order", .serialized)
+struct QUICOrderTests {
     @Test("E-order over QUIC: 1000 calls on one capability start in send order", arguments: 0..<4)
     @available(macOS 26.0, iOS 26.0, *)
     func eOrder(_ iteration: Int) async throws {
-        let (identity, cert) = try Self.fixtures()
+        let (identity, cert) = try QUICTests.fixtures()
         let counter = Counter.Export()
         let listener = QUICListener(port: 0, identity: identity, bootstrap: { counter })
         let port = try await withTimeout(.seconds(10)) { try await listener.start() }
@@ -77,12 +91,5 @@ struct QUICTests {
         _ = await client.waitClosed()
         listener.cancel()
         try await Task.sleep(for: .seconds(1))
-    }
-
-    @Test("the core reads the frozen ALPN and the framing option maps")
-    func constants() throws {
-        #expect(capnpQUICALPN == "capnp-rpc/1")
-        #expect(QUICCloseCode.protocolError == 0x434e_5002)
-        #expect(QUICCloseCode.normal == 0)
     }
 }
