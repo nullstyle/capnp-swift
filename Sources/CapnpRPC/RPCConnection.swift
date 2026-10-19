@@ -332,9 +332,23 @@ public actor RPCConnection: TransportDelegate {
     // MARK: Server side
 
     /// The handler behind one of this connection's exports (a cap table entry
-    /// `.exported(id)`: a capability of ours came back to us). Nil once the
-    /// remote released it.
+    /// `.exported(id)`: a capability of ours came back to us).
+    ///
+    /// Inside a handler, an id from the current call's cap table resolves to
+    /// the handler captured when the call arrived, also after the remote
+    /// released the export (generated servers get only the cap table).
+    /// Elsewhere it is nil once the remote released the export: for the
+    /// entries of a result, use `CallResult.localHandler(forExport:)`.
     public func localHandler(forExport id: UInt32) -> (any ExportHandler)? {
+        if let call = InboundCallContext.current, call.connection == ObjectIdentifier(self),
+           let handler = call.handlers[id] {
+            return handler
+        }
+        return liveHandler(forExport: id)
+    }
+
+    /// The handler of a live export (or a pointer alias): the table only.
+    func liveHandler(forExport id: UInt32) -> (any ExportHandler)? {
         exports.values.first { $0.id == id }?.handler ?? pointerLocalHandlers[id]
     }
 
@@ -344,7 +358,7 @@ public actor RPCConnection: TransportDelegate {
 
     func pointerRegisterLocal(_ handler: any ExportHandler) throws -> UInt32 {
         var id = UInt32.max
-        while localHandler(forExport: id) != nil {
+        while liveHandler(forExport: id) != nil {
             guard id > 0 else { throw RPCError.overloaded(reason: "local pointer capability aliases exhausted") }
             id -= 1
         }
@@ -357,13 +371,15 @@ public actor RPCConnection: TransportDelegate {
     }
 
     var pointerLocalAliasCount: Int { pointerLocalHandlers.count }
+    /// Test hook: whether export `id` is still live (EXPORT_DROPPED not seen).
+    func pointerHasLiveExport(_ id: UInt32) -> Bool { exports.values.contains { $0.id == id } }
     var pointerCloseWaiterCount: Int { closeWaiters.count }
     var pointerCallTimeoutMilliseconds: UInt32 { options.callTimeout.map { UInt32(clamping: Self.milliseconds($0)) } ?? 0 }
 
     func pointerLocalSnapshot(_ caps: [CapTableEntry]) -> [UInt32: any ExportHandler] {
         var handlers: [UInt32: any ExportHandler] = [:]
         for cap in caps {
-            if case .exported(let id) = cap, let handler = localHandler(forExport: id) { handlers[id] = handler }
+            if case .exported(let id) = cap, let handler = liveHandler(forExport: id) { handlers[id] = handler }
         }
         return handlers
     }
@@ -758,13 +774,18 @@ public actor RPCConnection: TransportDelegate {
         inboundBytes += params.count
         applyInboundBackpressure()
         let handler = export.handler
+        let context = InboundCallContext.Snapshot(connection: ObjectIdentifier(self), handlers: call.pointerLocalHandlers)
         // The Task inherits this actor: it starts on the queue in creation
         // order and runs the handler until its first suspension (E-order),
-        // and `complete` is a direct call.
+        // and `complete` is a direct call. The task-local context lets
+        // `localHandler(forExport:)` find this call's own exports after the
+        // remote released them.
         Task {
             let outcome: Result<CallResponse, any Error>
             do {
-                outcome = .success(try await handler.handle(call, on: self))
+                outcome = .success(try await InboundCallContext.$current.withValue(context) {
+                    try await handler.handle(call, on: self)
+                })
             } catch {
                 outcome = .failure(error)
             }
@@ -980,4 +1001,16 @@ public actor RPCConnection: TransportDelegate {
             String(decoding: UnsafeBufferPointer(start: $0, count: len), as: UTF8.self)
         }
     }
+}
+
+/// The own exports of the inbound call that a handler task serves, captured
+/// when the call arrived (M9 G1). Only `RPCConnection.localHandler(forExport:)`
+/// reads it, and only for the connection the call arrived on.
+enum InboundCallContext {
+    struct Snapshot: Sendable {
+        let connection: ObjectIdentifier
+        let handlers: [UInt32: any ExportHandler]
+    }
+
+    @TaskLocal static var current: Snapshot?
 }

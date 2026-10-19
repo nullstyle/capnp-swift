@@ -131,7 +131,7 @@ extension RPCConnection {
                 guard cap.owner == ObjectIdentifier(self) else { throw RPCError.foreignCapability }
                 storage = RPCPointerStorage(connection: self, slot: .imported(cap))
             case .exported(let id):
-                guard let handler = localHandlers[id] ?? localHandler(forExport: id) else {
+                guard let handler = localHandlers[id] ?? liveHandler(forExport: id) else {
                     throw RPCError.unimplemented(reason: "unknown local pointer capability")
                 }
                 storage = RPCPointerStorage(connection: self, slot: .export(handler), local: handler)

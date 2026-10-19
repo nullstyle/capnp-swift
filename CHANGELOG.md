@@ -58,6 +58,16 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- A capability of ours that comes back (`CapTableEntry.exported`) stays
+  callable after the remote releases it. Before, `EXPORT_DROPPED` removed
+  the handler at once, so `RPCConnection.localHandler(forExport:)` returned
+  nil, often in the same read as the RETURN or the call. New:
+  `CallResult.localHandler(forExport:)` and
+  `InboundCall.localHandler(forExport:)` return the handler captured when
+  the event arrived. Inside a handler, `localHandler(forExport:)` also
+  resolves the current call's own exports, so generated (legacy) servers
+  are fixed without new generated code. Two new tests (three cases) failed
+  before the fix; four ablations are each caught (M9 G1).
 - The workbench archive gate reads the released core URL and checksum from
   the archived `Package.swift`. It hard-coded the 0.1.1 asset, so the
   0.1.2 release commit failed it (CI 39195835543); three ablations

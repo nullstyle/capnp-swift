@@ -201,6 +201,13 @@ public struct InboundCall: Sendable {
         self.connection = connection
         self.pointerLocalHandlers = pointerLocalHandlers
     }
+
+    /// The handler of an entry `.exported(id)` in `caps` (a capability of
+    /// ours came back), captured when the call arrived. It stays valid after
+    /// the remote releases the export. Nil for an id this call does not carry.
+    public func localHandler(forExport id: UInt32) -> (any ExportHandler)? {
+        pointerLocalHandlers[id]
+    }
 }
 
 /// What a handler answers with.
@@ -230,6 +237,14 @@ public struct CallResult: Sendable {
         self.caps = caps
         self.pointerLocalHandlers = pointerLocalHandlers
         self.pointerOwner = pointerOwner
+    }
+
+    /// The handler of an entry `.exported(id)` in `caps` (a capability of
+    /// ours came back), captured when the RETURN arrived. It stays valid
+    /// after the remote releases the export. Nil for an id this result does
+    /// not carry.
+    public func localHandler(forExport id: UInt32) -> (any ExportHandler)? {
+        pointerLocalHandlers[id]
     }
 }
 

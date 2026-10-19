@@ -413,11 +413,12 @@ func passBack(_ connection: RPCConnection) async throws {
     }
     tap(cameHome, "echo returns the client's own Token")
 
-    // echo(), typed API, to call the Token that came home. The legacy API
-    // cannot: its reader returns no Client for one of our exports, and the
-    // server's Release of echo()'s param can drop the export before this
-    // task runs (`localHandler(forExport:)` is then nil; it was in testing).
-    // The typed reader keeps the handler it captured with the RETURN.
+    // echo(), typed API, to call the Token that came home. The legacy
+    // reader returns no Client for one of our exports, and the server's
+    // Release of echo()'s param can drop the export before this task runs,
+    // so `connection.localHandler(forExport:)` can be nil here. A legacy
+    // caller uses `CallResult.localHandler(forExport:)` (since M9) instead;
+    // the typed reader keeps the handler it captured with the RETURN.
     let own = ClientToken(tag: 900)
     let typedHost = try TokenHost.Typed.Client(cap: hostCap, connection: connection)
     let ownClient = Token.Typed.Client(server: own, connection: connection)
