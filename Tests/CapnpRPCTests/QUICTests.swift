@@ -48,6 +48,37 @@ struct QUICTests {
         try await Task.sleep(for: .seconds(1))
     }
 
+    @Test("E-order over QUIC: 1000 calls on one capability start in send order", arguments: 0..<4)
+    @available(macOS 26.0, iOS 26.0, *)
+    func eOrder(_ iteration: Int) async throws {
+        let (identity, cert) = try Self.fixtures()
+        let counter = Counter.Export()
+        let listener = QUICListener(port: 0, identity: identity, bootstrap: { counter })
+        let port = try await withTimeout(.seconds(10)) { try await listener.start() }
+
+        var clientOptions = RPCConnection.Options()
+        clientOptions.framing = .u32LE
+        let client = try await RPCConnection.connect(
+            transport: QUICTransport(host: "127.0.0.1", port: port, trust: .testOnlyTrustThisCertificate(cert), connectTimeout: .seconds(10)),
+            options: clientOptions)
+        let hits = Counter.Client(cap: try await client.bootstrap(), connection: client)
+        var promises: [RemotePromise] = []
+        for seq in 0..<1000 {
+            promises.append(try await hits.hit(UInt64(seq)))
+        }
+        let sent = promises
+        try await withTimeout(.seconds(30)) {
+            for promise in sent { _ = try await promise.result() }
+        }
+        let order = counter.order.withLock { $0 }
+        #expect(order.count == 1000)
+        #expect(order == order.sorted())
+        await client.close()
+        _ = await client.waitClosed()
+        listener.cancel()
+        try await Task.sleep(for: .seconds(1))
+    }
+
     @Test("the core reads the frozen ALPN and the framing option maps")
     func constants() throws {
         #expect(capnpQUICALPN == "capnp-rpc/1")

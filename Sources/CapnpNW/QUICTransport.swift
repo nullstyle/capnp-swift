@@ -50,6 +50,72 @@ public let capnpQUICALPN: String = {
     return String(cString: cString)
 }()
 
+/// Writes stream-0 frames in order, and the FIN after the last of them.
+///
+/// One task awaits each send before it starts the next. A `Task` per send
+/// (the earlier shape) let two sends, or a send and the FIN, reach the
+/// stream in either order: calls on one capability lost E-order (the QUIC
+/// E-order test failed 2 runs in 3), and a FIN could overtake the last
+/// frames. capnp-zig >= 0.27.0 ends the session at the FIN.
+@available(macOS 26.0, iOS 26.0, *)
+private final class QUICStreamWriter: Sendable {
+    private enum Op: Sendable {
+        case frame(Data, @Sendable ((any Error)?) -> Void)
+        case fin(@Sendable () -> Void)
+    }
+
+    private let ops: AsyncStream<Op>.Continuation
+
+    init(stream: QUIC.Stream<QUICStream>) {
+        let (pending, ops) = AsyncStream<Op>.makeStream()
+        self.ops = ops
+        Task {
+            var failed = false
+            for await op in pending {
+                switch op {
+                case .frame(let data, let done):
+                    // After a failed send, report the rest as done unsent:
+                    // the transport is closing, and the RPC layer still
+                    // counts every completion.
+                    guard !failed else { done(nil); continue }
+                    do {
+                        try await stream.send(data)
+                        done(nil)
+                    } catch {
+                        failed = true
+                        done(error)
+                    }
+                case .fin(let then):
+                    if !failed {
+                        try? await stream.send(Data(), endOfStream: true)
+                        qtrace("stream 0 FIN sent")
+                    }
+                    then()
+                }
+            }
+        }
+    }
+
+    /// Queue one frame. `done` runs once, after the send or with its error.
+    func send(_ bytes: [UInt8], done: @escaping @Sendable ((any Error)?) -> Void) {
+        ops.yield(.frame(Data(bytes), done))
+    }
+
+    /// Queue the FIN after every frame queued so far, then accept no more.
+    /// `then` runs after the FIN (at once after a failed send). The writer
+    /// task keeps the stream alive until then.
+    func finish(then: @escaping @Sendable () -> Void = {}) {
+        ops.yield(.fin(then))
+        ops.finish()
+    }
+
+    /// A dropped writer ends its task (after the queued work), so the task
+    /// never holds the stream after its transport is gone.
+    deinit {
+        ops.finish()
+    }
+}
+
 @available(macOS 26.0, iOS 26.0, *)
 public final class QUICTransport: Transport, @unchecked Sendable {
     private let host: String
@@ -59,6 +125,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     private let idleTimeout: Duration
     private var connection: NetworkConnection<QUIC>?
     private var stream: QUIC.Stream<QUICStream>?
+    private var writer: QUICStreamWriter?
     private var queue: DispatchSerialQueue?
     private var delegate: (any TransportDelegate)?
     private var ready = false
@@ -154,6 +221,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
     private func streamReady(_ stream: QUIC.Stream<QUICStream>) {
         guard !closed else { return }
         self.stream = stream
+        writer = QUICStreamWriter(stream: stream)
         finishOpeningIfReady()
     }
 
@@ -197,6 +265,9 @@ public final class QUICTransport: Transport, @unchecked Sendable {
         guard !closed else { return }
         closed = true
         cancelTimeout()
+        // cancel() is a no-op from here on, so end the writer here.
+        writer?.finish()
+        writer = nil
         if let opening {
             self.opening = nil
             opening.resume(throwing: error)
@@ -206,7 +277,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
 
     public func send(_ bytes: [UInt8], completion: @escaping @Sendable () -> Void) {
         qtrace("client send(\(bytes.count)) ready=\(ready) stream=\(stream != nil) paused=\(paused)")
-        guard ready, !closed, let stream else {
+        guard ready, !closed, let writer, let queue else {
             completion()
             return
         }
@@ -214,16 +285,15 @@ public final class QUICTransport: Transport, @unchecked Sendable {
             buffered.append((bytes, completion))
             return
         }
-        Task { [weak self] in
-            guard let self else { return completion() }
-            do {
-                try await stream.send(Data(bytes))
-                qtrace("client sent \(bytes.count)")
-                self.queue?.async { completion() }
-            } catch {
-                self.queue?.async {
-                    completion()
-                    self.fail(TCPTransport.ConnectError.failed("\(error)"))
+        let count = bytes.count
+        writer.send(bytes) { [weak self] error in
+            let transport = self
+            queue.async {
+                completion()
+                if let error {
+                    transport?.fail(TCPTransport.ConnectError.failed("\(error)"))
+                } else {
+                    qtrace("client sent \(count)")
                 }
             }
         }
@@ -277,21 +347,21 @@ public final class QUICTransport: Transport, @unchecked Sendable {
         closed = true
         cancelTimeout()
         // The modern channels expose no public cancel(); the close is real
-        // anyway: FIN on stream 0 (the baseline's RPC stream) tells the
-        // peer the session is over, the pending receive is cancelled so it
-        // stops holding the stream alive, and dropping our references lets
-        // the channel deinit tear the QUIC connection down.
-        let stream = self.stream
+        // anyway: the frames already queued go out, then the FIN on stream 0
+        // (the baseline's RPC stream) tells the peer the session is over
+        // (capnp-zig >= 0.27.0 ends it there). Then the pending receive is
+        // cancelled so it stops holding the stream alive, and dropping our
+        // references lets the channel deinit tear the QUIC connection down.
+        let writer = self.writer
         let receiveTask = self.receiveTask
         if let queue {
             queue.async { [weak self] in
-                if let stream {
-                    Task {
-                        try? await stream.send(Data(), endOfStream: true)
-                        qtrace("client cancel(): FIN sent on stream 0")
-                    }
+                if let writer {
+                    writer.finish { receiveTask?.cancel() }
+                } else {
+                    receiveTask?.cancel()
                 }
-                receiveTask?.cancel()
+                self?.writer = nil
                 self?.connection = nil
                 self?.stream = nil
                 self?.delegate?.transportDidClose(error: nil)
@@ -386,6 +456,7 @@ public final class QUICTransport: Transport, @unchecked Sendable {
 @available(macOS 26.0, iOS 26.0, *)
 final class QUICStreamTransport: Transport, @unchecked Sendable {
     private let stream: QUIC.Stream<QUICStream>
+    private let writer: QUICStreamWriter
     private var queue: DispatchSerialQueue?
     private var delegate: (any TransportDelegate)?
     private var closed = false
@@ -396,6 +467,7 @@ final class QUICStreamTransport: Transport, @unchecked Sendable {
 
     init(stream: QUIC.Stream<QUICStream>) {
         self.stream = stream
+        writer = QUICStreamWriter(stream: stream)
     }
 
     func start(queue: DispatchSerialQueue, delegate: any TransportDelegate) {
@@ -415,16 +487,15 @@ final class QUICStreamTransport: Transport, @unchecked Sendable {
             buffered.append((bytes, completion))
             return
         }
-        Task { [weak self] in
-            guard let self else { return completion() }
-            do {
-                try await stream.send(Data(bytes))
-                self.queue?.async { completion() }
-            } catch {
-                self.queue?.async {
-                    completion()
-                    self.close(with: error)
-                }
+        guard let queue else {
+            completion()
+            return
+        }
+        writer.send(bytes) { [weak self] error in
+            let transport = self
+            queue.async {
+                completion()
+                if let error { transport?.close(with: error) }
             }
         }
     }
@@ -476,19 +547,19 @@ final class QUICStreamTransport: Transport, @unchecked Sendable {
     private func close(with error: (any Error)?) {
         guard !closed else { return }
         closed = true
-        // FIN the stream: without it the peer sits on an open stream until
-        // its idle timeout, and the caller's open questions end as
-        // deadlines instead of disconnects (found by the zig e2e client's
-        // disconnectNow check over QUIC, 2026-10-08).
-        // Cancel the pending receive too: the suspended receive holds the
-        // stream, the stream holds its parent connection, and a live
-        // connection never sends the close the peer needs (the zig e2e
-        // client's disconnectNow ends as CallTimedOut instead; 2026-10-08).
-        receiveTask?.cancel()
-        Task { [stream] in
-            try? await stream.send(Data(), endOfStream: true)
-            qtrace("server stream FIN sent")
-        }
+        // End stream 0 two ways, after the frames already queued. The
+        // modern API has no connection close, so the stream end is the only
+        // session-end signal the peer gets. capnp-zig >= 0.27.0 ends the RPC
+        // session on either one: the FIN closes it with cause peer_close,
+        // and cancelling the pending receive ends it too (observed;
+        // capnp-zig closes on a reset or a stop of stream 0 with
+        // transport_error). With neither, the caller's open questions end as
+        // deadlines, not disconnects (the zig e2e client's disconnectNow
+        // check, H11 check 9: CallTimedOut after 30 s; each signal alone
+        // passes, 2026-10-18). Close only at the session end: the FIN must
+        // never go out while this side still expects replies.
+        let receiveTask = self.receiveTask
+        writer.finish { receiveTask?.cancel() }
         // Deferred for the same reason as QUICTransport.cancel().
         let nsError = error.map { $0 as NSError }
         if let queue {
