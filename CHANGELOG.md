@@ -94,7 +94,10 @@ All notable changes to capnp-swift are recorded here.
   change since), and the interop Zig peer stays on v0.21.0 on purpose.
   `Package.swift` still names the released 0.1.1 core. The nightly C++
   lane now runs all five schemas, and `just e2e-matrix-quic` fails instead
-  of skipping when the Zig drivers have no `--transport quic`.
+  of skipping when the Zig drivers have no `--transport quic`. Its pair
+  script now uses the same deadline fallback as `scripts/e2e-pair.sh`:
+  hosted macOS runners have no `timeout`, so every pairing exited 127 in
+  the first nightly that ran it (39189320930).
 - A manual Network diagnostic pins Xcode 26.6 and repeats QUIC-only, mixed
   networking and full test selections without rebuilding each process. It
   distinguishes the exact initialization trap from unrelated failures and

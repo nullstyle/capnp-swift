@@ -16,6 +16,27 @@ SCHEMAS=("$@")
 CERT=Tests/fixtures/tls/test-cert.pem
 KEY=Tests/fixtures/tls/test-key.pem
 
+# The same deadline helper as scripts/e2e-pair.sh: hosted macOS runners
+# have no `timeout` (nightly 39189320930: every pairing exited 127).
+# Run CMD under an absolute deadline; exit 124 when it expires. macOS has
+# no `timeout` (CI runners neither), so fall back to background + poll.
+with_deadline() {
+  local secs=$1; shift
+  if command -v timeout >/dev/null 2>&1; then timeout "$secs" "$@"; return $?; fi
+  if command -v gtimeout >/dev/null 2>&1; then gtimeout "$secs" "$@"; return $?; fi
+  "$@" &
+  local pid=$!
+  local waited=0
+  while kill -0 "$pid" 2>/dev/null && [ "$waited" -lt "$secs" ]; do
+    sleep 1; waited=$((waited + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
+    return 124
+  fi
+  wait "$pid"
+}
+
 total_pass=0; total_fail=0
 for pairing in swift-to-zig zig-to-swift; do
   for schema in "${SCHEMAS[@]}"; do
@@ -39,7 +60,7 @@ for pairing in swift-to-zig zig-to-swift; do
       echo "  # server output was:"; sed 's/^/  # /' "$log"
       total_fail=$((total_fail+1)); kill $spid 2>/dev/null; wait $spid 2>/dev/null; rm -f "$log"; continue
     fi
-    out=$( { timeout 60 "$CLIENT" "${CLIENT_ARGS[@]}" 2>&1; echo "EXIT=$?"; } )
+    out=$( { with_deadline 60 "$CLIENT" "${CLIENT_ARGS[@]}" 2>&1; echo "EXIT=$?"; } )
     ok=$(printf '%s' "$out" | grep -c "^ok "); nok=$(printf '%s' "$out" | grep -c "^not ok")
     ex=$(printf '%s' "$out" | grep -o "EXIT=[0-9]*" | tail -1)
     if [ "$nok" -eq 0 ] && [ "$ex" = "EXIT=0" ] && [ "$ok" -gt 0 ]; then
