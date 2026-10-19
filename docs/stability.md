@@ -69,6 +69,12 @@ native mode, Mac Catalyst / visionOS slices.
 
 ## Notes
 
+- **Toolchain and platform floor**: Swift 6.3 or later (the codegen
+  plugin's WasmKit dependency declares tools version 6.3; Swift 6.2 cannot
+  resolve the package). The iOS 18 floor runs in the manual `floor`
+  workflow (iOS 18.6 simulator; first pass on 2026-10-18). The macOS 15
+  runtime is not run: GitHub's macOS 15 runners have no Swift 6.3.
+
 - **Generated code is a build artifact.** `capnpc-swift` output may look
   different across compiler releases; regenerate rather than hand-edit
   (`just generate`). The API SHAPE the generated code uses (readers,

@@ -1,8 +1,10 @@
 # M9 sprint proposal: guardrails and remote cancellation — 2026-10-18
 
-Status: **OPTION A IN PROGRESS** (owner, 2026-10-18). Steps 1-4 and 6
-are done, step 5 waits for a push, step 7 waits for capnp-zig, and step 8
-is done except the 0.1.3 proposal. Results: plan §8 "M9 status".
+Status: **OPTION A IN PROGRESS** (owner, 2026-10-18). Steps 1-6 are done
+(step 5: the iOS 18.6 floor passes in CI; macOS 15 cannot be run on
+GitHub, because its newest Xcode has Swift 6.2 and the package needs 6.3),
+step 7 waits for capnp-zig, and step 8 is done except the 0.1.3 proposal.
+Results: plan §8 "M9 status".
 
 ## Where the project is
 
