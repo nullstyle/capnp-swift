@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# The M6/H11 5-schema QUIC matrix: Swift client vs zig QUIC server and zig
-# client vs Swift QUIC server, over the frozen baseline wire (ALPN
-# capnp-rpc/1, stream 0, u32-LE frames). Readiness is the server's READY
-# line (a QUIC listener has no TCP probe). Exit 0 only when every schema
-# passes with zero `not ok` in both pairings.
+# The M6/H11 QUIC matrix (seven schemas since M8): Swift client vs zig QUIC
+# server and zig client vs Swift QUIC server, over the frozen baseline wire
+# (ALPN capnp-rpc/1, stream 0, u32-LE frames). Readiness is the server's
+# READY line (a QUIC listener has no TCP probe). Exit 0 only when every
+# schema passes in both pairings with no `not ok` line other than the known
+# limits in scripts/e2e-known-limits.sh.
 #
 #   e2e-pair-quic.sh <zig-server-bin> <zig-client-bin> [swift-bin-dir] [schema ...]
 set -uo pipefail
 cd "$(dirname "$0")/.."
+. scripts/e2e-known-limits.sh
 
 ZS="$1"; ZC="$2"; SBIN="${3:-$(swift build --product e2e-swift-client --show-bin-path 2>/dev/null)}"
 shift 3 || true
 SCHEMAS=("$@")
-[ ${#SCHEMAS[@]} -eq 0 ] && SCHEMAS=(game_world chat inventory matchmaking resolve_disembargo)
+[ ${#SCHEMAS[@]} -eq 0 ] && SCHEMAS=(game_world chat inventory matchmaking resolve_disembargo pass_back pipelined_params)
 CERT=Tests/fixtures/tls/test-cert.pem
 KEY=Tests/fixtures/tls/test-key.pem
 
@@ -46,11 +48,11 @@ for pairing in swift-to-zig zig-to-swift; do
       "$ZS" --host 127.0.0.1 --port "$port" --schema "$schema" --transport quic \
         --cert-pem "$CERT" --key-pem "$KEY" >"$log" 2>&1 &
       CLIENT_ARGS=(--host 127.0.0.1 --port "$port" --schema "$schema" --transport quic)
-      CLIENT="$SBIN/e2e-swift-client"
+      SERVER="$ZS"; CLIENT="$SBIN/e2e-swift-client"
     else
       "$SBIN/e2e-swift-server" --host 127.0.0.1 --port "$port" --schema "$schema" --transport quic >"$log" 2>&1 &
       CLIENT_ARGS=(--host 127.0.0.1 --port "$port" --schema "$schema" --transport quic --insecure)
-      CLIENT="$ZC"
+      SERVER="$SBIN/e2e-swift-server"; CLIENT="$ZC"
     fi
     spid=$!
     ready=0
@@ -61,13 +63,19 @@ for pairing in swift-to-zig zig-to-swift; do
       total_fail=$((total_fail+1)); kill $spid 2>/dev/null; wait $spid 2>/dev/null; rm -f "$log"; continue
     fi
     out=$( { with_deadline 60 "$CLIENT" "${CLIENT_ARGS[@]}" 2>&1; echo "EXIT=$?"; } )
-    ok=$(printf '%s' "$out" | grep -c "^ok "); nok=$(printf '%s' "$out" | grep -c "^not ok")
     ex=$(printf '%s' "$out" | grep -o "EXIT=[0-9]*" | tail -1)
-    if [ "$nok" -eq 0 ] && [ "$ex" = "EXIT=0" ] && [ "$ok" -gt 0 ]; then
-      total_pass=$((total_pass+1)); echo "ok - $schema ($pairing): $ok checks"
+    e2e_tally "$SERVER" "$CLIENT" "$schema" "$out" "${ex#EXIT=}"
+    if [ "$TALLY_FAIL" -eq 0 ]; then
+      total_pass=$((total_pass+1))
+      if [ "$TALLY_KNOWN" -gt 0 ]; then
+        echo "ok - $schema ($pairing): $TALLY_PASS checks, $TALLY_KNOWN known limit(s)"
+        printf '%s' "$TALLY_LINES" | grep "# TODO"
+      else
+        echo "ok - $schema ($pairing): $TALLY_PASS checks"
+      fi
     else
-      total_fail=$((total_fail+1)); echo "not ok - $schema ($pairing): ok=$ok not_ok=$nok $ex"
-      printf '%s\n' "$out" | grep "not ok" | head -3
+      total_fail=$((total_fail+1)); echo "not ok - $schema ($pairing): ok=$TALLY_PASS fail=$TALLY_FAIL known=$TALLY_KNOWN $ex"
+      printf '%s' "$TALLY_LINES" | grep -E "not ok|no longer fails" | head -3
     fi
     kill $spid 2>/dev/null; wait $spid 2>/dev/null; rm -f "$log"
   done

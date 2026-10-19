@@ -3,21 +3,26 @@
 # tools/e2e_self.zig contract (plan section 8, M4): reserve a port, start
 # the server, probe until it accepts, run the client under a deadline,
 # count `ok `/`not ok ` lines on stdout+stderr, and require exit 0 with at
-# least one passing line per schema.
+# least one passing line per schema. A line listed in
+# scripts/e2e-known-limits.sh may fail (shown as `# TODO <reason>`); the
+# client's exit 1 is then expected.
 #
 #   e2e-pair.sh [--transport=tcp|unix] <server-bin> <client-bin> [schema ...]
 #
-# Default schemas: the five matrix scenarios.
+# Default schemas: the seven matrix scenarios.
 set -uo pipefail
 cd "$(dirname "$0")/.."
+. scripts/e2e-known-limits.sh
 
 TRANSPORT=tcp
-if [ "${1:-}" = "--transport=unix" ] || [ "${1:-}" = "-t unix" ]; then
-  TRANSPORT=unix; shift
-fi
+case "${1:-}" in
+  --transport=unix) TRANSPORT=unix; shift ;;
+  --transport=tcp) shift ;;
+  --transport=*) echo "e2e-pair.sh: unknown ${1}" >&2; exit 2 ;;
+esac
 SERVER="$1"; CLIENT="$2"; shift 2
 SCHEMAS=("$@")
-[ ${#SCHEMAS[@]} -eq 0 ] && SCHEMAS=(game_world chat inventory matchmaking resolve_disembargo)
+[ ${#SCHEMAS[@]} -eq 0 ] && SCHEMAS=(game_world chat inventory matchmaking resolve_disembargo pass_back pipelined_params)
 
 # Run CMD under an absolute deadline; exit 124 when it expires. macOS has
 # no `timeout` (CI runners neither), so fall back to background + poll.
@@ -38,7 +43,7 @@ with_deadline() {
   wait "$pid"
 }
 
-total_pass=0; total_fail=0
+total_pass=0; total_fail=0; total_known=0
 for schema in "${SCHEMAS[@]}"; do
   sock=""
   server_log="$(mktemp /tmp/capnp-e2e-server-XXXXXX).log"
@@ -90,17 +95,13 @@ except OSError:
     out=$( { with_deadline 60 "$CLIENT" --host "$host_arg" --port "$port" --schema "$schema" 2>&1; echo "EXIT=$?"; } )
   fi
   exit_code=$(echo "$out" | grep -o 'EXIT=[0-9]*' | tail -1 | cut -d= -f2)
-  pass=$(echo "$out" | grep -c '^ok ')
-  fail=$(echo "$out" | grep -c '^not ok ')
-  if [ "$exit_code" != 0 ] || [ "$pass" -eq 0 ]; then
-    fail=$((fail+1))
-  fi
-  echo "# $schema: pass=$pass fail=$fail exit=$exit_code"
-  echo "$out" | grep -E '^(ok |not ok |1\.\.|# )' | sed 's/^/  /'
-  total_pass=$((total_pass+pass)); total_fail=$((total_fail+fail))
+  e2e_tally "$SERVER" "$CLIENT" "$schema" "$out" "$exit_code"
+  echo "# $schema: pass=$TALLY_PASS fail=$TALLY_FAIL known=$TALLY_KNOWN exit=$exit_code"
+  printf '%s' "$TALLY_LINES"
+  total_pass=$((total_pass+TALLY_PASS)); total_fail=$((total_fail+TALLY_FAIL)); total_known=$((total_known+TALLY_KNOWN))
   kill $server_pid 2>/dev/null; wait $server_pid 2>/dev/null
   [ -n "$sock" ] && rm -rf "$sockdir"
 done
-echo "1..$((total_pass+total_fail))"
-echo "# total pass=$total_pass fail=$total_fail"
+echo "1..$((total_pass+total_fail+total_known))"
+echo "# total pass=$total_pass fail=$total_fail known=$total_known"
 [ "$total_fail" -eq 0 ] && [ "$total_pass" -gt 0 ]

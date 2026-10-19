@@ -8,6 +8,7 @@
 // `1..N` at the end, and exiting 0 iff every assertion passed. The
 // assertions mirror the Zig client's (tests/e2e/zig/main_client.zig).
 
+import Capnp
 import CapnpE2E
 import CapnpNW
 import CapnpRPC
@@ -44,7 +45,7 @@ while let arg = args.first {
             exit(2)
         }
     case "--help", "-h":
-        print("Usage: e2e-swift-client [--host 127.0.0.1] [--port 4000] [--schema game_world|chat|inventory|matchmaking|resolve_disembargo] [--transport tcp|quic]")
+        print("Usage: e2e-swift-client [--host 127.0.0.1] [--port 4000] [--schema game_world|chat|inventory|matchmaking|resolve_disembargo|pass_back|pipelined_params] [--transport tcp|quic]")
         exit(0)
     default: break
     }
@@ -79,6 +80,8 @@ do {
     case "inventory": try await inventory(connection)
     case "matchmaking": try await matchmaking(connection)
     case "resolve_disembargo": try await resolveDisembargo(connection)
+    case "pass_back": try await passBack(connection)
+    case "pipelined_params": try await pipelinedParams(connection)
     default:
         FileHandle.standardError.write(Data("e2e-swift-client: unknown schema \(schema)\n".utf8))
         exit(2)
@@ -329,4 +332,151 @@ func resolveDisembargo(_ connection: RPCConnection) async throws {
         if case .disconnected = error { disconnectClass = true }
     }
     tap(disconnectClass, "disconnectNow observes a disconnect-class error")
+}
+
+// MARK: - pass_back and pipelined_params (cap_passing.capnp)
+//
+// The generated setters can only export a NEW server into a capability
+// field. To pass a capability the client already holds (an import, or a
+// pipelined result), these calls build the params by hand: pointer field 0
+// is capability 0, and the one cap slot names the capability.
+
+enum CapPassing {
+    /// Every TokenHost's mintFail() reason contains this text.
+    static let mintFailMarker = "deliberate mint failure"
+}
+
+/// A params struct (no data, one pointer) whose field 0 is capability 0.
+func tokenParams() -> [UInt8] {
+    let mb = MessageBuilder()
+    mb.initRoot(dataWords: 0, pointerWords: 1).setCapability(0, capIndex: 0)
+    return mb.toBytes()
+}
+
+func hasMintFailMarker(_ error: any Error) -> Bool {
+    guard case .failed(let reason) = error as? RPCError else { return false }
+    return reason.contains(CapPassing.mintFailMarker)
+}
+
+/// A Token this client hosts: tag() returns its tag and counts the call.
+/// It serves both the legacy and the typed bindings.
+final class ClientToken: Token.Server, Token.TypedServer, @unchecked Sendable {
+    let tagValue: UInt32
+    private let lock = NSLock()
+    private var count: UInt32 = 0
+
+    init(tag: UInt32) { tagValue = tag }
+
+    var calls: UInt32 { lock.withLock { count } }
+
+    func tag(params: Token.TagParams.Reader, caps: [CapTableEntry], on connection: RPCConnection) async throws -> Token.TagResults {
+        lock.withLock { count += 1 }
+        return Token.TagResults { r in r.tag = tagValue }
+    }
+
+    func tag(params: Token.Typed.TagParams.Reader, on connection: isolated RPCConnection) async throws -> Token.Typed.TagResults.Value {
+        lock.withLock { count += 1 }
+        return try Token.Typed.TagResults.Value { r in r.tag = tagValue }
+    }
+}
+
+// pass_back: pass two minted Tokens back to check(). Each is an import, so
+// the core writes it as `receiverHosted`, and the server must call its own
+// Token. Then hand the server one of our own Tokens in echo(): it must
+// come back as our own export, and tag() on it must run our own object.
+func passBack(_ connection: RPCConnection) async throws {
+    let hostCap = try await connection.bootstrap()
+    let host = TokenHost.Client(cap: hostCap, connection: connection)
+
+    for tag: UInt32 in [7, 8] {
+        var mintCall = try await host.sendMint { $0.tag = tag }
+        let minted = try await mintCall.value()
+        let imported = minted.tokenCapIndex().flatMap { i -> CapRef? in
+            guard Int(i) < mintCall.resultCaps.count, case .imported(let ref) = mintCall.resultCaps[Int(i)] else { return nil }
+            return ref
+        }
+        tap(imported != nil, "mint(\(tag)) returns an imported Token")
+        guard let imported else { return }
+
+        let result = try await connection.call(host.target, interface: TokenHost.interfaceID, method: TokenHost.Method.check.rawValue, params: tokenParams(), caps: [.imported(imported)])
+        let checked = try TokenHost.CheckResults.Reader(Message(bytes: result.message).rootStruct())
+        tap(checked.tag == tag && checked.local, "check(minted Token \(tag)) called the server's own Token")
+    }
+
+    // echo(), legacy API: the Token must come back as one of our exports.
+    let echoOnly = ClientToken(tag: 901)
+    var echoCall = try await host.sendEcho { $0.setToken(echoOnly) }
+    let echoed = try await echoCall.value()
+    var cameHome = false
+    if let i = echoed.tokenCapIndex(), Int(i) < echoCall.resultCaps.count, case .exported = echoCall.resultCaps[Int(i)] {
+        cameHome = true
+    }
+    tap(cameHome, "echo returns the client's own Token")
+
+    // echo(), typed API, to call the Token that came home. The legacy API
+    // cannot: its reader returns no Client for one of our exports, and the
+    // server's Release of echo()'s param can drop the export before this
+    // task runs (`localHandler(forExport:)` is then nil; it was in testing).
+    // The typed reader keeps the handler it captured with the RETURN.
+    let own = ClientToken(tag: 900)
+    let typedHost = try TokenHost.Typed.Client(cap: hostCap, connection: connection)
+    let ownClient = Token.Typed.Client(server: own, connection: connection)
+    let typedEcho = try await typedHost.echo { try $0.setToken(ownClient) }
+    var ranOwn = false
+    if let home = try typedEcho.token() {
+        let tagged = try await home.tag()
+        ranOwn = tagged.tag == own.tagValue && own.calls == 1 && echoOnly.calls == 0
+    }
+    tap(ranOwn, "tag() on the echoed Token ran the client's own object")
+}
+
+// pipelined_params: pass the `token` of an unanswered mint() as check()'s
+// param, then the same for mintFail(). The Swift runtime does not send that
+// as `receiverAnswer`: it waits for the producing Return and passes the
+// resolved capability (the H9 wait, plan §8 M2 item 4), because the native
+// core, and so a Swift server, refuses a receiverAnswer for a pending
+// answer. So check(mint().token) leaves one round trip later as
+// `receiverHosted`, and check(mintFail().token) ends locally with
+// mintFail()'s exception. The receiverAnswer wire shape is covered by the
+// Zig and C++ clients.
+func pipelinedParams(_ connection: RPCConnection) async throws {
+    let host = TokenHost.Client(cap: try await connection.bootstrap(), connection: connection)
+
+    var mintCall = try await host.sendMint { $0.tag = 11 }
+    let mintToken = mintCall.question.pipeline([0])
+    let check = Task { try await connection.call(host.target, interface: TokenHost.interfaceID, method: TokenHost.Method.check.rawValue, params: tokenParams(), caps: [.pipelined(mintToken)]) }
+    var failCall = try await host.sendMintFail { $0.tag = 12 }
+    let failToken = failCall.question.pipeline([0])
+    let checkFail = Task { try await connection.call(host.target, interface: TokenHost.interfaceID, method: TokenHost.Method.check.rawValue, params: tokenParams(), caps: [.pipelined(failToken)]) }
+
+    do {
+        let result = try await check.value
+        let checked = try TokenHost.CheckResults.Reader(Message(bytes: result.message).rootStruct())
+        tap(checked.tag == 11 && checked.local, "check(pipelined mint().token) called the server's own Token")
+    } catch {
+        print("# check exception: \(error)")
+        tap(false, "check(pipelined mint().token) called the server's own Token")
+    }
+
+    let minted = try? await mintCall.value()
+    var imported = false
+    if let i = minted?.tokenCapIndex(), Int(i) < mintCall.resultCaps.count, case .imported = mintCall.resultCaps[Int(i)] {
+        imported = true
+    }
+    tap(imported, "mint() returns an imported Token")
+
+    do {
+        _ = try await failCall.value()
+        tap(false, "mintFail() fails with its exception")
+    } catch {
+        tap(hasMintFailMarker(error), "mintFail() fails with its exception")
+    }
+
+    do {
+        _ = try await checkFail.value
+        tap(false, "check(pipelined mintFail().token) fails with mintFail()'s exception")
+    } catch {
+        print("# check(pipelined mintFail().token) exception: \(error)")
+        tap(hasMintFailMarker(error), "check(pipelined mintFail().token) fails with mintFail()'s exception")
+    }
 }
