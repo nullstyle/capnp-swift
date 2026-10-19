@@ -44,7 +44,8 @@ just workbench-mac
 ```
 
 These commands never rebuild the XCFramework. The sample depends on the
-local main package, whose core remains the published 0.1.1 binary URL/checksum.
+local main package, whose core is the published release binary URL/checksum
+named in the root `Package.swift` (0.1.2 since 2026-10-18).
 Generated Swift is committed and must pass regeneration with `--check`.
 The script builds the matching local driver and Zig plugin (through mise),
 or uses an explicitly supplied standalone `CAPNPC_SWIFT_DRIVER`.
