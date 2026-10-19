@@ -52,6 +52,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Documentation
 
+- New 0.1.3 proposal (`docs/release-readiness-2026-10-19.md`): the M8 and
+  M9 work on the 0.1.2 core. Both assets are the 0.1.2 files byte for byte
+  (the core and the generator did not change); the release commit moves
+  the core URL to the 0.1.3 download. No tag or upload yet.
 - The native Workbench apps pass on the 0.1.2 core: Mac 7 of 7 over TCP
   and over sample TLS, and the iPhone 17 Pro simulator (iOS 27.0) 7 of 7
   over each against the Mac (`Examples/RPCWorkbench/VALIDATION.md`,

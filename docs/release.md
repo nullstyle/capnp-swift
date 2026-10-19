@@ -13,7 +13,12 @@ with the capnp-zig v0.27.0 core. Release
 published on 2026-10-10 at `808a90440c4560e7f3a705170b66b3ac969388a6`.
 Both tags and their assets are immutable. See the
 [0.1.2 sheet](release-readiness-2026-10-18.md) for the assets, checksums,
-evidence and the post-publish smoke. The
+evidence and the post-publish smoke.
+
+**Proposed next: 0.1.3** ([readiness sheet](release-readiness-2026-10-19.md)),
+pending owner approval of the tag and the uploads. It reuses both 0.1.2
+assets byte for byte (the core and the generator did not change); its
+release commit moves the CapnpCore URL to the 0.1.3 download. The
 [2026-10-13 sheet](release-readiness-2026-10-13.md) and the
 [2026-10-12 sheet](release-readiness-2026-10-12.md) keep the earlier
 snapshots. Confirm the signing policy before any tag or asset upload.

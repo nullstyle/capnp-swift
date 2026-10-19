@@ -248,15 +248,11 @@
     }
   },
   "verified_against_main": {
-    "commit": "fdb1be4",
-    "checked_at_utc": "2026-10-19T03:26:03.593760+00:00",
-    "previous_verified_commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
+    "commit": "b18d807",
+    "checked_at_utc": "2026-10-19T07:28:22.006516+00:00",
+    "previous_verified_commit": "fdb1be4",
     "binary_source_unchanged": true,
-    "binary_source_scope": "Codegen candidate only. The core pin moved to capnp-zig v0.27.0 (core/build.zig.zon); no bundle build step reads it. QUIC transports, the e2e Swift server, tests and CI scripts changed.",
-    "production_changes_since_previous_verification": [
-      "core/build.zig.zon",
-      "Sources/CapnpNW/QUICTransport.swift"
-    ],
+    "binary_source_scope": "Codegen candidate only. Since 0.1.2: the runtime (CapnpRPC own-export lookups), interop bindings and scripts, CI and docs changed; Package.swift changed only in the CapnpCore URL/checksum lines (the 0.1.2 release commit). No bundle build step reads core/ or the CapnpCore target.",
     "source_comparison": {
       "pathspec": [
         "tools",
@@ -271,85 +267,32 @@
       "excluded_test_harness": "tools/capnpc-swift/tests/typed/VerifyTypedPipelines.swift",
       "method": "git ls-tree -r REV -- PATHS; omit the one exact test-harness path; join unchanged lines with LF plus final LF; SHA-256 of UTF-8 manifest. Git mode/type/blob/path identity proves file bytes and modes unchanged.",
       "entries": 147,
-      "manifest_sha256": "9f899abe8824e1a780fd37fa969f57067ee69cf80a8a0d2076d10d6149a95469",
       "matches_candidate_and_previous_verifications": false,
       "differs_only_in": [
+        "Package.swift",
         "core/build.zig.zon"
       ],
       "difference_is_bundle_input": false,
-      "why_not_an_input": "scripts/make-artifactbundle.sh builds the capnpc-driver product (depends only on WasmKit) and the tools/capnpc-swift plugin (its own capnp-zig v0.23.0 pin); neither reads core/.",
       "rebuild_required": false
     },
     "bundle_smoke": {
-      "gate": "scripts/check-codegen-bundle.sh on the unzipped 0.1.2-capnpc-swift.artifactbundle.zip",
+      "gate": "scripts/check-codegen-bundle.sh on the unzipped 0.1.3-capnpc-swift.artifactbundle.zip",
       "candidate_zip_sha256": "8c241efe29b2e6df29ad02e6c7209687de08d5d439bb632f9ecadecd72eac10a",
-      "checked_on_commit": "79e733e",
+      "byte_identical_to_live_0_1_2_asset": true,
+      "checked_on_commit": "b18d807",
       "passes": [
         "bundled compiler preserves MVP generation",
         "bundled Swift annotations support checked typed module imports"
       ]
     },
-    "hosted_evidence": {
-      "ci": [
-        {
-          "commit": "79e733e",
-          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39189292648",
-          "conclusion": "success",
-          "lanes": 4,
-          "swift_tests_per_mode": 73
-        },
-        {
-          "commit": "ab99623",
-          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39191043354",
-          "conclusion": "success",
-          "lanes": 4
-        },
-        {
-          "commit": "fdb1be4",
-          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39192848274",
-          "conclusion": "success",
-          "lanes": 4
-        }
-      ],
-      "nightly": [
-        {
-          "commit": "79e733e",
-          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39189320930",
-          "conclusion": "failure",
-          "failed": [
-            "ios-sim (QUIC load: fixed in ab99623)",
-            "quic (no timeout on runners: fixed in fdb1be4)"
-          ]
-        },
-        {
-          "commit": "ab99623",
-          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39191061887",
-          "conclusion": "success",
-          "scope": "ios_only"
-        },
-        {
-          "commit": "fdb1be4",
-          "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39192848295",
-          "conclusion": "success",
-          "lanes": 5,
-          "fuzz": {
-            "seconds": 1800,
-            "sessions": 4070931,
-            "ops": 356128459,
-            "live_bytes_after": 0
-          }
-        }
-      ]
-    },
     "proposed_release_staging": {
-      "version": "0.1.2",
-      "owner_decision": "2026-10-18: fold the capnp-zig v0.27.0 core into 0.1.2",
+      "version": "0.1.3",
       "core_asset_sha256": "203fbdd4ef00554f278e9730431b09d1d0a117cc731e29a7e496b73fe6fbd98b",
-      "core_asset_built_from": "79e733e (core/ identical at fdb1be4)",
+      "core_asset": "the 0.1.2 asset, byte-identical; core/ unchanged since 79e733e",
       "codegen_asset_sha256": "8c241efe29b2e6df29ad02e6c7209687de08d5d439bb632f9ecadecd72eac10a"
     },
-    "publication_status": "No tag, release asset or publication created.",
-    "readiness_document": "docs/release-readiness-2026-10-18.md"
+    "publication_status": "0.1.2 published 2026-10-18; 0.1.3 proposed, no tag or upload.",
+    "readiness_document": "docs/release-readiness-2026-10-19.md"
   },
   "verification_history": [
     {
@@ -902,6 +845,110 @@
         "core_reused_from_immutable_0_1_1": true,
         "no_tag_asset_or_publication_mutation": true
       }
+    },
+    {
+      "commit": "fdb1be4",
+      "checked_at_utc": "2026-10-19T03:26:03.593760+00:00",
+      "previous_verified_commit": "c5fdf1d49a352c934bbd1d4b97951f35d0ce0b81",
+      "binary_source_unchanged": true,
+      "binary_source_scope": "Codegen candidate only. The core pin moved to capnp-zig v0.27.0 (core/build.zig.zon); no bundle build step reads it. QUIC transports, the e2e Swift server, tests and CI scripts changed.",
+      "production_changes_since_previous_verification": [
+        "core/build.zig.zon",
+        "Sources/CapnpNW/QUICTransport.swift"
+      ],
+      "source_comparison": {
+        "pathspec": [
+          "tools",
+          "Plugins",
+          "core",
+          "Package.swift",
+          "Package.resolved",
+          "mise.toml",
+          "scripts/make-artifactbundle.sh",
+          "scripts/check-codegen-bundle.sh"
+        ],
+        "excluded_test_harness": "tools/capnpc-swift/tests/typed/VerifyTypedPipelines.swift",
+        "method": "git ls-tree -r REV -- PATHS; omit the one exact test-harness path; join unchanged lines with LF plus final LF; SHA-256 of UTF-8 manifest. Git mode/type/blob/path identity proves file bytes and modes unchanged.",
+        "entries": 147,
+        "manifest_sha256": "9f899abe8824e1a780fd37fa969f57067ee69cf80a8a0d2076d10d6149a95469",
+        "matches_candidate_and_previous_verifications": false,
+        "differs_only_in": [
+          "core/build.zig.zon"
+        ],
+        "difference_is_bundle_input": false,
+        "why_not_an_input": "scripts/make-artifactbundle.sh builds the capnpc-driver product (depends only on WasmKit) and the tools/capnpc-swift plugin (its own capnp-zig v0.23.0 pin); neither reads core/.",
+        "rebuild_required": false
+      },
+      "bundle_smoke": {
+        "gate": "scripts/check-codegen-bundle.sh on the unzipped 0.1.2-capnpc-swift.artifactbundle.zip",
+        "candidate_zip_sha256": "8c241efe29b2e6df29ad02e6c7209687de08d5d439bb632f9ecadecd72eac10a",
+        "checked_on_commit": "79e733e",
+        "passes": [
+          "bundled compiler preserves MVP generation",
+          "bundled Swift annotations support checked typed module imports"
+        ]
+      },
+      "hosted_evidence": {
+        "ci": [
+          {
+            "commit": "79e733e",
+            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39189292648",
+            "conclusion": "success",
+            "lanes": 4,
+            "swift_tests_per_mode": 73
+          },
+          {
+            "commit": "ab99623",
+            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39191043354",
+            "conclusion": "success",
+            "lanes": 4
+          },
+          {
+            "commit": "fdb1be4",
+            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39192848274",
+            "conclusion": "success",
+            "lanes": 4
+          }
+        ],
+        "nightly": [
+          {
+            "commit": "79e733e",
+            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39189320930",
+            "conclusion": "failure",
+            "failed": [
+              "ios-sim (QUIC load: fixed in ab99623)",
+              "quic (no timeout on runners: fixed in fdb1be4)"
+            ]
+          },
+          {
+            "commit": "ab99623",
+            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39191061887",
+            "conclusion": "success",
+            "scope": "ios_only"
+          },
+          {
+            "commit": "fdb1be4",
+            "url": "https://github.com/nullstyle/capnp-swift/actions/runs/39192848295",
+            "conclusion": "success",
+            "lanes": 5,
+            "fuzz": {
+              "seconds": 1800,
+              "sessions": 4070931,
+              "ops": 356128459,
+              "live_bytes_after": 0
+            }
+          }
+        ]
+      },
+      "proposed_release_staging": {
+        "version": "0.1.2",
+        "owner_decision": "2026-10-18: fold the capnp-zig v0.27.0 core into 0.1.2",
+        "core_asset_sha256": "203fbdd4ef00554f278e9730431b09d1d0a117cc731e29a7e496b73fe6fbd98b",
+        "core_asset_built_from": "79e733e (core/ identical at fdb1be4)",
+        "codegen_asset_sha256": "8c241efe29b2e6df29ad02e6c7209687de08d5d439bb632f9ecadecd72eac10a"
+      },
+      "publication_status": "No tag, release asset or publication created.",
+      "readiness_document": "docs/release-readiness-2026-10-18.md"
     }
   ]
 }
