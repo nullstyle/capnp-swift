@@ -145,6 +145,7 @@ generate: driver-build
     swift package --allow-writing-to-package-directory capnp-generate --output-dir interop/importtest/lib-gen --include tools/capnpc-swift interop/importtest/lib.capnp
     swift package --allow-writing-to-package-directory capnp-generate --output-dir interop/importtest/app-gen --include tools/capnpc-swift interop/importtest/app.capnp
     swift package --allow-writing-to-package-directory capnp-generate --typed --output-dir interop/e2e/gen/typed interop/e2e/schemas/cap_passing.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --output-dir interop/e2e/gen/erased --include interop/e2e/schemas interop/e2e/schemas/game_types.capnp interop/e2e/schemas/game_world.capnp interop/e2e/schemas/chat.capnp interop/e2e/schemas/inventory.capnp interop/e2e/schemas/matchmaking.capnp interop/e2e/schemas/resolve_disembargo.capnp
 
 # CI: the committed code must match the schemas (diff only, exit 1 on drift).
 # --check writes nothing, but the plugin's declared permission still needs
@@ -155,6 +156,7 @@ generate-check: driver-build
     swift package --allow-writing-to-package-directory capnp-generate --check --output-dir interop/importtest/lib-gen --include tools/capnpc-swift interop/importtest/lib.capnp
     swift package --allow-writing-to-package-directory capnp-generate --check --output-dir interop/importtest/app-gen --include tools/capnpc-swift interop/importtest/app.capnp
     swift package --allow-writing-to-package-directory capnp-generate --check --typed --output-dir interop/e2e/gen/typed interop/e2e/schemas/cap_passing.capnp
+    swift package --allow-writing-to-package-directory capnp-generate --check --output-dir interop/e2e/gen/erased --include interop/e2e/schemas interop/e2e/schemas/game_types.capnp interop/e2e/schemas/game_world.capnp interop/e2e/schemas/chat.capnp interop/e2e/schemas/inventory.capnp interop/e2e/schemas/matchmaking.capnp interop/e2e/schemas/resolve_disembargo.capnp
 
 # Assemble dist/capnpc-swift.artifactbundle (D6 option A): the universal
 # driver (WasmKit inside), the universal native plugin, capnp.wasm and the

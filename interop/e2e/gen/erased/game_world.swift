@@ -205,12 +205,12 @@ public struct AreaQuery {
 
             public var byKind: EntityKind {
                 get { EntityKind(rawValue: root.readUInt16(at: 6)) }
-                set { root.setEnum16(at: 6, newValue.rawValue) }
+                set { root.setUInt16(at: 4, 1); root.setEnum16(at: 6, newValue.rawValue) }
             }
 
             public var byFaction: Faction {
                 get { Faction(rawValue: root.readUInt16(at: 6)) }
-                set { root.setEnum16(at: 6, newValue.rawValue) }
+                set { root.setUInt16(at: 4, 2); root.setEnum16(at: 6, newValue.rawValue) }
             }
 
         }

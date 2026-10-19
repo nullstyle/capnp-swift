@@ -58,6 +58,12 @@ All notable changes to capnp-swift are recorded here.
 
 ### Fixed
 
+- `just generate-check` now covers the erased e2e bindings (moved to
+  `interop/e2e/gen/erased/`). Nothing checked them before, and
+  `game_world.swift` had drifted: the `AreaQuery.filter` setters
+  `byKind`/`byFaction` did not write the union discriminant. Regenerated;
+  the matrix passes unchanged. A changed setter and a stray file each fail
+  the check (M9 G2).
 - A capability of ours that comes back (`CapTableEntry.exported`) stays
   callable after the remote releases it. Before, `EXPORT_DROPPED` removed
   the handler at once, so `RPCConnection.localHandler(forExport:)` returned
