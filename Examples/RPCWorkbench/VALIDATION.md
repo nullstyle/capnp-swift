@@ -1,6 +1,23 @@
 # Validation — RPC Workbench
 
-## Verified
+## Rerun on the 0.1.2 core (2026-10-18, plan M9 G8)
+
+Both native apps were built from main (`970e363` + docs) against the
+released 0.1.2 core URL/checksum (`core 0.1.0 / capnp-zig 0.27.0`; the
+string is in each app's `RPC Workbench.debug.dylib`), with
+`CODE_SIGNING_ALLOWED=NO`, and run with `--run-checks`:
+
+| App | Transport | Server | Result |
+|---|---|---|---|
+| Mac | TCP (41011) | its own | 7 of 7 passed, no error |
+| Mac | sample TLS (41012) | its own | 7 of 7 passed, no error |
+| iPhone 17 Pro simulator, iOS 27.0 | TCP, host 127.0.0.1 | the Mac app | 7 of 7 passed, no error |
+| iPhone 17 Pro simulator, iOS 27.0 | sample TLS | the Mac app | 7 of 7 passed, no error |
+
+The four app reports are in [`evidence/0.1.2-core/`](evidence/0.1.2-core/).
+No physical iPhone run was made on this core.
+
+## Verified (0.1.1 core, 2026-10-12)
 
 - Local Xcode 27.0 / Swift 6.4, macOS SDK 27.0; released core 0.1.0 / ABI 1,
   capnp-zig v0.23.0. Core URL/checksum unchanged; no local core substitution.

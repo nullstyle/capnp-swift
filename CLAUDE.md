@@ -33,6 +33,7 @@ The plan, milestones and owner decisions: `docs/plan-2026-10-06.md`. Read it fir
 - `cd core && mise exec -- zig build fuzz-abi -- --seconds N` (the M2 gate ran 1800 s): random operation sequences over the C ABI; exit 1 on a violation. Seeds live in `core/fuzz/seeds/` (copied from the capnp-zig tag; see `PROVENANCE.md`).
 - `just mvp-e2e`: the Swift client against the capnp-zig TCP peer; every TAP line must be `ok`.
 - `scripts/check-symbols.sh --strict` (the 0.1 release gate; it passes since the v0.21.0 pin and must stay green), `scripts/check-dsym.sh [debug|release]`.
+- `scripts/check-api-breakage.sh`: no breaking change to the Stable Swift API (`Capnp`, `CapnpRPC`, `CapnpNW`) since the last release. An Experimental change needs its exact message in `scripts/api-breakage-allowlist.txt`.
 - `scripts/ablate.py <file> <old> <new>` breaks one line, runs the core tests, restores the file, and exits 0 only if the tests failed.
 - Never run `zig fetch <url>` against `.zig-global-cache` (Zig 0.17.0 defect, `docs/handoffs/handoff-zig-fork-fetch-cache-strip.md`); `zig build` fetches by itself.
 - Regenerating `interop/zig-peer/gen/*.zig` needs capnp-zig's schema toolchain (`mise run bootstrap:capnp` in a capnp-zig checkout, then `mise exec -- uv run ... tools/capnp_tool.py generate`) and a `capnpc-zig` plugin built from a scratch `git archive` of the pinned tag; see `interop/zig-peer/gen/README.md`. Never build inside the package cache.
@@ -40,7 +41,7 @@ The plan, milestones and owner decisions: `docs/plan-2026-10-06.md`. Read it fir
 ## Rules
 
 - Tasks are tracked in this repo (`docs/plan-*.md`, `CHANGELOG.md`, `docs/handoffs/`). Never use GitHub Issues.
-- This repo has no remote yet. The owner creates it and approves every push, tag and release-asset upload.
+- The remote is `github.com/nullstyle/capnp-swift`. The owner approves every push, tag and release-asset upload.
 - Never push to capnp-zig, quic-zig or any other repo. Changes they need go out as handoff files in `docs/handoffs/`.
 - Zig std defects go to a Zig-fork handoff (`docs/handoffs/handoff-zig-fork-*.md`). Never file bugs with the Zig project.
 - Every new gate test must be broken once on purpose (ablation) to prove it can fail.

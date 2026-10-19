@@ -1,6 +1,6 @@
-# Stability in 0.1.0
+# Stability in 0.1.x
 
-What 0.1.0 promises, and what it does not. "Stable" below means: breaking
+What the 0.1 releases promise, and what they do not. "Stable" below means: breaking
 changes only in a new minor version (pre-1.0 SemVer: a breaking change
 bumps the minor, not the patch).
 
@@ -62,7 +62,7 @@ exact message in `scripts/api-breakage-allowlist.txt`.
   yet. Tail-call results that carry capabilities still end the question
   with an `unimplemented` exception.
 
-## Not in 0.1.0
+## Not in 0.1.x
 
 FD passing, three-party vats, persistence, WebSocket transport, QUIC
 native mode, Mac Catalyst / visionOS slices.

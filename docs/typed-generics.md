@@ -2,7 +2,7 @@
 
 The production generator's opt-in `--typed` mode adds open Swift schema
 applications beside the existing erased declarations. This interface is
-Experimental on main; release 0.1.1 does not contain it. Generated code and
+Experimental; release 0.1.2 is the first to ship it. Generated code and
 the `Capnp`/`CapnpRPC` runtime must come from the same revision.
 
 ## Generate and check

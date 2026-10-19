@@ -1,0 +1,65 @@
+{
+  "checks" : [
+    {
+      "name" : "pipeline CALL is sent before server result is ready",
+      "passed" : true
+    },
+    {
+      "name" : "projected call resolves through returned session",
+      "passed" : true
+    },
+    {
+      "name" : "server invokes client callback capability",
+      "passed" : true
+    },
+    {
+      "name" : "unseen generic parcel survives separate-module RPC",
+      "passed" : true
+    },
+    {
+      "name" : "stream receipt proves all acknowledged updates",
+      "passed" : true
+    },
+    {
+      "name" : "caller cancellation wakes before slow work completes",
+      "passed" : true
+    },
+    {
+      "name" : "connection remains usable after caller cancellation",
+      "passed" : true
+    }
+  ],
+  "events" : [
+    "Callback · Session opening",
+    "Callback · Session result ready",
+    "Callback · Echo received: before-return",
+    "PASS · pipeline CALL is sent before server result is ready",
+    "PASS · projected call resolves through returned session",
+    "PASS · server invokes client callback capability",
+    "Callback · Update 1",
+    "Callback · Update 2",
+    "Callback · Update 3",
+    "Callback · Update 4",
+    "Callback · Update 5",
+    "Callback · Update 6",
+    "Callback · Update 7",
+    "Callback · Update 8",
+    "Callback · Update 9",
+    "Callback · Update 10",
+    "Callback · Update 11",
+    "Callback · Update 12",
+    "Callback · Slow request started",
+    "Callback · Echo received: after-cancel",
+    "PASS · pipeline CALL is sent before server result is ready",
+    "PASS · projected call resolves through returned session",
+    "PASS · server invokes client callback capability",
+    "PASS · unseen generic parcel survives separate-module RPC",
+    "PASS · stream receipt proves all acknowledged updates",
+    "PASS · caller cancellation wakes before slow work completes",
+    "PASS · connection remains usable after caller cancellation",
+    "7 checks passed"
+  ],
+  "host" : "127.0.0.1",
+  "recordedAt" : 814079327.668642,
+  "transport" : "TCP"
+}

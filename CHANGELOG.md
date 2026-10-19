@@ -37,6 +37,12 @@ All notable changes to capnp-swift are recorded here.
 
 ### Documentation
 
+- The native Workbench apps pass on the 0.1.2 core: Mac 7 of 7 over TCP
+  and over sample TLS, and the iPhone 17 Pro simulator (iOS 27.0) 7 of 7
+  over each against the Mac (`Examples/RPCWorkbench/VALIDATION.md`,
+  reports in `evidence/0.1.2-core/`; M9 G8). Stale notes fixed: CLAUDE.md
+  names the remote and the new API gate, `typed-generics.md` names 0.1.2,
+  and `stability.md` covers 0.1.x (M9 G7).
 - Release 0.1.2 published (2026-10-18) at `69e392e` with both assets,
   unsigned. Both downloads match their SHA-256. A fresh consumer resolved
   the tag, fetched the URL core, built for macOS and iOS, and completed a
