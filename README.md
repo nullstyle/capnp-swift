@@ -6,7 +6,7 @@ Cap'n Proto RPC for Swift apps on Apple platforms.
 - Networking is Apple's Network.framework (TCP, TLS, Unix sockets; QUIC on macOS/iOS 26).
 - Status: 0.1.2 (all plan milestones M0-M7 done). The C ABI v1 sans-IO core (calls, pipelining, cancel, promise exports, shutdown, limits, backpressure), the `RPCConnection` actor with `RemotePromise`, the `Capnp` serialization module, the `capnpc-swift` code generator (schema compiler in an artifactbundle — no Python, no Wasmtime), transports for TCP, Unix sockets and TLS, QUIC (Experimental; macOS/iOS 26+), the interop matrix against capnp-zig and the C++ reference, iOS simulator + device support, and the `just mvp-e2e`/QUIC e2e lanes. TSan/ASan clean, strict symbol gate green. The core pins capnp-zig v0.27.0 (since 0.1.2; 0.1.1 carried v0.23.0), with fd passing compiled out. Release ceremony: `docs/release.md`; stability promises: `docs/stability.md`. Full history: `docs/plan-2026-10-06.md` §8.
 
-Platforms: macOS 15+ and iOS 18+ (QUIC needs 26+).
+Platforms: macOS 15+ and iOS 18+ (QUIC needs 26+). Toolchain: Swift 6.3 or later (CI uses Xcode 26.6). Swift 6.2 cannot resolve the package: the codegen plugin's WasmKit dependency declares tools version 6.3.
 
 Main also includes Experimental open generic bindings with `--typed`, such as
 `Box.Typed<CapnpText>`, inherited RPC clients, typed result pipelines and

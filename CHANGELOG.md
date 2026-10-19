@@ -6,10 +6,17 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
-- A manual `floor` workflow runs the suite on the platform floor: an iOS
-  18 simulator (it fetches the runtime when the image lacks it) and a
-  macOS 15 runner with its newest Xcode. Nothing ran the floor before; it
-  has not run yet (M9 G5).
+- A manual `floor` workflow runs the suite on an iOS 18 simulator (it
+  fetches the iOS 18.6 runtime, 8.86 GB, when the image lacks it), split
+  into the nightly's selections. Its first run (39203967306) ran the suite
+  on iOS 18.6: 9 conformance tests passed, and 3 TCP/TLS tests missed
+  their deadlines while the 64 x 10k stress test shared the process, the
+  load the nightly avoids by splitting. There is no macOS 15 job: GitHub's
+  macos-15 image tops out at Xcode 26.3 (Swift 6.2), which cannot resolve
+  the package (M9 G5).
+- The README states the toolchain floor: Swift 6.3. WasmKit 0.4.1, the
+  codegen plugin's dependency, declares tools version 6.3, so Swift 6.2
+  cannot resolve the package, also for library-only consumers.
 - A Stable Swift API gate: `scripts/check-api-breakage.sh` compares the
   `Capnp`, `CapnpRPC` and `CapnpNW` APIs of the working tree with the
   release that the committed `Package.swift` downloads (now 0.1.2), in the

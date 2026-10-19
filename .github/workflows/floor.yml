@@ -2,6 +2,12 @@
 # CI and the nightly use only macOS 26 runners and their newest iOS
 # simulator, so nothing else runs the floor. Manual until it has passed;
 # then it can join the nightly.
+#
+# There is no macOS 15 job: the newest Xcode on GitHub's macos-15 image is
+# 26.3 (Swift 6.2.4), and the package needs Swift 6.3 (WasmKit 0.4.1, the
+# codegen plugin's dependency, declares tools version 6.3), so it cannot
+# even resolve there (floor run 39203967306). The macOS 15 runtime stays
+# untested.
 name: floor
 
 on:
@@ -54,42 +60,24 @@ jobs:
           [ -n "$RUNTIME" ] || { echo "no iOS 18 simulator runtime" >&2; exit 1; }
           echo "runtime $RUNTIME"
           UDID="$(xcrun simctl create floor-ios18 com.apple.CoreSimulator.SimDeviceType.iPhone-16 "$RUNTIME")"
-          # QUIC tests are macOS/iOS 26+ (@available); they skip on 18.
-          xcodebuild test -scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID" 2>&1 | tee ios18.log
-          grep -E 'Test run with [0-9]+ tests' ios18.log
-
-  macos15:
-    runs-on: macos-15
-    timeout-minutes: 60
-    steps:
-      - name: Checkout
-        run: |
-          if [ ! -d .git ]; then
-            git init -q .
-            git remote add origin "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}.git"
-            git fetch --quiet --depth=1 origin "${GITHUB_SHA}"
-            git checkout -q FETCH_HEAD
-          fi
-      - name: mise
-        run: |
-          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
-          if ! command -v mise >/dev/null 2>&1; then
-            curl -fsSL https://mise.run | sh
-          fi
-          mise install
-          mise exec -- zig version
-      - name: Select the newest Xcode on the image
-        run: |
-          ls -d /Applications/Xcode*.app
-          XCODE="$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
-          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
-      - name: Build and test on macOS 15
-        run: |
-          export PATH="/opt/homebrew/bin:$PATH:$HOME/.local/bin"
-          set -euxo pipefail
-          sw_vers
-          xcrun swift --version
-          cd core && mise exec -- zig build xcframework && cd ..
-          scripts/use-local-core.sh
-          swift build
-          swift test
+          D=(-scheme capnp-swift-Package -destination "platform=iOS Simulator,id=$UDID")
+          xcodebuild build-for-testing "${D[@]}"
+          # The nightly's split (nightly.yml ios-sim): one process per
+          # workload. In one process the 64 x 10k stress test starved the
+          # TCP/TLS tests past their deadlines (floor run 39203967306).
+          # QUIC tests are macOS/iOS 26+ (@available) and skip on 18; their
+          # selection must still pass.
+          selection() { # selection <log> <xcodebuild selection args...>
+            local log=$1; shift
+            xcodebuild test-without-building "${D[@]}" "$@" 2>&1 | tee "$log"
+            grep -E 'Test run with [0-9]+ tests? in [0-9]+ suites? passed' "$log"
+          }
+          selection network.log '-only-testing:CapnpRPCTests/TCPTests' '-only-testing:CapnpRPCTests/M5Tests' \
+            '-only-testing:CapnpRPCTests/ExecutorProbeTests'
+          selection quic.log '-only-testing:CapnpRPCTests/QUICTests' '-only-testing:CapnpRPCTests/QUICOrderTests'
+          selection runtime.log '-only-testing:CapnpRPCTests' '-skip-testing:CapnpRPCTests/TCPTests' \
+            '-skip-testing:CapnpRPCTests/M5Tests' '-skip-testing:CapnpRPCTests/QUICTests' \
+            '-skip-testing:CapnpRPCTests/QUICOrderTests' '-skip-testing:CapnpRPCTests/ExecutorProbeTests' \
+            '-skip-testing:CapnpRPCTests/LoopbackTests/manyConnections()'
+          selection conformance.log '-only-testing:CapnpConformanceTests'
+          selection stress.log '-only-testing:CapnpRPCTests/LoopbackTests/manyConnections()'
