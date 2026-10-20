@@ -1,9 +1,14 @@
 # H13: tell a native host when the caller finishes a call it still owes
 
 Status: **ACCEPTED by capnp-zig** on 2026-10-20, some asks with changes
-(the shape is in "capnp-zig's answer" below). capnp-zig builds it; it
-proposes v0.28.0, and the owner has not decided that release. capnp-swift
-prepares the adoption and ships nothing against it before the tag. Sent
+(the shape is in "capnp-zig's answer" below). capnp-zig builds it for
+v0.28.0: the owner approved that work on 2026-10-20 (as capnp-zig
+reports). Order on capnp-zig main: the Peer out-of-memory fix, then H13
+with the `capnp_finish` BUSY fix (branch `sprint/h13-answer-finished` on
+github.com/nullstyle/capnp-zig, not pushed yet), then H9 (pending).
+capnp-zig sends the commit after its review, with a list of any shape
+change. capnp-swift prepares the adoption and ships nothing against it
+before the tag. Sent
 2026-10-20 at the owner's request, as a message to the capnp-zig "Sprint
 planning" session. Written 2026-10-18. Plan: M9 step 6
 (`docs/sprint-m9-guardrails-2026-10-18.md`, gap G6). Base: capnp-zig
@@ -152,13 +157,16 @@ Sent to "Sprint planning" (full text in the shared session notes,
    because a host now has two answer paths for one call. The C++ reference
    hands out the lowest free question id, so it reuses at once. Asked for a
    sentence in `docs/native-abi.md`: at most one answer per INBOUND_CALL;
-   BAD_ID is no guarantee once the id can be reused.
+   BAD_ID is no guarantee once the id can be reused. **Accepted** for H13:
+   the doc will call a second answer a host bug, which gets BAD_ID only
+   until the remote reuses the id. capnp-swift keeps its per-answer token.
 2. (c) has no capnp-swift impact: it ignores `capnp_finish`'s code and never
    finishes an open question.
 3. Drain order fits: every effect is handled synchronously on the connection
    actor.
 4. Optional e2e scenario (capnp-zig's call): `slow()` cancelled, then
-   `fast()`; with the C++ client it also covers item 1.
+   `fast()`; with the C++ client it also covers item 1. Not in v0.28.0:
+   capnp-zig records it as a follow-up for the owner.
 
 ## capnp-swift adoption plan (prepared, not shipped)
 
