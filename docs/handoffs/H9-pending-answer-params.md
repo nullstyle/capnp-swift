@@ -3,7 +3,8 @@
 - **To:** capnp-zig (the owner copies it there)
 - **From:** capnp-swift (M8, matrix catch-up)
 - **Date:** 2026-10-18
-- **Status:** DRAFT (the owner sends it)
+- **Status:** SENT to capnp-zig on 2026-10-20 (at the owner's request, as a
+  message to the capnp-zig "Sprint planning" session). Waiting for its answer.
 - **Row:** plan §3 H9. capnp-zig `docs/downstreams.md` lists it as "H9 (pending)", deferred.
 
 This is a document, not an issue. Nothing here was filed anywhere.

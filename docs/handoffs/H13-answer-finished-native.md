@@ -1,6 +1,8 @@
 # H13: tell a native host when the caller finishes a call it still owes
 
-Status: **OPEN, for the owner to send to capnp-zig** (2026-10-18). Plan:
+Status: **SENT to capnp-zig** on 2026-10-20 (at the owner's request,
+as a message to the capnp-zig "Sprint planning" session, with the asks
+inline). Waiting for its answer. Written 2026-10-18. Plan:
 M9 step 6 (`docs/sprint-m9-guardrails-2026-10-18.md`, gap G6). Base:
 capnp-zig v0.27.0.
 
