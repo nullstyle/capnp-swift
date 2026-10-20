@@ -4,21 +4,21 @@ Every step runs from a clean working tree on the release commit. Steps 5
 and 6 need the owner; nothing is tagged or uploaded before the owner
 says so.
 
-## Current release (2026-10-18)
+## Current release (2026-10-20)
 
-Release [0.1.2](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.2)
-was published on 2026-10-18 at `69e392e342fd4fa9ed741c68327fc31c5148e632`,
-with the capnp-zig v0.27.0 core. Release
-[0.1.1](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.1) was
-published on 2026-10-10 at `808a90440c4560e7f3a705170b66b3ac969388a6`.
-Both tags and their assets are immutable. See the
-[0.1.2 sheet](release-readiness-2026-10-18.md) for the assets, checksums,
-evidence and the post-publish smoke.
-
-**Proposed next: 0.1.3** ([readiness sheet](release-readiness-2026-10-19.md)),
-pending owner approval of the tag and the uploads. It reuses both 0.1.2
-assets byte for byte (the core and the generator did not change); its
-release commit moves the CapnpCore URL to the 0.1.3 download. The
+Release [0.1.3](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.3)
+was published on 2026-10-20 at `d589ff41c29a1aa12fc1fb649a1be5606ed35c11`.
+Its two assets are the 0.1.2 files byte for byte (the core and the
+generator did not change); its release commit moved the CapnpCore URL to
+the 0.1.3 download. Release
+[0.1.2](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.2) was
+published on 2026-10-18 at `69e392e342fd4fa9ed741c68327fc31c5148e632`,
+with the capnp-zig v0.27.0 core, and
+[0.1.1](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.1) on
+2026-10-10 at `808a90440c4560e7f3a705170b66b3ac969388a6`. All tags and
+their assets are immutable. See the [0.1.3 sheet](release-readiness-2026-10-19.md)
+and the [0.1.2 sheet](release-readiness-2026-10-18.md) for assets,
+checksums, evidence and the post-publish smokes. The
 [2026-10-13 sheet](release-readiness-2026-10-13.md) and the
 [2026-10-12 sheet](release-readiness-2026-10-12.md) keep the earlier
 snapshots. Confirm the signing policy before any tag or asset upload.

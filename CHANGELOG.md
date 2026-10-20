@@ -52,6 +52,11 @@ All notable changes to capnp-swift are recorded here.
 
 ### Documentation
 
+- Release 0.1.3 published (2026-10-20) at `d589ff4` with both assets,
+  unsigned (the 0.1.2 files byte for byte). Both downloads match their
+  SHA-256. A fresh consumer resolved the tag, fetched the 0.1.3 core URL,
+  compiled a call to `CallResult.localHandler(forExport:)`, built for
+  macOS and iOS, and completed a TCP bootstrap against the zig-peer.
 - New 0.1.3 proposal (`docs/release-readiness-2026-10-19.md`): the M8 and
   M9 work on the 0.1.2 core. Both assets are the 0.1.2 files byte for byte
   (the core and the generator did not change); the release commit moves

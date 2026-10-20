@@ -1,4 +1,10 @@
-# Next release proposal — 2026-10-19
+# Release 0.1.3 — proposal (2026-10-19) and publication (2026-10-20)
+
+> **Published 2026-10-20** as [0.1.3](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.3)
+> at `d589ff41c29a1aa12fc1fb649a1be5606ed35c11` (owner approved: tag and
+> both assets, unsigned). Both downloaded assets match the SHA-256 values
+> below. Post-publish smoke: a fresh consumer with an isolated SwiftPM cache resolved tag 0.1.3 at `d589ff4`, downloaded the 0.1.3 core URL, compiled a call to the new `CallResult.localHandler(forExport:)`, built for macOS, iOS device (unsigned) and iOS simulator, printed `core 0.1.0 / capnp-zig 0.27.0 / capnpc_zig-0.27.0-nUduFW1…`, and completed a TCP bootstrap and close against the v0.21.0 zig-peer. The downloaded codegen bundle passes `scripts/check-codegen-bundle.sh`. [CI 39454050216](https://github.com/nullstyle/capnp-swift/actions/runs/39454050216) on the release commit passed all four jobs: normal, TSan and ASan 75 tests each; the API gate, now against 0.1.3, found no breaking change; the renamed-archive gate passed 21 checks with the released 0.1.3 core. The text below is the
+> proposal as approved.
 
 **Proposed version: 0.1.3, pending owner approval of the tag and the
 uploads.** The owner asked for this proposal on 2026-10-19 (option "prepare
