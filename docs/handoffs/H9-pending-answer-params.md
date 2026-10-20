@@ -3,8 +3,10 @@
 - **To:** capnp-zig (the owner copies it there)
 - **From:** capnp-swift (M8, matrix catch-up)
 - **Date:** 2026-10-18
-- **Status:** SENT to capnp-zig on 2026-10-20 (at the owner's request, as a
-  message to the capnp-zig "Sprint planning" session). Waiting for its answer.
+- **Status:** ACCEPTED by capnp-zig on 2026-10-20 (see "capnp-zig's
+  answer" at the end). Sent the same day at the owner's request, as a
+  message to the capnp-zig "Sprint planning" session. The release (capnp-zig
+  proposes v0.28.0) is not decided.
 - **Row:** plan §3 H9. capnp-zig `docs/downstreams.md` lists it as "H9 (pending)", deferred.
 
 This is a document, not an issue. Nothing here was filed anywhere.
@@ -104,3 +106,23 @@ not test them.
   matrix has only the Zig and C++ peers).
 - Case three of the limit (Finish before a parked call replays) did not
   show up in these runs.
+
+## capnp-zig's answer (2026-10-20)
+
+1. **Accepted with a change.** A `pipelined_params_deferred` schema on the
+   Zig e2e server answers `mint()` and `mintFail()` on a later loop turn.
+   The e2e runner gets an XFAIL / XPASS outcome (today it has only PASS,
+   FAIL and SKIP). An XPASS fails the gate, so a future fix forces the docs
+   to change. capnp-zig runs every reference client against it first and
+   records the exact failing lines.
+2. **Accepted, with a more exact sentence**, for `docs/supported-surface.md`
+   and `docs/native-abi.md`: "a native-ABI host answers every call after its
+   dispatch, so a pipelined param fails whenever the host has not answered
+   the named call when the pipelined call arrives; this is always so when
+   both arrive in one capnp_conn_push_bytes."
+3. **Accepted.** The deferred row stays, with links to this evidence and to
+   the new known-limit row.
+
+capnp-swift, when a tag has it: add the scenario to its matrix. The Swift
+client should pass against the deferred Zig server, because the Swift
+runtime waits for `mint()`'s Return before it sends `check()`.
