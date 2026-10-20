@@ -1,13 +1,13 @@
 # H13: tell a native host when the caller finishes a call it still owes
 
 Status: **ACCEPTED by capnp-zig** on 2026-10-20, some asks with changes
-(the shape is in "capnp-zig's answer" below). capnp-zig builds it for
-v0.28.0: the owner approved that work on 2026-10-20 (as capnp-zig
-reports). Order on capnp-zig main: the Peer out-of-memory fix, then H13
-with the `capnp_finish` BUSY fix (branch `sprint/h13-answer-finished` on
-github.com/nullstyle/capnp-zig, not pushed yet), then H9 (pending).
-capnp-zig sends the commit after its review, with a list of any shape
-change. capnp-swift prepares the adoption and ships nothing against it
+(the shape is in "capnp-zig's answer" below). **On capnp-zig main** at
+`fc0533d` since 2026-10-20 (main CI 39496021351 passed), in this order: the
+Peer out-of-memory fix (`4d37094`), the `capnp_finish` BUSY fix
+(`6a76db3`), H13 (`8c353a6..a8b0302`), H9 (pending) (`6cc181e..648829b`)
+and the Swift-importable feature macro (`fc0533d`). No tag yet: v0.28.0 is
+the owner's call (the owner approved the v0.28.0 work, as capnp-zig
+reports). capnp-swift prepared the adoption and ships nothing against it
 before the tag. Sent
 2026-10-20 at the owner's request, as a message to the capnp-zig "Sprint
 planning" session. Written 2026-10-18. Plan: M9 step 6
@@ -240,6 +240,11 @@ Found: Swift cannot import `#define CAPNP_FEATURE_ANSWER_FINISHED
 `fc0533d` (`sprint/v028-integration`): the header now spells it
 `(1ULL << 0)`; checked with `swiftc -import-objc-header` on that header
 (it prints 1). The adoption can drop its own constant once it pins v0.28.0.
+
+capnp-zig main `fc0533d` differs from `a8b0302` under `src/` only in that
+header line, so the results above hold for it. The scratch branch moved to
+it (commit `a0a6c9a`, local): with the imported constant,
+`RemoteCancellationTests` and `CapnpCoreInfoTests` pass (7 tests).
 
 capnp-zig's integration branch `sprint/v028-integration` holds the Peer
 out-of-memory fix, H13, H9 (pending) (`pipelined_params_deferred` with
