@@ -6,6 +6,12 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- `RemoteCancellationTests` shows the H13 gap: on the v0.27.0 core, a
+  caller's cancel does not cancel the Swift handler's `Task`. The check is
+  a known issue (`withKnownIssue`), so the test fails once the gap closes
+  and the adoption must remove the wrapper. capnp-zig accepted H13 and H9
+  (pending) on 2026-10-20; the shape and the adoption plan are in
+  `docs/handoffs/H13-answer-finished-native.md`.
 - A manual `floor` workflow runs the suite on an iOS 18 simulator (it
   fetches the iOS 18.6 runtime, 8.86 GB, when the image lacks it), split
   into the nightly's selections. Its first run (39203967306) ran the suite

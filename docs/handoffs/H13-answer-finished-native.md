@@ -182,7 +182,11 @@ local branch builds against a branch archive (`zig build --fork=<dir>`).
 6. **Docs.** Remove the H13 known limit (README, release notes) and the
    Finish sentence in `Examples/RPCWorkbench/README.md`.
 7. **Tests.** A handler that waits forever sees cancellation within 1 s
-   after the caller cancels (red on v0.27.0); a handler that ends at the
+   after the caller cancels: `Tests/CapnpRPCTests/RemoteCancellationTests.swift`,
+   added 2026-10-20 as a known issue (`withKnownIssue`) on the v0.27.0
+   core. Ablation: with the check forced true it fails ("Known
+   issue was not recorded"), so the adoption must remove the wrapper. A
+   handler that ends at the
    same moment answers once; a late completion after the cancel never calls
    into the core; C-level (`core/abi_test.zig`): one effect, then
    `capnp_return_canceled` OK, then BAD_ID, and no effect without the
