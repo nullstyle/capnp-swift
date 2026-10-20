@@ -170,6 +170,10 @@ All notable changes to capnp-swift are recorded here.
 
 ### Changed
 
+- Release 0.1.3 approved (2026-10-20): the package manifest selects the
+  0.1.3 core archive by URL; its checksum is unchanged (the same core
+  binary as 0.1.2). The tag includes this manifest; publication and the
+  fresh remote-consumer smoke follow. Both assets ship unsigned.
 - Release 0.1.2 approved (2026-10-18): the package manifest selects the
   approved 0.1.2 core archive by URL and checksum (capnp-zig v0.27.0
   core). The tag includes this manifest; publication and the fresh
