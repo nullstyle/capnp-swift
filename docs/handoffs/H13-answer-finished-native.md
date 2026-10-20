@@ -206,3 +206,47 @@ default, with an `Options` switch to turn it off: the Swift idiom (a
 cancelled caller cancels the work). (B) Off by default, opt in: as the C++
 reference, which cancels a server call only when the method allows it.
 Recommended: A.
+
+## Branch check (2026-10-20): capnp-zig `sprint/h13-answer-finished` at `a8b0302`
+
+capnp-zig asked for the red test before it lands the branch on its main.
+Changes it listed against the shape above: `capnp_finish` on an in-flight
+question returns BUSY (CHANGELOG: Breaking, Experimental behavior); a call
+beyond `max_active_inbound_questions` owed answers gets an exception Return
+(`OwedAnswerLimitExceeded`) and never reaches the host; a Call that reuses an
+owed id closes the connection (with full finished-early records, a reused id
+on a Bootstrap or on a Call the core answers itself is not caught, see its
+`docs/native-abi.md` "Answer ids"); ANSWER_FINISHED can come after the
+export's EXPORT_DROPPED (find the work by answer id); u32_le framing fails a
+connection once, in order; `docs/native-abi.md` states the late-answer rule.
+
+How: a `git archive` of `a8b0302` in the session scratchpad, built with
+`zig build --fork=<that dir>` (`core/build.zig.zon` unchanged), its header in
+a throwaway local branch `scratch/h13-a8b0302` (commit `fe1f80c`, never
+pushed; its `Package.swift` points at the local xcframework) with the
+adoption plan steps 2 to 5 and `Options.cancelHandlersOnFinish` (default
+true).
+
+| Check | Result |
+|---|---|
+| Red on v0.27.0 | `RemoteCancellationTests` records its known issue, locally and in [CI 39473919774](https://github.com/nullstyle/capnp-swift/actions/runs/39473919774) (normal, TSan, ASan). |
+| Green on `a8b0302` | The unchanged test fails with "Known issue was not recorded": the handler was cancelled after about 8 ms. Without the wrapper, 5 tests pass: the cancel reaches the handler; a handler that ignores it still gets `Return{canceled}` out at once and its late completion is dropped; an answer-once race (200 calls cancelled at once: about 180 take the cancel path, about 20 are answered first, in each run); the opt-out keeps the handler running; a close cancels running handlers. |
+| Ablations | No opt-in: 3 tests fail. No `Task` cancel: 1. No `capnp_return_canceled`: 2. |
+| Gates | Core tests 23/23 (`test-abi` through the new header). `swift test` normal, TSan and ASan: 71 + 9 pass, 0 sanitizer reports; the only edit is `CapnpCoreInfoTests` (features == 1). `fuzz-abi` 120 s ReleaseSafe: 632,451 sessions, 0 live bytes (this harness does not set the opt-in). e2e: Zig 52 and 55, C++ 52 and 122 + 2 known, MVP 4/4: the v0.27.0 baseline. |
+
+Found: Swift cannot import `#define CAPNP_FEATURE_ANSWER_FINISHED
+(UINT64_C(1) << 0)` (a function-like macro); `(1ULL << 0)` imports as
+`UInt64`. Sent to capnp-zig as a suggestion. **Fixed** in capnp-zig
+`fc0533d` (`sprint/v028-integration`): the header now spells it
+`(1ULL << 0)`; checked with `swiftc -import-objc-header` on that header
+(it prints 1). The adoption can drop its own constant once it pins v0.28.0.
+
+capnp-zig's integration branch `sprint/v028-integration` holds the Peer
+out-of-memory fix, H13, H9 (pending) (`pipelined_params_deferred` with
+XFAIL) and the macro fix. It lands on capnp-zig main after its CI and
+nightly pass. The v0.28.0 tag is the owner's call; capnp-zig reports when
+main has it.
+
+Not checked: the iOS slices, the QUIC lanes, and a C++ client that cancels
+(no e2e scenario yet). Under `--fork`, `capnp_core_version()` still names
+the v0.27.0 pin (it reads `core/build.zig.zon`).
