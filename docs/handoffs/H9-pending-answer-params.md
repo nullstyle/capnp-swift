@@ -5,11 +5,11 @@
 - **Date:** 2026-10-18
 - **Status:** ACCEPTED by capnp-zig on 2026-10-20 (see "capnp-zig's
   answer" at the end). Sent the same day at the owner's request, as a
-  message to the capnp-zig "Sprint planning" session. On capnp-zig main at
-  `fc0533d` since 2026-10-20 (`6cc181e..648829b`): the
-  `pipelined_params_deferred` schema and XFAIL rows; capnp-zig's Linux CI
-  shows XFAIL for the cpp, go, python and rust clients over TCP, and for cpp
-  over Unix. No tag yet (v0.28.0 is the owner's call).
+  message to the capnp-zig "Sprint planning" session. Released in capnp-zig
+  v0.28.0 (`73416c7`): the `pipelined_params_deferred` schema and XFAIL rows
+  (the cpp, go, python and rust clients fail the same 2 check() lines). The
+  ask stays deferred upstream. capnp-swift's Zig matrix runs the scenario
+  (commit `d7031ca`): the Swift client passes 4/4.
 - **Row:** plan §3 H9. capnp-zig `docs/downstreams.md` lists it as "H9 (pending)", deferred.
 
 This is a document, not an issue. Nothing here was filed anywhere.

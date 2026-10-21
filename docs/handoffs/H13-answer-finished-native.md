@@ -1,14 +1,9 @@
 # H13: tell a native host when the caller finishes a call it still owes
 
 Status: **ACCEPTED by capnp-zig** on 2026-10-20, some asks with changes
-(the shape is in "capnp-zig's answer" below). **On capnp-zig main** at
-`fc0533d` since 2026-10-20 (main CI 39496021351 passed), in this order: the
-Peer out-of-memory fix (`4d37094`), the `capnp_finish` BUSY fix
-(`6a76db3`), H13 (`8c353a6..a8b0302`), H9 (pending) (`6cc181e..648829b`)
-and the Swift-importable feature macro (`fc0533d`). No tag yet: v0.28.0 is
-the owner's call (the owner approved the v0.28.0 work, as capnp-zig
-reports). capnp-swift prepared the adoption and ships nothing against it
-before the tag. Sent
+(the shape is in "capnp-zig's answer" below). **Released in capnp-zig
+v0.28.0** (tag commit `73416c7`, 2026-10-20). capnp-swift pins it and adopts
+it on branches, not on main (see "capnp-swift adoption" at the end). Sent
 2026-10-20 at the owner's request, as a message to the capnp-zig "Sprint
 planning" session. Written 2026-10-18. Plan: M9 step 6
 (`docs/sprint-m9-guardrails-2026-10-18.md`, gap G6). Base: capnp-zig
@@ -255,3 +250,24 @@ main has it.
 Not checked: the iOS slices, the QUIC lanes, and a C++ client that cancels
 (no e2e scenario yet). Under `--fork`, `capnp_core_version()` still names
 the v0.27.0 pin (it reads `core/build.zig.zon`).
+
+## capnp-swift adoption (2026-10-20, on branches)
+
+- `claude/capnp-zig-0-27-61005f` (the 0.1.4 candidate, `d0e1cf1`): the
+  v0.28.0 pin, the fuzz coverage of ANSWER_FINISHED, and a fix for a 0.1.3
+  Release crash found on the way (plan §8 "capnp-zig v0.28.0 adoption and a
+  0.1.3 Release crash"). The runtime does not opt in there:
+  `RemoteCancellationTests` keeps its known issue.
+- `claude/h13-runtime` (one commit on top): the adoption plan above, steps
+  2 to 7. The runtime opts in when the core has the bit and
+  `Options.cancelHandlersOnFinish` is true (the default; owner decision A
+  pending); ANSWER_FINISHED cancels the handler's `Task` and answers
+  `capnp_return_canceled`; a per-answer token drops a late completion; a
+  close cancels running handlers. `RemoteCancellationTests` (5) pass, and 3
+  ablations are caught (no opt-in: 3 fail; no `Task` cancel: 1; no
+  `capnp_return_canceled`: 2). `swift test`, TSan, ASan and `release-test`
+  74 + 9; Zig 52/55/4, C++ 122 + 2 known and 52, QUIC 14/14, mvp 4/4; the
+  API gate passes (additive). The Workbench archive gate fails there, as it
+  must: the released 0.1.3 core has no `CAPNP_FEATURE_ANSWER_FINISHED` or
+  `answer_finished`, so this branch lands after a release ships the v0.28.0
+  core.
