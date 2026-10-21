@@ -13,8 +13,8 @@
         // Tests/CapnpRPCTests/CapnpCoreInfoTests.swift (the string reports this
         // hash and the version derived from it at build time).
         .capnpc_zig = .{
-            .url = "https://github.com/nullstyle/capnp-zig/archive/refs/tags/v0.27.0.tar.gz",
-            .hash = "capnpc_zig-0.27.0-nUduFW1bUAADj3Z26dHIY_B2smK41Np9lQFxke3GcAWN",
+            .url = "https://github.com/nullstyle/capnp-zig/archive/refs/tags/v0.28.0.tar.gz",
+            .hash = "capnpc_zig-0.28.0-nUduFX-xUQD3zoI5en-lnfY679kQQg3OfT9MV5vOrfpP",
         },
     },
     .paths = .{

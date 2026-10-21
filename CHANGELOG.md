@@ -181,6 +181,20 @@ All notable changes to capnp-swift are recorded here.
 
 ### Changed
 
+- The core pins capnp-zig v0.28.0 (`capnpc_zig-0.28.0-nUduFX-…`, tag
+  commit `73416c7`; it was v0.27.0). It fixes 3 Peer defects that a native
+  host reaches through the C ABI: `capnp_return_results` with a
+  `CAPNP_CAP_PROMISED` entry could read freed memory, `capnp_resolve_promise`
+  of a promise to itself overflowed the stack (now `CAPNP_E_INVAL`), and
+  `capnp_return_exception` after the caller's Finish could return OK and
+  drop the answer. The header gains `CAPNP_FEATURE_ANSWER_FINISHED`,
+  `capnp_conn_opts.answer_finished`, `CAPNP_EFFECT_ANSWER_FINISHED` and
+  `capnp_return_canceled` (handoff H13), all opt-in; `capnp_finish` on an
+  open question returns `CAPNP_E_BUSY` (the runtime ignores that code). The
+  e2e peers, the nightly's `CAPNP_ZIG_TAG` and `third_party/` follow the
+  tag. `scripts/check-native-header.sh` now reads the pinned hash from
+  `core/build.zig.zon`: after a pin bump, `core/zig-pkg/` still holds the
+  old package, and the gate compared the snapshot with that one.
 - Release 0.1.3 approved (2026-10-20): the package manifest selects the
   0.1.3 core archive by URL; its checksum is unchanged (the same core
   binary as 0.1.2). The tag includes this manifest; publication and the

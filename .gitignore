@@ -11,5 +11,5 @@ DerivedData/
 zig-pkg/
 dist/
 # The pinned-tag export the M4 gate builds Zig/C++ peers from (regenerate:
-# git -C ../capnp-zig archive v0.27.0 | tar -x -C third_party/capnp-zig).
+# git -C ../capnp-zig archive v0.28.0 | tar -x -C third_party/capnp-zig).
 third_party/capnp-zig/

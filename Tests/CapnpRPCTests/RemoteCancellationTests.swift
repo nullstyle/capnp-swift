@@ -1,9 +1,9 @@
 // The caller cancels a call that a Swift handler is still running (M9 G6).
-// The caller's core sends Finish. The v0.27.0 core does not tell the host,
-// so the handler's Task runs on; capnp-zig handoff H13 adds the
-// ANSWER_FINISHED effect that lets the runtime cancel it. Until capnp-swift
-// adopts it, the check below is a known issue: Swift Testing fails the test
-// when the issue stops happening, so the adoption must remove the wrapper.
+// The caller's core sends Finish. The core tells a host that opts in
+// (capnp-zig v0.28.0, handoff H13: CAPNP_EFFECT_ANSWER_FINISHED), but the
+// runtime does not opt in yet, so the handler's Task runs on. Until it does,
+// the check below is a known issue: Swift Testing fails the test when the
+// issue stops happening, so the adoption must remove the wrapper.
 
 @testable import CapnpRPC
 import Synchronization
@@ -57,7 +57,7 @@ struct RemoteCancellationTests {
         #expect(error == .canceled)
 
         let reached = await eventually(.seconds(1)) { probe.cancelled }
-        withKnownIssue("H13: the v0.27.0 core does not tell the host that the caller finished the call") {
+        withKnownIssue("H13: the runtime does not opt in to ANSWER_FINISHED yet") {
             #expect(reached, "the handler's Task was not cancelled within 1 s")
         }
         await client.close()

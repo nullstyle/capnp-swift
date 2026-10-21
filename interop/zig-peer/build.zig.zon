@@ -5,7 +5,7 @@
     .minimum_zig_version = "0.17.0",
     .dependencies = .{
         // An independent, older capnp-zig peer on purpose: v0.21.0 while the
-        // core pins v0.27.0, so the mvp and QUIC lanes keep a cross-version
+        // core pins v0.28.0, so the mvp and QUIC lanes keep a cross-version
         // pairing. Bumping it means regenerating gen/ (see gen/README.md).
         // `zig build` fetches it; never run `zig fetch <url>` (CLAUDE.md).
         .capnpc_zig = .{

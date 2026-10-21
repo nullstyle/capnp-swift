@@ -14,7 +14,7 @@
 #
 # Native H9 (pending answers): the native core refuses a `receiverAnswer`
 # param that names an answer still pending (PromisedCapUnsupported).
-# capnp-zig v0.27.0 resolves it only once that answer has returned. The C++
+# capnp-zig v0.28.0, as v0.27.0, resolves it only once that answer has returned. The C++
 # client sends Bootstrap and all four pipelined_params calls in one write,
 # so check() always reaches the Swift server's core before mint() and
 # mintFail() are answered. The Zig client writes each call on its own, and

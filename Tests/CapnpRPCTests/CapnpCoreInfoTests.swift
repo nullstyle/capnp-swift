@@ -14,8 +14,9 @@ struct CapnpCoreInfoTests {
         // core/build.zig.zon: bump this together with the pin.
         #expect(
             CapnpCoreInfo.version
-                == "core 0.1.0 / capnp-zig 0.27.0 / capnpc_zig-0.27.0-nUduFW1bUAADj3Z26dHIY_B2smK41Np9lQFxke3GcAWN"
+                == "core 0.1.0 / capnp-zig 0.28.0 / capnpc_zig-0.28.0-nUduFX-xUQD3zoI5en-lnfY679kQQg3OfT9MV5vOrfpP"
         )
-        #expect(CapnpCoreInfo.features == 0)
+        // Bit 0: CAPNP_FEATURE_ANSWER_FINISHED (capnp-zig v0.28.0, handoff H13).
+        #expect(CapnpCoreInfo.features == 1)
     }
 }

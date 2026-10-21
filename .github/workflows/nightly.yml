@@ -30,7 +30,7 @@ permissions:
 env:
   # The e2e peer source (Zig and C++ drivers): the same tag as the core pin
   # (core/build.zig.zon). v0.26.0+ ships the drivers' --transport quic.
-  CAPNP_ZIG_TAG: v0.27.0
+  CAPNP_ZIG_TAG: v0.28.0
 
 jobs:
   fuzz:

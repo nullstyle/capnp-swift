@@ -30,7 +30,13 @@ extern "C" {
 /* The ABI version of the linked core (CAPNP_CORE_ABI_VERSION when it built). */
 uint32_t capnp_core_abi_version(void);
 
-/* Feature bits. None are defined yet; always 0. */
+/* Feature bits. A host checks a bit before it uses what the bit names; a
+ * core reports 0 for each bit it does not know. */
+/* Plain integer literals, not UINT64_C(): Swift imports a macro that is a
+ * plain constant expression, but not one that calls a function-like macro. */
+#define CAPNP_FEATURE_ANSWER_FINISHED (1ULL << 0) /* capnp_conn_opts.answer_finished,
+                                                     CAPNP_EFFECT_ANSWER_FINISHED and
+                                                     capnp_return_canceled */
 uint64_t capnp_core_features(void);
 
 /* "core <version> / capnp-zig <pinned version> / <pinned package hash>".
@@ -143,6 +149,11 @@ typedef struct capnp_conn_opts {
     uint32_t max_pending_promises;          /* default 4096 */
     uint32_t max_pending_export_promises;   /* default 4096 */
     uint32_t max_resolved_imports;          /* default 10000 */
+    /* Added with CAPNP_FEATURE_ANSWER_FINISHED (a host built against an
+     * older header passes a smaller struct_size and gets 0): */
+    uint32_t answer_finished;               /* 1: queue CAPNP_EFFECT_ANSWER_FINISHED;
+                                               0: off; any other value is
+                                               CAPNP_E_INVAL */
 } capnp_conn_opts;
 
 /* One capability in a host payload's caps[] table (plan D5), and the target
@@ -170,15 +181,30 @@ typedef struct capnp_cap {
 #define CAPNP_EFFECT_OUT_FRAME       0  /* msg/msg_len: a frame to send, in order */
 #define CAPNP_EFFECT_CLOSE_REQUESTED 1  /* close the transport */
 #define CAPNP_EFFECT_RETURN          2  /* id = question id; exactly one per question */
-#define CAPNP_EFFECT_INBOUND_CALL    3  /* id = answer id: answer with
-                                           capnp_return_results/_exception */
+#define CAPNP_EFFECT_INBOUND_CALL    3  /* id = answer id: answer it once with
+                                           capnp_return_results or
+                                           capnp_return_exception */
 #define CAPNP_EFFECT_EXPORT_DROPPED  4  /* id = export_id: the remote released
                                            it to zero (never for the bootstrap) */
 #define CAPNP_EFFECT_EVENT           5  /* a Peer observer event (opts.observer):
                                            event_tag names it (capnp_core_event_name),
                                            reason holds its error name or "" */
-/* 6 is reserved for ANSWER_FINISHED (the remote finished an unanswered
- * inbound call); it needs capnp-zig handoff H5 and is not produced yet. */
+#define CAPNP_EFFECT_ANSWER_FINISHED 6  /* opts.answer_finished: the caller
+                                           finished an INBOUND_CALL that the host
+                                           has not answered (the remote sent
+                                           Finish or, for a call from this
+                                           connection to one of its own exports,
+                                           the host canceled that question or its
+                                           deadline passed). id = its answer id;
+                                           export_id and host_tag as in that
+                                           INBOUND_CALL (it can come after that
+                                           export's EXPORT_DROPPED: find the
+                                           work by id). At most once per call.
+                                           Stop the work and answer, normally
+                                           with capnp_return_canceled. Stale if
+                                           the host answered the call before it
+                                           drained this effect: then ignore it.
+                                           Apply effects in drain order. */
 
 /* RETURN kinds (return_kind). */
 #define CAPNP_RETURN_RESULTS      0  /* msg/caps: the results */
@@ -192,15 +218,16 @@ typedef struct capnp_cap {
 
 typedef struct capnp_effect {
     uint32_t struct_size;      /* in: sizeof(capnp_effect); out: bytes filled */
-    uint32_t id;               /* RETURN: question id; INBOUND_CALL: answer id;
-                                  EXPORT_DROPPED: export id */
-    uint32_t export_id;        /* INBOUND_CALL, EXPORT_DROPPED */
+    uint32_t id;               /* RETURN: question id; INBOUND_CALL and
+                                  ANSWER_FINISHED: answer id; EXPORT_DROPPED:
+                                  export id */
+    uint32_t export_id;        /* INBOUND_CALL, EXPORT_DROPPED, ANSWER_FINISHED */
     uint8_t  kind;             /* CAPNP_EFFECT_* */
     uint8_t  return_kind;      /* RETURN: CAPNP_RETURN_* */
     uint8_t  event_tag;        /* EVENT: the capnp-zig events.Event tag */
     uint16_t exception_type;   /* RETURN EXCEPTION / DISCONNECTED */
     uint16_t method_id;        /* INBOUND_CALL */
-    uint64_t host_tag;         /* INBOUND_CALL, EXPORT_DROPPED */
+    uint64_t host_tag;         /* INBOUND_CALL, EXPORT_DROPPED, ANSWER_FINISHED */
     uint64_t interface_id;     /* INBOUND_CALL */
     const uint8_t *msg;        /* OUT_FRAME: the frame. RETURN RESULTS and
                                   INBOUND_CALL: a standalone message whose root
@@ -247,10 +274,10 @@ void capnp_conn_transport_closed(capnp_conn *conn);
 
 /* Take the last connection-level error (set by a protocol failure, a remote
  * Abort or a Peer error). Returns 1 and clears it, filling *code (a CAPNP_E_*
- * code), *name/*name_len (the Zig error name, static) and *detail/*detail_len
- * (for RemoteAbort: the remote's reason, valid until capnp_conn_free; else
- * empty); returns 0 and empties the outputs when there is none. Every output
- * pointer may be NULL. */
+ * code), *name and *name_len (the Zig error name, static) and *detail and
+ * *detail_len (for RemoteAbort: the remote's reason, valid until
+ * capnp_conn_free; else empty); returns 0 and empties the outputs when there
+ * is none. Every output pointer may be NULL. */
 int32_t capnp_conn_take_error(capnp_conn *conn, int32_t *code, const char **name, size_t *name_len,
                               const char **detail, size_t *detail_len);
 
@@ -324,7 +351,9 @@ int32_t capnp_set_bootstrap(capnp_conn *conn, uint64_t host_tag, uint32_t *out_e
 int32_t capnp_promise_export(capnp_conn *conn, uint32_t *out_promise_id);
 
 /* Resolve promise export promise_id to `to`: one of this connection's EXPORTs,
- * or an IMPORT it holds. Once per promise (CAPNP_E_INVAL afterwards). A no-op
+ * or an IMPORT it holds. Once per promise (CAPNP_E_INVAL afterwards).
+ * CAPNP_E_INVAL, with nothing sent, for the promise itself or a promise
+ * export that resolved back to it: the promise stays unresolved. A no-op
  * once the connection is closed. */
 int32_t capnp_resolve_promise(capnp_conn *conn, uint32_t promise_id, capnp_cap to);
 
@@ -333,17 +362,35 @@ int32_t capnp_resolve_promise(capnp_conn *conn, uint32_t promise_id, capnp_cap t
 int32_t capnp_reject_promise(capnp_conn *conn, uint32_t promise_id, const char *reason, size_t reason_len);
 
 /* Answer an INBOUND_CALL (answer_id = its id) with results: msg and caps as
- * for capnp_call. CAPNP_E_BAD_ID for an answer not pending (also after the
- * remote finished it early: the answer is gone). On a refused payload (a bad
- * caps[] entry) nothing is sent and the answer stays open. */
+ * for capnp_call. CAPNP_E_BAD_ID for an answer the host does not owe. An
+ * answer after the remote's Finish of the call is still accepted, once. On a
+ * refused payload (a bad caps[] entry) or a failed send nothing is sent and
+ * the answer stays owed. The host answers each INBOUND_CALL once: after that
+ * the remote may reuse the id at once, and a second answer then goes to the
+ * new call. */
 int32_t capnp_return_results(capnp_conn *conn, uint32_t answer_id, const uint8_t *msg, size_t msg_len,
                              const capnp_cap *caps, size_t ncaps);
 
 /* Answer an INBOUND_CALL with an exception (exception_type: 0 failed,
  * 1 overloaded, 2 disconnected, 3 unimplemented; reason is not
- * NUL-terminated and may be empty). */
+ * NUL-terminated and may be empty). CAPNP_E_BAD_ID for an answer the host
+ * does not owe. An answer after the remote's Finish of the call is still
+ * accepted, once. On a failed send (for example CAPNP_E_NOMEM) nothing is
+ * sent and the answer stays owed: answer it again. */
 int32_t capnp_return_exception(capnp_conn *conn, uint32_t answer_id, uint16_t exception_type,
                                const char *reason, size_t reason_len);
+
+/* Answer with Return{canceled} (CAPNP_FEATURE_ANSWER_FINISHED) an INBOUND_CALL
+ * for which a CAPNP_EFFECT_ANSWER_FINISHED came (its caller finished it; see
+ * that effect). CAPNP_E_BAD_ID for an answer the host does not owe;
+ * CAPNP_E_INVAL unless a CAPNP_EFFECT_ANSWER_FINISHED was queued for it
+ * (opts.answer_finished off, no Finish yet, a tail-call hold withholds it,
+ * or the core did not report the Finish: its records were full or out of
+ * memory, or the call was still queued in the core when the Finish came). On
+ * another error nothing is sent and the answer stays owed. Instead of this,
+ * the host may answer with capnp_return_results or capnp_return_exception;
+ * it answers once. */
+int32_t capnp_return_canceled(capnp_conn *conn, uint32_t answer_id);
 
 #ifdef __cplusplus
 } /* extern "C" */
