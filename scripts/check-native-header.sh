@@ -12,15 +12,13 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# The package of the PINNED hash: after a pin bump, core/zig-pkg/ still
-# holds the old package too, and the first glob match was the old one.
-hash="$(sed -n 's/^ *\.hash = "\(capnpc_zig-[^"]*\)",$/\1/p' core/build.zig.zon)"
-[ -n "$hash" ] || { echo "check-native-header: no capnpc_zig hash in core/build.zig.zon" >&2; exit 1; }
-pkg="core/zig-pkg/$hash/src/native/include/capnp_core.h"
-[ -f "$pkg" ] || { echo "check-native-header: no $pkg (run a core build first)" >&2; exit 1; }
+# The package of the PINNED hash (a glob could match a stale one).
+pkg_dir="$(scripts/pinned-capnp-zig.sh)"
+pkg="$pkg_dir/src/native/include/capnp_core.h"
+[ -f "$pkg" ] || { echo "check-native-header: no $pkg" >&2; exit 1; }
 
 if diff -u "core/include/capnp_core.h" "$pkg"; then
-    echo "check-native-header: OK (snapshot == $hash)"
+    echo "check-native-header: OK (snapshot == $(basename "$pkg_dir"))"
 else
     echo "check-native-header: FAIL: core/include/capnp_core.h drifted from the pinned package's header" >&2
     echo "  refresh with: cp $pkg core/include/capnp_core.h" >&2

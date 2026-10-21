@@ -42,8 +42,9 @@ fail() {
 # zig-pkg/capnpc_zig-<version>-<hash>/src/native/abi.zig. The DWARF carries
 # that versioned path, so match the SUFFIX and read the marker line from the
 # package's file (it moves with every pin).
-pkg_abi="$(ls core/zig-pkg/capnpc_zig-*/src/native/abi.zig 2>/dev/null | head -1)"
-[[ -n "$pkg_abi" ]] || fail "no capnpc_zig package under core/zig-pkg (run a core build first)"
+# The package of the PINNED hash (a glob could match a stale one).
+pkg_dir="$(scripts/pinned-capnp-zig.sh)" || fail "no pinned capnpc_zig package (run a core build first)"
+pkg_abi="$pkg_dir/src/native/abi.zig"
 line="$(grep -n 'CAPNP_CORE_DEBUG_TRAP_LINE' "$pkg_abi" | head -1 | cut -d: -f1)"
 [[ -n "$line" ]] || fail "no CAPNP_CORE_DEBUG_TRAP_LINE marker in $pkg_abi"
 expected="src/native/abi.zig:$line"
