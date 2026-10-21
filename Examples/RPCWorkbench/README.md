@@ -28,8 +28,9 @@ It is suitable only for this example. Supply your own identity/pins in a real ap
 
 On iOS, background suspends the connection and foreground creates a new
 session. **Suspend and reconnect** drives that same app path without leaving
-the window. Canceling a slow request wakes the caller; the current native
-core does not cancel the remote handler's work when it receives Finish.
+the window. Canceling a slow request wakes the caller and cancels the
+remote handler's `Task` (its `Task.sleep` ends early): the core reports the
+caller's Finish, since capnp-zig v0.28.0.
 
 ## Generation and verification
 

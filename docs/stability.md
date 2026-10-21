@@ -24,7 +24,9 @@ exact message in `scripts/api-breakage-allowlist.txt`.
   packed), struct/list/text readers and builders, XOR'd defaults. The
   in-memory layout rules follow the Cap'n Proto spec.
 - **The `CapnpRPC` runtime** — `RPCConnection` (connect, bootstrap, call,
-  pipeline, finish/release, shutdown, events, limits, backpressure),
+  pipeline, finish/release, shutdown, events, limits, backpressure, and
+  cancellation: a caller's Finish or a closed connection cancels the
+  handler's `Task`, unless `Options.cancelHandlersOnFinish` is false),
   `Transport`, `CapRef`, `RemotePromise`, the export model
   (`ExportHandler`), streaming wrappers, the lifecycle policy.
 - **The `CapnpNW` transports** — TCP, Unix sockets, TLS

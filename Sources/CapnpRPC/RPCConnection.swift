@@ -49,6 +49,12 @@ public actor RPCConnection: TransportDelegate {
         /// space; the first failure is sticky in the caller's task).
         public var streamWindowMaxCalls = 64
         public var streamWindowMaxBytes = 1 << 20
+        /// Cancel a handler's `Task` when the caller finishes its call before
+        /// the answer (a cancel or a dropped promise) or the connection
+        /// closes. The caller gets `Return{canceled}` at once. Needs a core
+        /// with `CAPNP_FEATURE_ANSWER_FINISHED` (capnp-zig H13) for the
+        /// caller's Finish; the close part works on every core.
+        public var cancelHandlersOnFinish = true
 
         public init() {}
     }
@@ -56,6 +62,14 @@ public actor RPCConnection: TransportDelegate {
     private struct Export {
         let handler: any ExportHandler
         let id: UInt32
+    }
+
+    /// An inbound call this host still owes an answer: its handler and the
+    /// token of this answer (an id can come back for a newer call once the
+    /// runtime answered it canceled).
+    private struct OwedAnswer {
+        let token: UInt64
+        let task: Task<Void, Never>
     }
 
     /// A question this host asked (bootstrap or call).
@@ -117,6 +131,11 @@ public actor RPCConnection: TransportDelegate {
     // Backpressure.
     private var inboundInFlight = 0
     private var inboundBytes = 0
+    private var owedAnswers: [UInt32: OwedAnswer] = [:]
+    private var nextAnswerToken: UInt64 = 0
+    /// Handler completions dropped because the call was answered already
+    /// (canceled, or the connection closed). Test hook.
+    private(set) var lateAnswersDropped = 0
     private var receivePaused = false
     private var outboundBytes = 0
     private var outboundWaiters: [CheckedContinuation<Void, Never>] = []
@@ -147,6 +166,9 @@ public actor RPCConnection: TransportDelegate {
         }
         opts.shutdown_drain_timeout_ms = UInt32(clamping: max(1, Self.milliseconds(options.shutdownDrainTimeout)))
         opts.max_retained_questions = options.maxRetainedQuestions
+        if options.cancelHandlersOnFinish, capnp_core_features() & CAPNP_FEATURE_ANSWER_FINISHED != 0 {
+            opts.answer_finished = 1
+        }
         var out: OpaquePointer? = nil
         let rc = capnp_conn_new(&opts, Self.now(), &out)
         guard rc == CAPNP_OK, let created = out else {
@@ -375,6 +397,8 @@ public actor RPCConnection: TransportDelegate {
     func pointerHasLiveExport(_ id: UInt32) -> Bool { exports.values.contains { $0.id == id } }
     var pointerCloseWaiterCount: Int { closeWaiters.count }
     var pointerCallTimeoutMilliseconds: UInt32 { options.callTimeout.map { UInt32(clamping: Self.milliseconds($0)) } ?? 0 }
+    /// Test hook: inbound calls whose answer is still owed.
+    var owedAnswerCount: Int { owedAnswers.count }
 
     func pointerLocalSnapshot(_ caps: [CapTableEntry]) -> [UInt32: any ExportHandler] {
         var handlers: [UInt32: any ExportHandler] = [:]
@@ -718,6 +742,8 @@ public actor RPCConnection: TransportDelegate {
             handleInboundCall(e)
         case CAPNP_EFFECT_EXPORT_DROPPED:
             exports.removeValue(forKey: e.host_tag)
+        case CAPNP_EFFECT_ANSWER_FINISHED:
+            answerFinished(e.id)
         case CAPNP_EFFECT_EVENT:
             let name = String(cString: capnp_core_event_name(e.event_tag))
             eventContinuation.yield(RPCEvent(tag: e.event_tag, name: name, errorName: Self.string(e.reason, e.reason_len)))
@@ -778,7 +804,8 @@ public actor RPCConnection: TransportDelegate {
         // The Task inherits this actor: it starts on the queue in creation
         // order and runs the handler until its first suspension (E-order).
         // The task-local context lets `localHandler(forExport:)` find this
-        // call's own exports after the remote released them.
+        // call's own exports after the remote released them. The Task is
+        // kept with its answer's token, so ANSWER_FINISHED can cancel it.
         //
         // The operation catches the handler's error: in a Release build
         // (Xcode 27, Swift 6.4) an error that left TaskLocal.withValue
@@ -786,7 +813,9 @@ public actor RPCConnection: TransportDelegate {
         // and the next isolation check trapped (0.1.3; ReleaseIsolationTests,
         // `just release-test`). `completeOnQueue` keeps `complete` on the
         // queue even if a task resumes elsewhere.
-        Task {
+        let token = nextAnswerToken
+        nextAnswerToken &+= 1
+        let task = Task {
             let outcome: Result<CallResponse, any Error> = await InboundCallContext.$current.withValue(context) {
                 do {
                     return .success(try await handler.handle(call, on: self))
@@ -794,26 +823,50 @@ public actor RPCConnection: TransportDelegate {
                     return .failure(error)
                 }
             }
-            self.completeOnQueue(answerID: answerID, paramBytes: params.count, outcome)
+            self.completeOnQueue(answerID: answerID, token: token, paramBytes: params.count, outcome)
         }
+        owedAnswers[answerID] = OwedAnswer(token: token, task: task)
     }
 
     /// `complete` on the actor's queue: now when this thread runs it, else
     /// as a block on it.
-    private nonisolated func completeOnQueue(answerID: UInt32, paramBytes: Int, _ outcome: Result<CallResponse, any Error>) {
+    private nonisolated func completeOnQueue(answerID: UInt32, token: UInt64, paramBytes: Int, _ outcome: Result<CallResponse, any Error>) {
         if executor.isCurrent {
-            assumeIsolated { $0.complete(answerID: answerID, paramBytes: paramBytes, outcome) }
+            assumeIsolated { $0.complete(answerID: answerID, token: token, paramBytes: paramBytes, outcome) }
         } else {
             executor.queue.async {
-                self.assumeIsolated { $0.complete(answerID: answerID, paramBytes: paramBytes, outcome) }
+                self.assumeIsolated { $0.complete(answerID: answerID, token: token, paramBytes: paramBytes, outcome) }
             }
         }
     }
 
-    private func complete(answerID: UInt32, paramBytes: Int, _ outcome: Result<CallResponse, any Error>) {
+    /// The caller finished a call before its answer: cancel the handler and
+    /// answer canceled now, so the caller gets its question id back even
+    /// from a handler that never checks for cancellation. No entry means
+    /// the effect is stale (the call was answered before this drain).
+    private func answerFinished(_ answerID: UInt32) {
+        guard let owed = owedAnswers[answerID] else { return }
+        owed.task.cancel()
+        let rc = capnp_return_canceled(core.raw, answerID)
+        if rc == CAPNP_OK || rc == CAPNP_E_BAD_ID {
+            owedAnswers.removeValue(forKey: answerID)
+        } else {
+            // Nothing was sent: the handler's own answer still goes out.
+            Self.logger.error("capnp_return_canceled(\(answerID, privacy: .public)) failed: \(rc, privacy: .public)")
+        }
+    }
+
+    private func complete(answerID: UInt32, token: UInt64, paramBytes: Int, _ outcome: Result<CallResponse, any Error>) {
         inboundInFlight -= 1
         inboundBytes -= paramBytes
         applyInboundBackpressure()
+        // Answered already (canceled, or the connection closed): the id may
+        // belong to a newer call now, so this answer must not reach the core.
+        guard owedAnswers[answerID]?.token == token else {
+            lateAnswersDropped += 1
+            return
+        }
+        owedAnswers.removeValue(forKey: answerID)
         guard !transportIsClosed else { return }
         switch outcome {
         case .success(let response):
@@ -982,6 +1035,11 @@ public actor RPCConnection: TransportDelegate {
             questions[qid] = q
         }
         exports.removeAll()
+        // The caller is gone: stop the handlers that still run.
+        if options.cancelHandlersOnFinish {
+            for owed in owedAnswers.values { owed.task.cancel() }
+        }
+        owedAnswers.removeAll()
         let waiters = closeWaiters
         closeWaiters.removeAll()
         for (_, waiter) in waiters { waiter.resume(returning: cause) }
