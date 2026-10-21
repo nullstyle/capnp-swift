@@ -27,6 +27,14 @@
 //!   - every RETURN/INBOUND_CALL payload is a well-formed standalone message
 //!     no larger than its frame could be;
 //!   - a second `next_effect` before `commit` is BUSY;
+//!   - the core never hands a second INBOUND_CALL for an answer the host
+//!     still owes;
+//!   - ANSWER_FINISHED (H13) comes only to a host that opted in (never with
+//!     the 0.27.0 `struct_size`), at most once per owed call;
+//!     `capnp_return_canceled` is OK only after it, INVAL before it, and
+//!     BAD_ID for an answer not owed (also a stale effect: the host answered
+//!     inside the drain, before the effect); an opt-in value other than 0
+//!     or 1 is INVAL;
 //!   - 0 live bytes after both connections are freed (and the
 //!     DebugAllocator reports no leak at exit).
 //! Exit 0 after the time budget; exit 1 on the first violation, printing the
@@ -64,6 +72,10 @@ const Side = struct {
     promises: std.ArrayList(u32),
     /// INBOUND_CALL answer ids not yet answered.
     answers: std.ArrayList(u32),
+    /// Owed answers whose ANSWER_FINISHED came.
+    finished: std.AutoHashMap(u32, void),
+    /// This host opted in to ANSWER_FINISHED.
+    answer_finished: bool = false,
     /// Frames to deliver to the other side.
     outbox: std.ArrayList([]u8),
     closed: bool = false,
@@ -79,8 +91,26 @@ const Side = struct {
             .exports = .empty,
             .promises = .empty,
             .answers = .empty,
+            .finished = std.AutoHashMap(u32, void).init(a),
             .outbox = .empty,
         };
+    }
+
+    fn owes(self: *const Side, id: u32) bool {
+        for (self.answers.items) |v| if (v == id) return true;
+        return false;
+    }
+
+    /// The host answered `id`: it owes it no more.
+    fn answered(self: *Side, id: u32) void {
+        Fuzz.removeId(&self.answers, id);
+        _ = self.finished.remove(id);
+    }
+
+    /// After a protocol failure or CLOSE_REQUESTED the core may refuse
+    /// with CAPNP_E_CLOSED, or have dropped what the host owed.
+    fn closing(self: *const Side) bool {
+        return self.closed or self.close_requested > 0;
     }
 
     fn deinit(self: *Side, a: std.mem.Allocator) void {
@@ -89,6 +119,7 @@ const Side = struct {
         self.exports.deinit(a);
         self.promises.deinit(a);
         self.answers.deinit(a);
+        self.finished.deinit();
         for (self.outbox.items) |f| a.free(f);
         self.outbox.deinit(a);
     }
@@ -109,6 +140,9 @@ const Fuzz = struct {
     returns: usize = 0,
     busy_seen: usize = 0,
     protocol_fails: usize = 0,
+    finished_seen: usize = 0,
+    stale_seen: usize = 0,
+    canceled: usize = 0,
 
     fn fail(self: *Fuzz, comptime what: []const u8, args: anytype) error{Violation} {
         std.debug.print("fuzz-abi: VIOLATION (seed {d}, session {d}, step {d}): " ++ what ++ "\n", .{ self.seed, self.sessions, self.step } ++ args);
@@ -212,9 +246,28 @@ const Fuzz = struct {
                 } else if (e.msg_len != 0) return self.fail("non-RESULTS RETURN carries a payload", .{});
             },
             @backingInt(effects.Kind.inbound_call) => {
-                try side.answers.append(self.a, e.id);
+                if (side.owes(e.id)) return self.fail("INBOUND_CALL for answer {d}, which the host still owes", .{e.id});
                 side.calls_in += 1;
                 try self.checkPayload(e.msg, e.msg_len, e.caps, e.ncaps, side);
+                // Now and then answer inside the drain, as a host that
+                // refuses at once: an ANSWER_FINISHED for it that is already
+                // queued is then stale.
+                if (self.rand.uintLessThan(u8, 8) == 0 and abi.capnp_return_exception(conn, e.id, 0, "now", 3) == abi.CAPNP_OK) return true;
+                try side.answers.append(self.a, e.id);
+            },
+            @backingInt(effects.Kind.answer_finished) => {
+                if (!side.answer_finished) return self.fail("ANSWER_FINISHED for answer {d} without the opt-in", .{e.id});
+                self.finished_seen += 1;
+                if (!side.owes(e.id)) {
+                    const stale = abi.capnp_return_canceled(conn, e.id);
+                    if (stale != abi.CAPNP_E_BAD_ID) return self.fail("stale ANSWER_FINISHED {d}: capnp_return_canceled gave {d}, want BAD_ID", .{ e.id, stale });
+                    self.stale_seen += 1;
+                    return true;
+                }
+                if (side.finished.contains(e.id)) return self.fail("a second ANSWER_FINISHED for owed answer {d}", .{e.id});
+                try side.finished.put(e.id, {});
+                // Answer canceled now, or leave it to the answer ops.
+                if (self.rand.boolean()) try self.returnCanceled(side, e.id);
             },
             @backingInt(effects.Kind.export_dropped) => {},
             @backingInt(effects.Kind.event) => {},
@@ -273,6 +326,18 @@ const Fuzz = struct {
         }
     }
 
+    /// Deliver the whole outbox as one chunk (one push, one drain).
+    fn deliverJoined(self: *Fuzz, from: *Side, to: *Side) !void {
+        var all: std.ArrayList(u8) = .empty;
+        defer all.deinit(self.a);
+        for (from.outbox.items) |f| {
+            try all.appendSlice(self.a, f);
+            self.a.free(f);
+        }
+        from.outbox.clearRetainingCapacity();
+        try self.push(to, all.items);
+    }
+
     fn push(self: *Fuzz, to: *Side, bytes: []const u8) !void {
         const conn = to.conn orelse return;
         self.frames_pushed += 1;
@@ -286,11 +351,11 @@ const Fuzz = struct {
         const conn = side.conn orelse return;
         self.ops += 1;
         var out: u32 = 0;
-        var op = self.rand.uintLessThan(u8, 26);
+        var op = self.rand.uintLessThan(u8, 28);
         var tries: usize = 0;
         while (!self.op_mask[op]) : (tries += 1) {
             if (tries > 64) return;
-            op = self.rand.uintLessThan(u8, 26);
+            op = self.rand.uintLessThan(u8, 28);
         }
         switch (op) {
             0 => if (abi.capnp_bootstrap(conn, &out) == abi.CAPNP_OK) try side.open.put(out, {}),
@@ -343,9 +408,9 @@ const Fuzz = struct {
                     for (caps_buf[0..ncaps]) |*cap| cap.* = self.randomCap(side);
                     const results = try self.randomPayload(ncaps);
                     defer self.a.free(results);
-                    if (abi.capnp_return_results(conn, answer, results.ptr, results.len, if (ncaps == 0) null else &caps_buf, ncaps) == abi.CAPNP_OK) removeId(&side.answers, answer);
+                    if (abi.capnp_return_results(conn, answer, results.ptr, results.len, if (ncaps == 0) null else &caps_buf, ncaps) == abi.CAPNP_OK) side.answered(answer);
                 } else {
-                    if (abi.capnp_return_exception(conn, answer, self.rand.int(u16) % 5, "boom", 4) == abi.CAPNP_OK) removeId(&side.answers, answer);
+                    if (abi.capnp_return_exception(conn, answer, self.rand.int(u16) % 5, "boom", 4) == abi.CAPNP_OK) side.answered(answer);
                 }
             },
             19 => _ = abi.capnp_conn_tick(conn, @intCast(self.step * 7_000_000)),
@@ -370,9 +435,62 @@ const Fuzz = struct {
                 var code: i32 = 0;
                 _ = abi.capnp_conn_take_error(conn, &code, null, null, null, null);
             },
+            25 => try self.returnCanceled(side, self.pickOrRandom(side.answers.items)),
+            26 => blk: {
+                // A call its caller finishes before the answer (H13): call
+                // an import (bootstrap first when there is none), let the
+                // call reach the other side, cancel it, and let the Finish
+                // follow.
+                if (side.imports.items.len == 0) {
+                    if (abi.capnp_bootstrap(conn, &out) != abi.CAPNP_OK) break :blk;
+                    try side.open.put(out, {});
+                    try self.drainAll(side);
+                    try self.deliver(side, other);
+                    try self.deliver(other, side);
+                }
+                const import_id = self.pick(side.imports.items) orelse break :blk;
+                const params = try self.randomPayload(0);
+                defer self.a.free(params);
+                const target: Cap = .{ .kind = .import, .id = import_id };
+                if (abi.capnp_call(conn, target, self.rand.int(u64), self.rand.int(u16), params.ptr, params.len, null, 0, 0, &out) != abi.CAPNP_OK) break :blk;
+                try side.open.put(out, {});
+                try self.drainAll(side);
+                // Half the time the Call and the Finish arrive in one push,
+                // so both effects queue before the host drains the call.
+                const joined = self.rand.boolean();
+                if (!joined) {
+                    try self.deliver(side, other);
+                    if (self.rand.boolean()) try self.deliver(other, side);
+                }
+                _ = abi.capnp_cancel(conn, out);
+                try self.drainAll(side);
+                if (joined) try self.deliverJoined(side, other) else try self.deliver(side, other);
+            },
             else => try self.deliver(other, side),
         }
         try self.drainAll(side);
+    }
+
+    /// `capnp_return_canceled` with its oracle: OK exactly for an owed
+    /// answer whose ANSWER_FINISHED came, INVAL for an owed one without it,
+    /// BAD_ID for one not owed; then a second answer is BAD_ID.
+    fn returnCanceled(self: *Fuzz, side: *Side, id: u32) !void {
+        const conn = side.conn orelse return;
+        const owed = side.owes(id);
+        const reported = side.finished.contains(id);
+        const rc = abi.capnp_return_canceled(conn, id);
+        if (rc == abi.CAPNP_OK) {
+            if (!reported) return self.fail("capnp_return_canceled({d}) was OK without an ANSWER_FINISHED", .{id});
+            side.answered(id);
+            self.canceled += 1;
+            const again = abi.capnp_return_exception(conn, id, 0, "again", 5);
+            if (again != abi.CAPNP_E_BAD_ID and !(side.closing() and again == abi.CAPNP_E_CLOSED))
+                return self.fail("a second answer for {d} after capnp_return_canceled gave {d}, want BAD_ID", .{ id, again });
+            return;
+        }
+        if (side.closing()) return;
+        const want: i32 = if (!owed) abi.CAPNP_E_BAD_ID else if (reported) abi.CAPNP_OK else abi.CAPNP_E_INVAL;
+        if (rc != want) return self.fail("capnp_return_canceled({d}) gave {d}, want {d}", .{ id, rc, want });
     }
 
     fn removeId(list: *std.ArrayList(u32), id: u32) void {
@@ -395,13 +513,41 @@ const Fuzz = struct {
         if (self.rand.uintLessThan(u8, 4) == 0) opts.max_retained_questions = 1 + self.rand.int(u32) % 6;
         opts.observer = @intFromBool(self.rand.boolean());
 
+        // ANSWER_FINISHED per side: on, off, or set under the 0.27.0
+        // struct_size (56), which the core must read as off.
+        var opts_ab = [2]abi.capnp_conn_opts{ opts, opts };
+        var opted = [2]bool{ false, false };
+        for (&opts_ab, &opted) |*o, *on| {
+            switch (self.rand.uintLessThan(u8, 8)) {
+                0 => {
+                    o.answer_finished = 1;
+                    o.struct_size = @offsetOf(abi.capnp_conn_opts, "answer_finished");
+                },
+                1, 2, 3 => {
+                    o.answer_finished = 1;
+                    on.* = true;
+                },
+                else => {},
+            }
+        }
+        if (self.rand.uintLessThan(u8, 16) == 0) {
+            var bad = opts;
+            bad.answer_finished = 2 + self.rand.int(u32) % 1000;
+            var cbad: ?*conn_t = null;
+            const rc = abi.capnp_conn_new(&bad, 0, &cbad);
+            if (cbad) |cn| abi.capnp_conn_free(cn);
+            if (rc != abi.CAPNP_E_INVAL) return self.fail("answer_finished = {d} gave {d}, want INVAL", .{ bad.answer_finished, rc });
+        }
+
         var ca: ?*conn_t = null;
         var cb: ?*conn_t = null;
-        if (abi.capnp_conn_new(&opts, 0, &ca) != abi.CAPNP_OK) return self.fail("conn_new failed", .{});
-        if (abi.capnp_conn_new(&opts, 0, &cb) != abi.CAPNP_OK) return self.fail("conn_new failed", .{});
+        if (abi.capnp_conn_new(&opts_ab[0], 0, &ca) != abi.CAPNP_OK) return self.fail("conn_new failed", .{});
+        if (abi.capnp_conn_new(&opts_ab[1], 0, &cb) != abi.CAPNP_OK) return self.fail("conn_new failed", .{});
         var a = Side.init(self.a, ca.?);
+        a.answer_finished = opted[0];
         defer a.deinit(self.a);
         var b = Side.init(self.a, cb.?);
+        b.answer_finished = opted[1];
         defer b.deinit(self.a);
         var eid: u32 = 0;
         _ = abi.capnp_set_bootstrap(cb.?, 100, &eid);
@@ -527,10 +673,10 @@ pub fn main(init: std.process.Init) !void {
         const elapsed = elapsedNs(io, started);
         if (elapsed - last_report >= 60 * std.time.ns_per_s) {
             last_report = elapsed;
-            std.debug.print("fuzz-abi: {d} s, {d} sessions, {d} ops, {d} frames, {d} returns, {d} protocol failures, {d} BUSY checks\n", .{ elapsed / std.time.ns_per_s, fuzz.sessions, fuzz.ops, fuzz.frames_pushed, fuzz.returns, fuzz.protocol_fails, fuzz.busy_seen });
+            std.debug.print("fuzz-abi: {d} s, {d} sessions, {d} ops, {d} frames, {d} returns, {d} protocol failures, {d} BUSY checks, {d} ANSWER_FINISHED ({d} stale, {d} canceled)\n", .{ elapsed / std.time.ns_per_s, fuzz.sessions, fuzz.ops, fuzz.frames_pushed, fuzz.returns, fuzz.protocol_fails, fuzz.busy_seen, fuzz.finished_seen, fuzz.stale_seen, fuzz.canceled });
         }
     }
-    std.debug.print("fuzz-abi: OK: {d} sessions, {d} ops, {d} frames pushed, {d} returns, {d} protocol failures, {d} BUSY checks, peak {d} bytes live, 0 live now\n", .{ fuzz.sessions, fuzz.ops, fuzz.frames_pushed, fuzz.returns, fuzz.protocol_fails, fuzz.busy_seen, counting.peak });
+    std.debug.print("fuzz-abi: OK: {d} sessions, {d} ops, {d} frames pushed, {d} returns, {d} protocol failures, {d} BUSY checks, {d} ANSWER_FINISHED ({d} stale, {d} canceled), peak {d} bytes live, 0 live now\n", .{ fuzz.sessions, fuzz.ops, fuzz.frames_pushed, fuzz.returns, fuzz.protocol_fails, fuzz.busy_seen, fuzz.finished_seen, fuzz.stale_seen, fuzz.canceled, counting.peak });
     if (counting.live != 0) {
         std.debug.print("fuzz-abi: FAIL: {d} live bytes at exit\n", .{counting.live});
         std.process.exit(1);

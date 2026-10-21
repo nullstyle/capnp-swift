@@ -6,6 +6,16 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- The C ABI fuzz (`zig build fuzz-abi`) opts in to ANSWER_FINISHED on 3 of
+  8 sides (1 in 8 sets it under the 0.27.0 `struct_size`, which must read
+  as off) and checks its rules: the effect only with the opt-in, at most
+  once per owed call; `capnp_return_canceled` OK only after it, INVAL
+  before it, BAD_ID for an answer not owed or a stale effect; a second
+  answer BAD_ID; an opt-in value other than 0 or 1 INVAL; and no second
+  INBOUND_CALL for an answer the host still owes. A new step calls an
+  import, cancels the call and delivers the Finish (half the time in the
+  same push as the Call), so a 30 s run sees about 3,400 effects. Three
+  ablations of these checks each fail within 10 s.
 - `RemoteCancellationTests` shows the H13 gap: on the v0.27.0 core, a
   caller's cancel does not cancel the Swift handler's `Task`. The check is
   a known issue (`withKnownIssue`), so the test fails once the gap closes
