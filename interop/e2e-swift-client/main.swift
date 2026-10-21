@@ -45,7 +45,7 @@ while let arg = args.first {
             exit(2)
         }
     case "--help", "-h":
-        print("Usage: e2e-swift-client [--host 127.0.0.1] [--port 4000] [--schema game_world|chat|inventory|matchmaking|resolve_disembargo|pass_back|pipelined_params] [--transport tcp|quic]")
+        print("Usage: e2e-swift-client [--host 127.0.0.1] [--port 4000] [--schema game_world|chat|inventory|matchmaking|resolve_disembargo|pass_back|pipelined_params|pipelined_params_deferred] [--transport tcp|quic]")
         exit(0)
     default: break
     }
@@ -81,7 +81,7 @@ do {
     case "matchmaking": try await matchmaking(connection)
     case "resolve_disembargo": try await resolveDisembargo(connection)
     case "pass_back": try await passBack(connection)
-    case "pipelined_params": try await pipelinedParams(connection)
+    case "pipelined_params", "pipelined_params_deferred": try await pipelinedParams(connection)
     default:
         FileHandle.standardError.write(Data("e2e-swift-client: unknown schema \(schema)\n".utf8))
         exit(2)
@@ -440,6 +440,11 @@ func passBack(_ connection: RPCConnection) async throws {
 // `receiverHosted`, and check(mintFail().token) ends locally with
 // mintFail()'s exception. The receiverAnswer wire shape is covered by the
 // Zig and C++ clients.
+//
+// pipelined_params_deferred (capnp-zig v0.28.0): the same client against a
+// Zig server that answers mint() and mintFail() on a later loop turn. The
+// C++, Go, Python and Rust clients fail its two check() lines there (H9
+// pending, an XFAIL row upstream); the H9 wait makes every line pass here.
 func pipelinedParams(_ connection: RPCConnection) async throws {
     let host = TokenHost.Client(cap: try await connection.bootstrap(), connection: connection)
 

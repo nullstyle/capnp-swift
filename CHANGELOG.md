@@ -6,6 +6,12 @@ All notable changes to capnp-swift are recorded here.
 
 ### Added
 
+- The Zig matrix runs `pipelined_params_deferred` (capnp-zig v0.28.0): the
+  Zig server answers `mint()` and `mintFail()` on a later loop turn, where
+  the C++, Go, Python and Rust clients fail the two `check()` lines (H9
+  pending). The Swift client passes all 4 lines, because the runtime waits
+  for `mint()`'s Return before it sends `check()`. Ablation: without that
+  wait, the 2 `check()` lines fail.
 - The C ABI fuzz (`zig build fuzz-abi`) opts in to ANSWER_FINISHED on 3 of
   8 sides (1 in 8 sets it under the 0.27.0 `struct_size`, which must read
   as off) and checks its rules: the effect only with the opt-in, at most

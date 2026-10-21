@@ -197,6 +197,10 @@ e2e-matrix: e2e-known-limits-test e2e-pair-retry-test e2e-zig-peers e2e-swift-pe
     SWIFT_CLIENT="$(swift build --product e2e-swift-client --show-bin-path)/e2e-swift-client"
     scripts/e2e-pair.sh third_party/capnp-zig/zig-out/bin/e2e-zig-server "$SWIFT_CLIENT"
     scripts/e2e-pair.sh "$SWIFT_SERVER" third_party/capnp-zig/zig-out/bin/e2e-zig-client
+    # The Zig server answers mint() late (capnp-zig v0.28.0); the Swift
+    # client's H9 wait passes it. A Swift server answers every call late
+    # already, so pipelined_params covers the other direction.
+    scripts/e2e-pair.sh third_party/capnp-zig/zig-out/bin/e2e-zig-server "$SWIFT_CLIENT" pipelined_params_deferred
 
 # The H11 QUIC matrix (seven schemas since M8; both cross pairings), against
 # the capnp-zig checkout third_party/ holds. The pinned tag (v0.28.0) ships
