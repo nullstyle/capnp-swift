@@ -66,7 +66,9 @@ moves to the next sprint and the rest still ships.
    work saw INVAL). All are additive in ABI v1.
 7. **Adopt G6 when capnp-zig tags it.** Cancel the handler `Task` on
    `ANSWER_FINISHED`, so `Task.isCancelled` and streaming stops work. Run
-   TSan, ASan, the fuzz and the full matrix.
+   TSan, ASan, the fuzz and the full matrix. **Done on main 2026-10-21**
+   (capnp-zig v0.28.0, shipped as a core in 0.1.4; cancel by default, owner
+   decision A).
 8. **Fix G7, rerun G8,** then prepare a 0.1.3 proposal. The owner approves
    the version, the tag and the uploads.
 

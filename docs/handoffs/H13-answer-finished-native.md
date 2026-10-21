@@ -2,8 +2,10 @@
 
 Status: **ACCEPTED by capnp-zig** on 2026-10-20, some asks with changes
 (the shape is in "capnp-zig's answer" below). **Released in capnp-zig
-v0.28.0** (tag commit `73416c7`, 2026-10-20). capnp-swift pins it and adopts
-it on branches, not on main (see "capnp-swift adoption" at the end). Sent
+v0.28.0** (tag commit `73416c7`, 2026-10-20). capnp-swift 0.1.4 ships that
+core; the runtime adoption is on main since 2026-10-21, with handler
+cancellation on by default (owner decision A), for the next release (see
+"capnp-swift adoption" at the end). Sent
 2026-10-20 at the owner's request, as a message to the capnp-zig "Sprint
 planning" session. Written 2026-10-18. Plan: M9 step 6
 (`docs/sprint-m9-guardrails-2026-10-18.md`, gap G6). Base: capnp-zig
@@ -200,7 +202,7 @@ local branch builds against a branch archive (`zig build --fork=<dir>`).
 default, with an `Options` switch to turn it off: the Swift idiom (a
 cancelled caller cancels the work). (B) Off by default, opt in: as the C++
 reference, which cancels a server call only when the method allows it.
-Recommended: A.
+Recommended: A. **Decided 2026-10-21: A** (cancel by default).
 
 ## Branch check (2026-10-20): capnp-zig `sprint/h13-answer-finished` at `a8b0302`
 
@@ -260,8 +262,8 @@ the v0.27.0 pin (it reads `core/build.zig.zon`).
   `RemoteCancellationTests` keeps its known issue.
 - `claude/h13-runtime` (one commit on top): the adoption plan above, steps
   2 to 7. The runtime opts in when the core has the bit and
-  `Options.cancelHandlersOnFinish` is true (the default; owner decision A
-  pending); ANSWER_FINISHED cancels the handler's `Task` and answers
+  `Options.cancelHandlersOnFinish` is true (the default; owner decision A,
+  2026-10-21); ANSWER_FINISHED cancels the handler's `Task` and answers
   `capnp_return_canceled`; a per-answer token drops a late completion; a
   close cancels running handlers. `RemoteCancellationTests` (5) pass, and 3
   ablations are caught (no opt-in: 3 fail; no `Task` cancel: 1; no
