@@ -1,4 +1,22 @@
-# Release 0.2.0 — proposal (2026-10-21)
+# Release 0.2.0 — proposal and publication (2026-10-21)
+
+> **Published 2026-10-21** as [0.2.0](https://github.com/nullstyle/capnp-swift/releases/tag/0.2.0)
+> at `af2a983942250a951df15656519b5dc48c75a482` (owner approved: the version
+> 0.2.0, the tag, both assets unsigned). The tag went first, then the
+> uploads; both downloads match the SHA-256 values below; then main moved.
+> Post-publish smoke: a fresh consumer with an isolated SwiftPM cache
+> resolved tag 0.2.0 at `af2a983`, downloaded the 0.2.0 core URL, built for
+> macOS (Release and Debug), iOS device (unsigned) and iOS simulator,
+> printed `core 0.1.0 / capnp-zig 0.28.0 / capnpc_zig-0.28.0-nUduFX-…`, saw a
+> caller's cancel reach the handler (a `Task.sleep` ended with
+> cancellation) in Release and Debug, answered 20 of 20 calls of a throwing
+> handler with the remote exception, and completed a TCP bootstrap and
+> close against the v0.21.0 zig-peer. The downloaded codegen bundle passes
+> `scripts/check-codegen-bundle.sh`. [CI 39644198336](https://github.com/nullstyle/capnp-swift/actions/runs/39644198336)
+> on the release commit passed all four jobs: `swift test` and the Release run
+> 83 tests each, TSan and ASan 83 each; the API gate, now against 0.2.0, found
+> no breaking change; the renamed-archive gate passed 21 checks with the
+> released 0.2.0 core. The text below is the proposal as approved.
 
 **Proposed version: 0.2.0, pending owner approval of the version, the tag
 and the uploads.** The owner asked for this proposal on 2026-10-21 (land

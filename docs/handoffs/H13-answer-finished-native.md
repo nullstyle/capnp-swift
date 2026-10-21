@@ -3,9 +3,9 @@
 Status: **ACCEPTED by capnp-zig** on 2026-10-20, some asks with changes
 (the shape is in "capnp-zig's answer" below). **Released in capnp-zig
 v0.28.0** (tag commit `73416c7`, 2026-10-20). capnp-swift 0.1.4 ships that
-core; the runtime adoption is on main since 2026-10-21, with handler
-cancellation on by default (owner decision A), for the next release (see
-"capnp-swift adoption" at the end). Sent
+core; capnp-swift 0.2.0 (2026-10-21) ships the runtime adoption, with
+handler cancellation on by default (owner decision A). **Closed.** See
+"capnp-swift adoption" at the end. Sent
 2026-10-20 at the owner's request, as a message to the capnp-zig "Sprint
 planning" session. Written 2026-10-18. Plan: M9 step 6
 (`docs/sprint-m9-guardrails-2026-10-18.md`, gap G6). Base: capnp-zig

@@ -1,6 +1,6 @@
-# Stability in 0.1.x
+# Stability before 1.0
 
-What the 0.1 releases promise, and what they do not. "Stable" below means: breaking
+What the 0.x releases (0.1.0 and later) promise, and what they do not. "Stable" below means: breaking
 changes only in a new minor version (pre-1.0 SemVer: a breaking change
 bumps the minor, not the patch).
 
