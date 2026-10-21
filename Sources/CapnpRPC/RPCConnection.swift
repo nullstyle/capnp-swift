@@ -776,20 +776,37 @@ public actor RPCConnection: TransportDelegate {
         let handler = export.handler
         let context = InboundCallContext.Snapshot(connection: ObjectIdentifier(self), handlers: call.pointerLocalHandlers)
         // The Task inherits this actor: it starts on the queue in creation
-        // order and runs the handler until its first suspension (E-order),
-        // and `complete` is a direct call. The task-local context lets
-        // `localHandler(forExport:)` find this call's own exports after the
-        // remote released them.
+        // order and runs the handler until its first suspension (E-order).
+        // The task-local context lets `localHandler(forExport:)` find this
+        // call's own exports after the remote released them.
+        //
+        // The operation catches the handler's error: in a Release build
+        // (Xcode 27, Swift 6.4) an error that left TaskLocal.withValue
+        // resumed this task off the queue, so `complete` ran off the actor
+        // and the next isolation check trapped (0.1.3; ReleaseIsolationTests,
+        // `just release-test`). `completeOnQueue` keeps `complete` on the
+        // queue even if a task resumes elsewhere.
         Task {
-            let outcome: Result<CallResponse, any Error>
-            do {
-                outcome = .success(try await InboundCallContext.$current.withValue(context) {
-                    try await handler.handle(call, on: self)
-                })
-            } catch {
-                outcome = .failure(error)
+            let outcome: Result<CallResponse, any Error> = await InboundCallContext.$current.withValue(context) {
+                do {
+                    return .success(try await handler.handle(call, on: self))
+                } catch {
+                    return .failure(error)
+                }
             }
-            self.complete(answerID: answerID, paramBytes: params.count, outcome)
+            self.completeOnQueue(answerID: answerID, paramBytes: params.count, outcome)
+        }
+    }
+
+    /// `complete` on the actor's queue: now when this thread runs it, else
+    /// as a block on it.
+    private nonisolated func completeOnQueue(answerID: UInt32, paramBytes: Int, _ outcome: Result<CallResponse, any Error>) {
+        if executor.isCurrent {
+            assumeIsolated { $0.complete(answerID: answerID, paramBytes: paramBytes, outcome) }
+        } else {
+            executor.queue.async {
+                self.assumeIsolated { $0.complete(answerID: answerID, paramBytes: paramBytes, outcome) }
+            }
         }
     }
 

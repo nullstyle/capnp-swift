@@ -67,6 +67,12 @@ tsan: xcframework
 asan: xcframework
     swift test --sanitize=address
 
+# The suite in Release (-enable-testing for @testable): a defect that only
+# optimized code shows, as the handler error of 0.1.3 that resumed off the
+# connection's queue (ReleaseIsolationTests).
+release-test:
+    swift test -c release -Xswiftc -enable-testing
+
 # Fuzz the C ABI for `seconds` (M2 gate: 1800). Exit 1 on a violation.
 fuzz-abi seconds="60":
     cd core && mise exec -- zig build fuzz-abi -- --seconds {{seconds}}
@@ -83,6 +89,7 @@ gates: core-test xcframework
     just mvp-e2e
     just tsan
     just asan
+    just release-test
     just fuzz-abi 60
 
 # ---- M3 codegen (D6 option A) -------------------------------------------
@@ -215,7 +222,10 @@ e2e-matrix-quic: e2e-known-limits-test e2e-pair-retry-test e2e-zig-peers-quic e2
         echo "not ok - third_party/capnp-zig has no --transport quic (needs capnp-zig v0.26.0+; the pin is v0.28.0)"
         exit 1
     fi
-    BIN="$(dirname "$(find .build -name e2e-swift-client \( -type f -o -type l \) -print -quit)")"
+    # The configured (debug) build; `find` alone took any configuration,
+    # and once picked a Release binary. Runners report a scratch bin path.
+    BIN="$(swift build --product e2e-swift-client --show-bin-path)"
+    [ -x "$BIN/e2e-swift-client" ] || BIN="$(dirname "$(find .build -name e2e-swift-client \( -type f -o -type l \) -print -quit)")"
     scripts/e2e-pair-quic.sh third_party/capnp-zig/zig-out/bin/e2e-zig-server third_party/capnp-zig/zig-out/bin/e2e-zig-client "$BIN"
 
 # The serialization bench: Swift within 2x of the Zig reference.

@@ -30,6 +30,7 @@ The plan, milestones and owner decisions: `docs/plan-2026-10-06.md`. Read it fir
 - `cd core && mise exec -- zig build test-abi --summary all` (the C ABI through `capnp_core.h`, linked against the host static library).
 - `cd core && mise exec -- zig build xcframework`, then `swift build`, `swift build -c release`, `swift test`.
 - `swift test --sanitize=thread` and `swift test --sanitize=address` must stay clean (the `Loopback` suite holds the 64 conns x 10k calls gate).
+- `just release-test`: the suite in Release (`-enable-testing`). Some defects show only in optimized code (0.1.3: a handler error resumed off the connection's queue).
 - `cd core && mise exec -- zig build fuzz-abi -- --seconds N` (the M2 gate ran 1800 s): random operation sequences over the C ABI; exit 1 on a violation. Seeds live in `core/fuzz/seeds/` (copied from the capnp-zig tag; see `PROVENANCE.md`).
 - `just mvp-e2e`: the Swift client against the capnp-zig TCP peer; every TAP line must be `ok`.
 - `scripts/check-symbols.sh --strict` (the 0.1 release gate; it passes since the v0.21.0 pin and must stay green), `scripts/check-dsym.sh [debug|release]`.

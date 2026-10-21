@@ -14,10 +14,16 @@ import Dispatch
 /// `assumeIsolated` without a running task (SE-0424).
 final class QueueExecutor: SerialExecutor, @unchecked Sendable {
     let queue: DispatchSerialQueue
+    private static let key = DispatchSpecificKey<ObjectIdentifier>()
 
     init(label: String) {
         queue = DispatchSerialQueue(label: label)
+        queue.setSpecific(key: Self.key, value: ObjectIdentifier(self))
     }
+
+    /// The current thread runs a block of this queue, whatever executor the
+    /// Swift runtime believes the current task is on.
+    var isCurrent: Bool { DispatchQueue.getSpecific(key: Self.key) == ObjectIdentifier(self) }
 
     func enqueue(_ job: consuming ExecutorJob) {
         let unowned = UnownedJob(job)

@@ -104,6 +104,9 @@ jobs:
           swift build
           swift test
           swift build -c release
+          # The suite again with optimization: 0.1.3 trapped only in Release
+          # (a handler error resumed off the connection's queue).
+          just release-test
           # The Stable Swift API: no breaking change since the last release.
           scripts/check-api-breakage.sh
           just mvp-e2e

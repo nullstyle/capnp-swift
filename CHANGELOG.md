@@ -4,6 +4,22 @@ All notable changes to capnp-swift are recorded here.
 
 ## [Unreleased]
 
+### Fixed
+
+- A Release build no longer traps when a server handler's awaited call
+  throws (a 0.1.3 regression). Every generated server's `handle` awaits a
+  nonisolated server method; when that method threw, the error left
+  `TaskLocal.withValue` (added in 0.1.3 for own exports) and, with
+  optimization (Xcode 27, Swift 6.4), the inbound call's task resumed off
+  the connection's queue. `complete` then ran off the actor, and its next
+  isolation check trapped (SIGTRAP; found by the QUIC matrix with a Release
+  `e2e-swift-server`). The handler's error is now caught inside the
+  task-local operation, and `complete` checks that it runs on the queue and
+  moves there if not. Debug builds were not affected; 0.1.2 was not
+  affected. `ReleaseIsolationTests` (3 cases) trap without the fix in
+  Release and pass with either part alone; `just release-test` runs the
+  suite in Release in CI.
+
 ### Added
 
 - The Zig matrix runs `pipelined_params_deferred` (capnp-zig v0.28.0): the
