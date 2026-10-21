@@ -6,7 +6,12 @@ says so.
 
 ## Current release (2026-10-20)
 
-Release [0.1.3](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.3)
+Release [0.1.4](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.4)
+was published on 2026-10-20 at `90f24f29300d88a770a5cea5eace69eab1d15153`,
+with the capnp-zig v0.28.0 core and the fix for a Release-build crash of
+0.1.3; its codegen asset is the 0.1.2 file byte for byte. The 0.1.3 release
+page carries a warning that points to 0.1.4. Release
+[0.1.3](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.3)
 was published on 2026-10-20 at `d589ff41c29a1aa12fc1fb649a1be5606ed35c11`.
 Its two assets are the 0.1.2 files byte for byte (the core and the
 generator did not change); its release commit moved the CapnpCore URL to
@@ -16,7 +21,8 @@ published on 2026-10-18 at `69e392e342fd4fa9ed741c68327fc31c5148e632`,
 with the capnp-zig v0.27.0 core, and
 [0.1.1](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.1) on
 2026-10-10 at `808a90440c4560e7f3a705170b66b3ac969388a6`. All tags and
-their assets are immutable. See the [0.1.3 sheet](release-readiness-2026-10-19.md)
+their assets are immutable. See the [0.1.4 sheet](release-readiness-2026-10-20.md),
+the [0.1.3 sheet](release-readiness-2026-10-19.md)
 and the [0.1.2 sheet](release-readiness-2026-10-18.md) for assets,
 checksums, evidence and the post-publish smokes. The
 [2026-10-13 sheet](release-readiness-2026-10-13.md) and the

@@ -1,4 +1,23 @@
-# Release 0.1.4 — proposal (2026-10-20)
+# Release 0.1.4 — proposal and publication (2026-10-20)
+
+> **Published 2026-10-20** as [0.1.4](https://github.com/nullstyle/capnp-swift/releases/tag/0.1.4)
+> at `90f24f29300d88a770a5cea5eace69eab1d15153` (owner approved: the tag, both
+> assets unsigned, and a warning on the 0.1.3 release page). The tag went
+> first, then the uploads; both downloads match the SHA-256 values below;
+> then main moved. The 0.1.3 page now starts with a warning that points to
+> 0.1.4 (its tag and assets are unchanged). Post-publish smoke: a fresh
+> consumer with an isolated SwiftPM cache resolved tag 0.1.4 at `90f24f2`,
+> downloaded the 0.1.4 core URL, built for macOS (Release and Debug), iOS
+> device (unsigned) and iOS simulator, printed `core 0.1.0 / capnp-zig 0.28.0
+> / capnpc_zig-0.28.0-nUduFX-…`, answered 20 of 20 calls of a handler that
+> awaits a throwing nonisolated method with the remote exception in the
+> Release build (0.1.3 trapped there), and completed a TCP bootstrap and
+> close against the v0.21.0 zig-peer. The downloaded codegen bundle passes
+> `scripts/check-codegen-bundle.sh`. [CI 39554905168](https://github.com/nullstyle/capnp-swift/actions/runs/39554905168)
+> on the release commit passed all four jobs: `swift test` and the Release run 79
+> tests each, TSan and ASan 79 each; the API gate, now against 0.1.4, found no
+> breaking change; the renamed-archive gate passed 21 checks with the released
+> 0.1.4 core. The text below is the proposal as approved.
 
 **Proposed version: 0.1.4, pending owner approval of the tag and the
 uploads.** The owner chose this on 2026-10-20 (option A: ship the 0.1.3
